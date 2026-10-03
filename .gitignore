@@ -1,0 +1,93 @@
+# ===============================================================
+#  Planet - Unity .gitignore
+#  Unity 2022.3 LTS / URP 14
+# ===============================================================
+
+# ---------------------------------------------------------------
+# Unity generated / machine-local (never commit, always regenerated)
+# ---------------------------------------------------------------
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+
+# Unity resolves these on open; they are per-machine
+/[Aa]ssets/[Aa]ssetStoreTools*
+/[Aa]ssets/[Aa]ssetStoreTools*
+sysinfo.txt
+
+# Crash / error reports
+crashlytics-build.properties
+/[Aa]ssets/[Ss]treamingAssets/aa.meta
+/[Aa]ssets/[Ss]treamingAssets/aa/*
+
+# ---------------------------------------------------------------
+# Raw source data for the planet textures
+# Regenerable from the checked-in scripts, and ~380 MB of it.
+# The .py pipeline and the qa/ previews ARE committed.
+# ---------------------------------------------------------------
+/_assets_src/**/terrarium/
+/_assets_src/**/*.tif
+/_assets_src/**/*.exr
+/_assets_src/**/*.jpg
+/_assets_src/**/*.npy
+
+# ---------------------------------------------------------------
+# IDE / editor
+# ---------------------------------------------------------------
+.vs/
+.idea/
+.vscode/
+.gradle/
+.consulo/
+
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+
+# ---------------------------------------------------------------
+# Build / packaging output
+# ---------------------------------------------------------------
+*.apk
+*.aab
+*.unitypackage
+*.app
+
+# ---------------------------------------------------------------
+# OS noise
+# ---------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+[Tt]humbs.db
+[Tt]humbs.db
+desktop.ini
+
+# ---------------------------------------------------------------
+# Unity meta files: the rule below is the important one.
+# For every asset you DO commit, its .meta must be committed too.
+# ---------------------------------------------------------------
+!/[Aa]ssets/**/*.meta
+/[Aa]ssets/**/*.meta.meta

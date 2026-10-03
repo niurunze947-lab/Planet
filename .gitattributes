@@ -1,0 +1,103 @@
+# ===============================================================
+#  Planet - git attributes
+#
+#  Two concerns, kept strictly separate:
+#    1. TEXT  - normalise to LF so diffs are stable and git never
+#               flip-flops line endings (which would make Unity
+#               reimport on every checkout).
+#    2. BINARY- route through Git LFS.
+#
+#  Order matters: later matching rules win, so the LFS block goes
+#  last and its "-text" overrides the text rules above it.
+# ===============================================================
+
+# ---------------------------------------------------------------
+# 1. TEXT: source, docs, config
+# ---------------------------------------------------------------
+*.cs             text eol=lf
+*.shader         text eol=lf
+*.hlsl           text eol=lf
+*.cginc          text eol=lf
+*.compute        text eol=lf
+*.py             text eol=lf
+*.md             text eol=lf
+*.txt            text eol=lf
+*.json           text eol=lf
+*.yml            text eol=lf
+*.yaml           text eol=lf
+*.xml            text eol=lf
+*.html           text eol=lf
+*.css            text eol=lf
+*.js             text eol=lf
+*.asmdef         text eol=lf
+*.asmref         text eol=lf
+
+# ---------------------------------------------------------------
+# 2. TEXT: Unity's Force-Text YAML (Unity itself writes LF)
+#    These stay diffable on purpose - do NOT move them to LFS.
+# ---------------------------------------------------------------
+*.meta           text eol=lf
+*.unity          text eol=lf
+*.asset          text eol=lf
+*.mat            text eol=lf
+*.prefab         text eol=lf
+*.controller     text eol=lf
+*.anim           text eol=lf
+*.overrideController text eol=lf
+*.physicMaterial text eol=lf
+*.physicsMaterial2D text eol=lf
+*.preset         text eol=lf
+*.inputactions   text eol=lf
+*.wlt            text eol=lf
+*.guiskin        text eol=lf
+*.shadervariants text eol=lf
+*.mask           text eol=lf
+*.brush          text eol=lf
+*.flare          text eol=lf
+*.fontsettings   text eol=lf
+*.spriteatlas    text eol=lf
+
+# ===============================================================
+# 3. BINARY: Git LFS  (must stay last)
+# ===============================================================
+
+# --- textures ---
+*.png            filter=lfs diff=lfs merge=lfs -text
+*.jpg            filter=lfs diff=lfs merge=lfs -text
+*.jpeg           filter=lfs diff=lfs merge=lfs -text
+*.gif            filter=lfs diff=lfs merge=lfs -text
+*.bmp            filter=lfs diff=lfs merge=lfs -text
+*.tga            filter=lfs diff=lfs merge=lfs -text
+*.tif            filter=lfs diff=lfs merge=lfs -text
+*.tiff           filter=lfs diff=lfs merge=lfs -text
+*.psd            filter=lfs diff=lfs merge=lfs -text
+*.exr            filter=lfs diff=lfs merge=lfs -text
+*.hdr            filter=lfs diff=lfs merge=lfs -text
+*.cubemap        filter=lfs diff=lfs merge=lfs -text
+*.rendertexture  filter=lfs diff=lfs merge=lfs -text
+
+# --- models ---
+*.fbx            filter=lfs diff=lfs merge=lfs -text
+*.obj            filter=lfs diff=lfs merge=lfs -text
+*.blend          filter=lfs diff=lfs merge=lfs -text
+
+# --- audio ---
+*.wav            filter=lfs diff=lfs merge=lfs -text
+*.mp3            filter=lfs diff=lfs merge=lfs -text
+*.ogg            filter=lfs diff=lfs merge=lfs -text
+*.aiff           filter=lfs diff=lfs merge=lfs -text
+
+# --- video ---
+*.mp4            filter=lfs diff=lfs merge=lfs -text
+*.mov            filter=lfs diff=lfs merge=lfs -text
+*.webm           filter=lfs diff=lfs merge=lfs -text
+
+# --- fonts ---
+*.ttf            filter=lfs diff=lfs merge=lfs -text
+*.otf            filter=lfs diff=lfs merge=lfs -text
+
+# --- archives / builds ---
+*.unitypackage   filter=lfs diff=lfs merge=lfs -text
+*.apk            filter=lfs diff=lfs merge=lfs -text
+*.aab            filter=lfs diff=lfs merge=lfs -text
+*.zip            filter=lfs diff=lfs merge=lfs -text

@@ -1,0 +1,139 @@
+{
+  "generatedAt": "2026-10-02",
+  "unityProject": {
+    "name": "Planet",
+    "path": "D:/UnityProjects/Planet",
+    "unityVersion": "2022.3.62f3",
+    "renderPipeline": "Universal (URP) 14.0.12",
+    "instanceId": "Planet@73cccd62"
+  },
+  "mcpServer": {
+    "serverName": "mcp-for-unity-server",
+    "serverVersion": "3.4.7",
+    "protocolVersion": "2024-11-05",
+    "unityPackage": "com.coplaydev.unity-mcp",
+    "unityPackageVersion": "10.0.0",
+    "uvxPackagePin": "mcpforunityserver==10.0.0",
+    "transport": "stdio",
+    "unityBridge": "127.0.0.1:6400",
+    "launchCommand": [
+      "C:\\Users\\nrz\\AppData\\Local\\Microsoft\\WinGet\\Links\\uvx.exe",
+      "--from",
+      "mcpforunityserver==10.0.0",
+      "mcp-for-unity",
+      "--transport",
+      "stdio"
+    ]
+  },
+  "clients": [
+    {
+      "name": "DSH",
+      "kind": "desktop",
+      "configPath": "C:\\Users\\nrz\\.dsh\\profiles\\desktop\\cordis.patch.yml",
+      "entry": "insert: id=mcp-unity, name=@deepseek-ai/dsh-mcp-client, serverName=unity",
+      "changed": false,
+      "status": "verified-live"
+    },
+    {
+      "name": "codex",
+      "kind": "desktop",
+      "configPath": "C:\\Users\\nrz\\.codex\\config.toml",
+      "tomlKey": "mcp_servers.unityMCP",
+      "changed": true,
+      "change": "mcpforunityserver 9.7.3 -> 10.0.0",
+      "status": "verified-enabled",
+      "evidence": "codex mcp list (codex-cli 0.159.2) shows unityMCP enabled"
+    },
+    {
+      "name": "opencode",
+      "kind": "desktop",
+      "configPath": "C:\\Users\\nrz\\.config\\opencode\\opencode.json",
+      "jsonKey": "mcp.unityMCP",
+      "changed": true,
+      "change": "type remote http://127.0.0.1:8080/mcp -> local stdio",
+      "status": "verified-connected",
+      "evidence": "opencode mcp list (1.15.7) shows unityMCP connected"
+    },
+    {
+      "name": "MiMo AI",
+      "kind": "desktop",
+      "configPath": "C:\\Users\\nrz\\AppData\\Roaming\\Xiaomi MiMo AI\\engine-config\\mimocode.json",
+      "jsonKey": "mcp.unityMCP",
+      "changed": true,
+      "change": "added mcp key (was absent); timeout 120000ms",
+      "note": "feature-gates.json domestic.show_mcp_entry=false hides the MCP UI entry; app is Electron-only with no CLI, so handshake needs manual confirmation after restart",
+      "status": "configured-unverified"
+    }
+  ],
+  "toolCount": 47,
+  "groupedToolCount": 42,
+  "metaToolCount": 5,
+  "toolGroups": [
+    {
+      "name": "core",
+      "defaultEnabled": true,
+      "toolCount": 25,
+      "tools": [
+        "apply_text_edits", "batch_execute", "create_script", "delete_script",
+        "execute_menu_item", "find_gameobjects", "find_in_file", "get_sha",
+        "manage_asset", "manage_build", "manage_camera", "manage_components",
+        "manage_editor", "manage_gameobject", "manage_graphics", "manage_material",
+        "manage_packages", "manage_physics", "manage_prefabs", "manage_scene",
+        "manage_script", "read_console", "refresh_unity", "script_apply_edits",
+        "validate_script"
+      ]
+    },
+    { "name": "animation", "defaultEnabled": false, "toolCount": 1, "tools": ["manage_animation"] },
+    { "name": "asset_gen", "defaultEnabled": false, "toolCount": 4, "tools": ["generate_image", "generate_model", "import_model", "import_model_file"] },
+    { "name": "docs", "defaultEnabled": false, "toolCount": 2, "tools": ["unity_docs", "unity_reflect"] },
+    { "name": "probuilder", "defaultEnabled": false, "toolCount": 1, "tools": ["manage_probuilder"] },
+    { "name": "profiling", "defaultEnabled": false, "toolCount": 1, "tools": ["manage_profiler"] },
+    { "name": "scripting_ext", "defaultEnabled": false, "toolCount": 2, "tools": ["execute_code", "manage_scriptable_object"] },
+    { "name": "testing", "defaultEnabled": false, "toolCount": 2, "tools": ["run_tests", "get_test_job"] },
+    { "name": "ui", "defaultEnabled": false, "toolCount": 1, "tools": ["manage_ui"] },
+    { "name": "vfx", "defaultEnabled": false, "toolCount": 3, "tools": ["manage_shader", "manage_texture", "manage_vfx"] }
+  ],
+  "metaTools": [
+    "manage_tools",
+    "set_active_instance",
+    "debug_request_context",
+    "execute_custom_tool",
+    "manage_script_capabilities"
+  ],
+  "allTools": [
+    "apply_text_edits", "batch_execute", "create_script", "debug_request_context",
+    "delete_script", "execute_code", "execute_custom_tool", "execute_menu_item",
+    "find_gameobjects", "find_in_file", "generate_image", "generate_model",
+    "get_sha", "get_test_job", "import_model", "import_model_file",
+    "manage_animation", "manage_asset", "manage_build", "manage_camera",
+    "manage_components", "manage_editor", "manage_gameobject", "manage_graphics",
+    "manage_material", "manage_packages", "manage_physics", "manage_prefabs",
+    "manage_probuilder", "manage_profiler", "manage_scene", "manage_script",
+    "manage_script_capabilities", "manage_scriptable_object", "manage_shader",
+    "manage_texture", "manage_tools", "manage_ui", "manage_vfx",
+    "read_console", "refresh_unity", "run_tests", "script_apply_edits",
+    "set_active_instance", "unity_docs", "unity_reflect", "validate_script"
+  ],
+  "resources": [
+    "mcpforunity://custom-tools",
+    "mcpforunity://editor/active-tool",
+    "mcpforunity://editor/prefab-stage",
+    "mcpforunity://editor/selection",
+    "mcpforunity://editor/state",
+    "mcpforunity://editor/windows",
+    "mcpforunity://instances",
+    "mcpforunity://menu-items",
+    "mcpforunity://pipeline/renderer-features",
+    "mcpforunity://prefab-api",
+    "mcpforunity://project/info",
+    "mcpforunity://project/layers",
+    "mcpforunity://project/tags",
+    "mcpforunity://rendering/stats",
+    "mcpforunity://scene/cameras",
+    "mcpforunity://scene/gameobject-api",
+    "mcpforunity://scene/volumes",
+    "mcpforunity://tests",
+    "mcpforunity://tool-groups"
+  ],
+  "constraint": "The Unity bridge on 127.0.0.1:6400 is single-consumer. All four clients are registered, but only ONE should drive Unity at a time."
+}

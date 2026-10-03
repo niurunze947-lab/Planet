@@ -140,25 +140,34 @@ moon_height_4ppd_16bit.png   1440x720   R16  sRGB=False
 
 ### 显存占用
 
-Unity 实测值（`Profiler.GetRuntimeMemorySizeLong`，**含完整 mipmap 链**）：
+按格式几何计算（**含完整 mipmap 链**，即 ×4/3）。这是真实的 GPU 占用：
 
-| 贴图 | 尺寸 | 格式 | 实测显存 |
+| 贴图 | 尺寸 | 格式 | GPU |
 |---|---|---|---|
 | `earth_color_8k` | 8192×4096 | BC7 | 42.7 MB |
 | `earth_height_16bit` | 8192×4096 | R16 | **85.3 MB** |
 | `moon_color_8k` | 8192×4096 | BC7 | 42.7 MB |
-| `moon_height_16bit` | 5760×2880 | R16 | **84.4 MB** |
+| `moon_height_16bit` | 5760×2880 | R16 | **42.2 MB** |
 | `earth_color_2k` | 2048×1024 | BC7 | 2.7 MB |
 | `earth_height_2k_16bit` | 2048×1024 | R16 | 5.3 MB |
 | `moon_color_2k` | 2048×1024 | BC7 | 2.7 MB |
-| `moon_height_4ppd_16bit` | 1440×720 | R16 | 5.3 MB |
-| **合计（8 张全载）** | | | **271.0 MB** |
+| `moon_height_4ppd_16bit` | 1440×720 | R16 | 2.6 MB |
+| `earth_normal_2k` | 2048×1024 | DXT5 | 2.7 MB |
+| `moon_normal_2k` | 2048×1024 | DXT5 | 2.7 MB |
+| `earth_metallic_smoothness` | 2048×1024 | DXT5 | 2.7 MB |
+| `starmap_2020_4k` | 4096×2048 | RGBAHalf | 85.3 MB |
+| **合计（12 张全载）** | | | **319.5 MB** |
 
-**4 张 8K 就占 255 MB**，其中两张未压缩 R16 高度图是大头。若目标平台受限：
+> ⚠️ **注意 API 口径**：`Profiler.GetRuntimeMemorySizeLong` 对这 12 张贴图报告 **639.0 MB**，
+> 恰好是上表的 **1.91 倍** —— 该 API 把 CPU 侧镜像也算进去了。
+> 做显存预算时用**上表的 319.5 MB**，不要用 Profiler 的数字。
 
-- 只载 2K 四张 = **16 MB**，视觉在远距离几乎无差别
+**两张 8K 未压缩 R16 高度图 + 星空 EXR 是三大头**（合计 213 MB）。若目标平台受限：
+
+- 只载 2K 版本 = **约 16 MB**，视觉在远距离几乎无差别
 - 或关闭高度图 mipmap（省约 25%，但远处会闪烁）
-- 或按距离流式加载（Pro 版 Unity 可用 Addressables + Texture Streaming）
+- 或按距离流式加载（Addressables + Texture Streaming）
+- 星空图若换成 2K EXR，可从 85 MB 降到 21 MB
 
 ### 分辨率上限（诚实说明）
 

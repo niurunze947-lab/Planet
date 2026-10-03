@@ -1,0 +1,52 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db5cb4c9d0792ed409f4e4aaa4f5db52, type: 3}
+  m_Name: ProceduralTerra
+  m_EditorClassIdentifier: 
+  displayName: Procedural Terra
+  physical:
+    radiusMetres: 6371000
+    massKilograms: 5.9722e+24
+    rotationPeriodSeconds: 86164.09056
+    flattening: 0.0033528134
+    northPoleRightAscensionDegrees: 0
+    northPoleDeclinationDegrees: 90
+    seaLevelMetres: 0
+    atmosphereHeightMetres: 80000
+  generation:
+    seed: 271828
+    continentFrequency: 1.65
+    continentThreshold: 0.08
+    domainWarp: 0.32
+    continentOctaves: 6
+    oceanDepthMetres: 7200
+    plateauHeightMetres: 1600
+    mountainFrequency: 12
+    mountainHeightMetres: 6200
+    mountainOctaves: 6
+    detailFrequency: 140
+    detailHeightMetres: 220
+    slopeSampleDistanceMetres: 2200
+    temperatureOffset: 0
+    moistureOffset: 0.02
+    altitudeCoolingPerKilometre: 0.085
+  palette:
+    deepOcean: {r: 0.025, g: 0.065, b: 0.24, a: 1}
+    shallowOcean: {r: 0.035, g: 0.32, b: 0.39, a: 1}
+    beach: {r: 0.72, g: 0.66, b: 0.46, a: 1}
+    desert: {r: 0.79, g: 0.64, b: 0.4, a: 1}
+    grassland: {r: 0.42, g: 0.46, b: 0.22, a: 1}
+    forest: {r: 0.25, g: 0.35, b: 0.16, a: 1}
+    rainforest: {r: 0.13, g: 0.27, b: 0.13, a: 1}
+    tundra: {r: 0.48, g: 0.48, b: 0.35, a: 1}
+    rock: {r: 0.42, g: 0.39, b: 0.33, a: 1}
+    snow: {r: 0.89, g: 0.93, b: 0.94, a: 1}

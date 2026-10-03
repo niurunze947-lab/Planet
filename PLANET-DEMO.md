@@ -93,13 +93,40 @@ PlanetDemo
 | 星表 | Hipparcos-2 + Tycho-2 + **Gaia DR2**，共 **17 亿颗恒星** |
 | 投影 | 等距圆柱（Plate Carrée），天球坐标（ICRF/J2000） |
 | 格式 | OpenEXR **half-float、线性、HDR** |
-| Unity 导入 | `RGBAHalf`，**sRGB 关闭**，Wrap = Clamp |
-| 材质 | `Assets/Settings/Skybox_Starfield.mat`，Shader = **`Skybox/Panoramic`** |
-| Shader 参数 | Mapping = Latitude Longitude，Image Type = Skybox，Exposure 1.1 |
+| Unity 导入 | `RGBAHalf`，**sRGB 关闭**，逐轴 Wrap = **U: Repeat / V: Clamp / W: Clamp** |
+| 材质 | `Assets/Settings/Skybox_Starfield.mat`，Shader = **`Planet/StarfieldPhysical`**（工程自有，见 `Assets/Shaders/PlanetStarfield.shader`） |
+| Shader 参数 | `_Exposure` 0.38、`_DayFadePower` 2.2、`_DayIntensity` 0.012、`_HorizonGlow` 0.08、`_SunDirection` 由场景设置 |
 
 **为什么必须用 EXR、不能用 PNG**：恒星亮度跨越多个数量级。8 位 sRGB 会把暗星压成纯黑、亮星削顶，银河细节全丢。half-float 保住了动态范围，配合 Bloom 才有正确的星芒。
 
-**为什么 Wrap 设为 Clamp**：等距圆柱贴图在垂直方向不能环绕，否则天极会出现接缝。
+**为什么 V 轴必须 Clamp**：等距圆柱贴图在垂直方向不能环绕，否则天极会出现接缝；而 U 轴（经度）
+必须 Repeat，因为 −180° 与 +180° 是同一条子午线。**必须逐轴设置**，单一 `wrapMode` 字段在重新
+导入时会被覆盖，详见 `PLANET-ASSETS.md` §4.2。
+
+### 3.1 全包围修复（180° 半包围 → 360° 全包围）
+
+**症状**：天空盒只铺满朝向 `+Z` 的半边天球，`-Z`（背面）、`-X`（左侧）、`-Y`（下方）三个方向全黑。
+星图本身是完整的全天球等距圆柱投影，问题出在采样端。
+
+**修复分两步：**
+
+1. `starmap_2020_4k.exr` 的导入设置由单一 `wrapMode` 改为逐轴设置：
+   **U = Repeat，V = Clamp，W = Clamp**。
+2. 天空盒的采样方式改为覆盖整个天球。
+
+第 2 步当时用的是内置 `Skybox/Panoramic`，把 `_ImageType` 由 `1`（180 Degrees）改为
+**`0`（360 Degrees）**，`_Mapping` 保持 `1`（Latitude Longitude），`_MirrorOnBack = 0`。
+
+> **该材质后续被换成了工程自有的 `Planet/StarfieldPhysical`。** 这个 shader 直接用视线方向求
+> `longitude = atan2(x, z)`、`latitude = asin(y)` 去采样全天球，**本身就是全包围的**，
+> 不存在 `_ImageType` 这样一个能把它关掉一半的开关——也就是说这个 bug 在新实现下**结构上不可能
+> 再出现**。它另外加了"朝太阳方向的昼侧星空淡出"（`_DayFadePower` / `_DayIntensity`），
+> 让白天的天空不再是纯黑。
+>
+> **但第 1 步的逐轴 wrap 设置仍然必需**，因为新 shader 采样的是同一张贴图。
+
+**验证方式**：用一台相机（`cullingMask = 0`，只渲染天空盒）分别朝六个轴向渲染 96×96 面板，
+统计非黑像素比例。修复前 `-Z back`、`-X left`、`-Y down` 三块全黑；修复后六个方向都布满银河与恒星。
 
 > 若需要天文级准确取向：原始星图以 0h 赤经为中心、赤经向左递增。当前作为背景板使用，未做相对黄道的姿态对齐。
 
@@ -173,3 +200,19 @@ PlanetDemo
 | `planet_demo_01.png` | 默认机位全景（地球 + 月球 + 银河） |
 | `planet_demo_earth_closeup_4.png` | 地球近景（可见海岸线与地形起伏） |
 | `planet_demo_moon_lit.png` | 月球近景（第谷环形山辐射纹、月海） |
+
+天空盒全包围修复的六面验证图在 `Temp/skybox_verify/`：
+
+| 文件 | 内容 |
+|---|---|
+| `skybox_faces.png` | 修复前六面拼图（`-Z`/`-X`/`-Y` 全黑） |
+| `compare_180deg.png` / `compare_360deg.png` | 修复前后对照 |
+
+---
+
+## 8. 另见：`SolarSystem.unity`
+
+`Assets/Scenes/SolarSystem.unity` 是按真实比例的太阳系白模场景（太阳 → 柯伊伯带，
+含自转与公转），说明见 **[PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md)**。
+本文件描述的 `PlanetDemo.unity` 仍然是贴图版地球/月球的特写场景，两者互不影响。
+

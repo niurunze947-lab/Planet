@@ -1,0 +1,6 @@
+{
+    "name": "Planet.Procedural",
+    "rootNamespace": "Planet.Procedural",
+    "references": ["Unity.Mathematics", "Unity.Burst"],
+    "autoReferenced": true
+}

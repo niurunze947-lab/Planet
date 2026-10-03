@@ -2,6 +2,9 @@
 
 > 全部来自 NASA / 公共领域真实探测数据，非手绘、非生成式贴图。
 > 采集日期：2026-10-02 ｜ 处理脚本见 `_assets_src/`
+>
+> 本版新增：星空天空盒贴图的**逐轴 wrap 设置**（§4.2），以及
+> **真实比例太阳系场景完全不需要贴图**的说明（§8）。
 
 ---
 
@@ -17,6 +20,7 @@
 | `Moon/moon_color_2k.png` | 2048×1024 | RGB8 sRGB | 3.0 MB | 同上，轻量版 |
 | `Moon/moon_height_16bit.png` | 5760×2880 | **16-bit 灰度** | 22.0 MB | 月球高程 |
 | `Moon/moon_height_4ppd_16bit.png` | 1440×720 | **16-bit 灰度** | 1.6 MB | 同上，轻量版 |
+| `Sky/starmap_2020_4k.exr` | 4096×2048 | **OpenEXR half-float** | 34.3 MB | 星空天空盒 |
 
 ### 派生贴图（由上述高程图计算得出）
 
@@ -28,7 +32,8 @@
 
 > 海洋遮罩直接取自高程数据的 `h ≤ 0`，实测海洋占比 **70.5%**，与真实地球约 71% 吻合。
 
-> 演示场景与星空天空盒见 **`PLANET-DEMO.md`**。
+> 演示场景与星空天空盒见 **`PLANET-DEMO.md`**。真实比例太阳系场景（**不使用任何贴图**）
+> 见 **`PLANET-SOLARSYSTEM.md`** 与本文 §8。
 
 全部为**等距圆柱投影（equirectangular / Plate Carrée）**，即标准 UV 球面贴图，经度 −180°…+180° 从左到右，纬度 +90°…−90° 从上到下。可直接用于 Unity 的球体 UV 或自定义 shader 采样，**无需再投影**。
 
@@ -61,6 +66,19 @@
 - 本次使用 **zoom 5**（32×32 = 1024 块瓦片，拼合为 8192×8192）
 - 数据由多个公共领域高程集聚合而成（SRTM、GMTED2010、NED、ETOPO1 等）
 - **原始为 Web Mercator（墨卡托）投影，已重投影为等距圆柱**
+
+### 星空（天空盒）
+
+**星图** — NASA SVS *Deep Star Maps 2020*（ID 4851）
+- 原始文件：`starmap_2020_4k.exr`（4096×2048）
+- 星表：Hipparcos-2 + Tycho-2 + **Gaia DR2**，共 **17 亿颗恒星**
+- 投影：等距圆柱（Plate Carrée），天球坐标（ICRF/J2000）
+- 页面：https://svs.gsfc.nasa.gov/4851/
+- **这是工程里唯一一张 HDR 贴图**，`RGBAHalf`、sRGB 关闭、线性
+
+> 该图本身是**完整全天球**的等距圆柱投影，`-180°…+180°` 经度 × `-90°…+90°` 纬度全覆盖。
+> 因此天空盒出现"只有一半有星星"时，问题一定出在采样端（材质参数或 shader），
+> **不要**去重新下载或裁剪贴图。
 
 ---
 
@@ -124,6 +142,44 @@ moon_height_4ppd_16bit.png   1440x720   R16  sRGB=False
 ```
 
 > ⚠️ **踩过的坑**：Unity 默认 `maxTextureSize` 只有 **2048**，会把 8K 贴图静默降采样；且默认 NPOT 策略会把 5760×2880 的 LOLA DEM 向下取整到 **4096×2048**，损失 29% 横向分辨率。两者均已修正。
+
+### 4.1 高度图为什么必须保持 R16
+
+别为了"颜色好看"或"统一格式"把高程图改成 RGBA32。那会把 16 位压成 8 位，
+地球高程的量化误差从 **0.154 m 劣化到约 40 m**——地形会变成阶梯状。
+R16 在 Inspector 里预览显示为**红色**是正常的：只有 R 通道有数据，Unity 用红色通道做预览着色。
+
+### 4.2 星空 EXR 的逐轴 Wrap（全包围修复的一部分）
+
+`starmap_2020_4k.exr` 的导入设置**不能只设一个 `wrapMode` 字段**，必须逐轴设置：
+
+| 轴 | 值 | 原因 |
+|---|---|---|
+| **U**（经度） | `Repeat` | 经度 −180°/ +180° 是同一条子午线，必须环绕，否则接缝处出现一条黑线 |
+| **V**（纬度） | `Clamp` | 纬度到极点就结束了，**环绕会让天极出现接缝** |
+| **W** | `Clamp` | 未使用，保持一致 |
+
+```csharp
+var ti = (TextureImporter)AssetImporter.GetAtPath(path);
+ti.wrapModeU = TextureWrapMode.Repeat;
+ti.wrapModeV = TextureWrapMode.Clamp;
+ti.wrapModeW = TextureWrapMode.Clamp;
+ti.SaveAndReimport();
+```
+
+> ⚠️ **踩过的坑**：老的 `ti.wrapMode`（单值）字段在重新导入时会被 Unity 覆盖回默认值，
+> 改了看起来"没生效"。**逐轴设置才是可靠的写法**，而且必须调 `SaveAndReimport()` 才会落盘。
+
+实测确认（`Assets/Textures/Sky/starmap_2020_4k.exr`）：
+
+```
+wrapMode = Repeat        (U/V/W) = Repeat/Clamp/Clamp
+maxTextureSize = 4096    sRGB = False    mipmap = True
+textureType = Default    alphaSource = None
+```
+
+这一设置与天空盒用的是内置 `Skybox/Panoramic` 还是工程自有的 `Planet/StarfieldPhysical`
+无关——两者采样的是同一张贴图，**U 环绕 / V 钳制的组合都必须保持**。
 
 ---
 
@@ -217,3 +273,62 @@ QA 预览图（色彩/高程对照）位于 `_assets_src/qa/`：`earth_qa.png`�
 所有转换脚本均带**往返校验**：16-bit PNG 写出后会重新读回并逐像素断言与源数据完全一致，确保没有精度损失。
 
 > `_assets_src/` 位于 `Assets/` **之外**，Unity 不会导入它，原始 TIFF（约 115 MB）与瓦片缓存（64 MB）可随时删除。
+
+---
+
+## 8. 太阳系场景：零贴图
+
+`Assets/Scenes/SolarSystem.unity`（真实比例太阳系，见 `PLANET-SOLARSYSTEM.md`）
+**不使用本文档的任何一张贴图**，也不使用 `Assets/Textures/` 下的任何文件——它一张贴图都没有。
+
+| 项 | `PlanetDemo` | `SolarSystem` |
+|---|---|---|
+| 贴图数量 | 12 张（182.9 MB 磁盘 / 319.5 MB 显存） | **0** |
+| 星球外观 | 8K 反照率 + 法线 + 金属度/光滑度 | 纯色白模 + 由 UV 生成的经纬网 |
+| 几何来源 | 16 位高程图逐顶点位移 | 程序化 UV 球（`SolarMeshFactory`） |
+| 天空盒 | `starmap_2020_4k.exr`（共用） | 同左（**唯一共用的贴图**） |
+
+### 白模材质（`Assets/Resources/Solar/`）
+
+太阳系场景用到的 5 个材质（该目录下还有程序化星球框架用的其它材质，与本场景无关）：
+
+| 材质 | 着色器 | 用途 |
+|---|---|---|
+| `WhiteClay.mat` | `Planet/ClayGrid` | 全部 21 个天体 |
+| `WhiteRing.mat` | `Planet/ClayGrid`（`_GridStrength = 0`） | 土星环 |
+| `WhiteSun.mat` | URP/Lit（自发光） | 太阳 |
+| `BeltMarker.mat` | URP/Unlit（`enableInstancing`） | 碎带标记点 |
+| `OrbitLine.mat` | `Planet/OrbitLine` | 轨道线 |
+
+**为什么可以直接不要贴图**：比例是这个场景的重点，不是外观。在 1 场景单位 = 1,000,000 km
+的尺度下，地球直径只有 0.0127 个场景单位；贴 8K 反照率的地球和贴一张纯色图的地球，
+在能看清整个太阳系的视距下**没有任何可见差别**，却要多付 319.5 MB 显存。
+把预算留给碎带（7200 个实例）和轨道线更值。
+
+### 唯一"像贴图"的东西是程序生成的
+
+白模着色器上的经纬网由**网格自带的 UV** 算出来（`frac(uv * 划分数)` + `fwidth` 保持恒定像素宽），
+不是一张贴图，也不占显存。加它的原因很实际：**一个完全均匀的白色球体，转与不转看起来
+一模一样**，而自转正是这个场景要演示的东西之一。按 `L` 可把 `_GridStrength` 归零，回到纯白球。
+
+### 碎带标记点：位置真实，尺寸不真实
+
+主带 2200 个 + 柯伊伯带 5000 个标记点，**位置严格按真实轨道根数**（a ∈ [2.06, 3.27] AU 与
+[30.00, 50.00] AU）。但 100 km 的小行星在真实比例下只有 `1×10⁻⁴` 个场景单位，永远不可能被看见，
+所以标记点按**相对相机的固定张角**缩放（默认 0.0012 rad ≈ 900p 下 2.5 像素），并带 ±55%
+的随机尺寸抖动。
+
+> 引用这个场景的数据时请说明这一点：**碎带的位置是真实的，标记点的大小不是。**
+
+---
+
+## 9. 显存预算小结
+
+| 场景 | 贴图显存 | 说明 |
+|---|---|---|
+| `PlanetDemo` | **319.5 MB** | 12 张全载（§5 表） |
+| `SolarSystem` | **≈ 85.3 MB** | 只有星空 EXR 一张 |
+
+两个场景共用 `starmap_2020_4k`，所以同时加载两者时不是简单相加，实际约 **319.5 MB**（天空盒只算一次）。
+若内存吃紧，**优先降星空图**：换成 2K EXR 可从 85.3 MB 降到约 21 MB，而它对两个场景都是背景，
+视觉损失最小。

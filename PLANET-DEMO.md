@@ -113,6 +113,13 @@ PlanetDemo
 | `Moon_Surface` | Base Map `moon_color_8k` + Normal `moon_normal_2k`，Smoothness 0.08 |
 | `Skybox_Starfield` | `starmap_2020_4k.exr` |
 
+> ⚠️ **`Earth_Surface` 的 `_Smoothness` 必须是 `1`。**
+> URP/Lit 的算法是 `最终光滑度 = 金属度贴图.alpha × _Smoothness`，所以 `_Smoothness` 是**乘数**，
+> 设为 1 才能把控制权完全交给贴图。
+> 实测这个值**会被 Unity 静默改回默认的 0.5**（脚本重新编译 / 重新导入材质时触发），
+> 后果是海洋反光直接减半（0.85 → 0.425），而且不会有任何报错。
+> 如果发现海面不够亮，先来检查这个值。`_Metallic` 同理，应为 1。
+
 **海洋遮罩是白送的**：高程数据里 `h ≤ 0` 就是精确的海陆分界，不需要手绘。
 `earth_metallic_smoothness.png` 的 alpha 通道 = 海洋 0.85 / 陆地 0.12（300 m 深度内平滑过渡），
 实测海洋占比 **70.5%**，与真实地球的约 71% 吻合。

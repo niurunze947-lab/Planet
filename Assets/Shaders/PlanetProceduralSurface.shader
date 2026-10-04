@@ -17,6 +17,11 @@ Shader "Planet/ProceduralSurface"
         _RimColor ("Atmosphere Rim", Color) = (0.16, 0.42, 0.95, 1)
         _RimStrength ("Atmosphere Rim Strength", Range(0, 2)) = 0.42
         _RimPower ("Atmosphere Rim Power", Range(0.5, 8)) = 2.7
+        _ReferenceAxes ("Reference Shape Axes", Vector) = (1, 1, 1, 0)
+        _EmissionStrength ("Photospheric Emission", Float) = 0
+        _LimbDarkening ("Photospheric Limb Darkening", Range(0, 1)) = 0
+        _RingProfile ("Ring Optical Profile", 2D) = "black" {}
+        _RingOuterRatio ("Ring Outer Radius / Body Radius", Float) = 0
     }
 
     SubShader
@@ -36,6 +41,8 @@ Shader "Planet/ProceduralSurface"
 
             TEXTURECUBE(_AlbedoCube); SAMPLER(sampler_AlbedoCube);
             TEXTURECUBE(_CloudDensityCube); SAMPLER(sampler_CloudDensityCube);
+            TEXTURE2D(_RingProfile); SAMPLER(sampler_RingProfile);
+            float _PlanetGridStrength;
 
             CBUFFER_START(UnityPerMaterial)
                 half4 _OceanTint;
@@ -51,6 +58,10 @@ Shader "Planet/ProceduralSurface"
                 half _NightAmbient;
                 half _RimStrength;
                 half _RimPower;
+                float4 _ReferenceAxes;
+                half _EmissionStrength;
+                half _LimbDarkening;
+                float _RingOuterRatio;
             CBUFFER_END
 
             struct Attributes
@@ -82,7 +93,8 @@ Shader "Planet/ProceduralSurface"
                 output.normalWS = normalInputs.normalWS;
                 output.directionOS = normalize(input.directionOS);
                 output.surfaceData = input.surfaceData;
-                output.sphereNormalWS = normalize(TransformObjectToWorldNormal(output.directionOS));
+                float3 shapeNormal = normalize(output.directionOS / (_ReferenceAxes.xyz * _ReferenceAxes.xyz));
+                output.sphereNormalWS = normalize(TransformObjectToWorldNormal(shapeNormal));
                 output.shadowCoord = GetShadowCoord(positionInputs);
                 return output;
             }
@@ -117,6 +129,19 @@ Shader "Planet/ProceduralSurface"
                 half direct = twilight * (0.16h + 0.84h * reliefDiffuse);
                 half sunFacing = saturate(dot(radialNormal, lightDirection));
                 half3 albedo = SAMPLE_TEXTURECUBE(_AlbedoCube, sampler_AlbedoCube, directionOS).rgb;
+                // Optional, antialiased angular reference grid, controlled by the existing L key.
+                float2 angles = float2(atan2(directionOS.z, directionOS.x), asin(clamp(directionOS.y, -1, 1)));
+                float2 gridCoord = angles * (12.0 / PI);
+                float2 gridDistance = abs(frac(gridCoord + 0.5) - 0.5);
+                float2 gridWidth = max(fwidth(gridCoord), 0.0001);
+                half grid = 1.0h - min(smoothstep(gridWidth.x * 0.5, gridWidth.x * 1.5, gridDistance.x),
+                    smoothstep(gridWidth.y * 0.5, gridWidth.y * 1.5, gridDistance.y));
+                albedo *= 1.0h - grid * _PlanetGridStrength;
+                if (_EmissionStrength > 0.0h)
+                {
+                    half mu = saturate(dot(radialNormal, viewDirection));
+                    return half4(albedo * _EmissionStrength * (1.0h - _LimbDarkening * (1.0h - mu)), 1.0h);
+                }
                 albedo = lerp(albedo, albedo * _OceanTint.rgb, ocean * 0.38h);
                 // Steep terrain loses direct sky fill and appears more rock-like. This gives
                 // mountains readable form even where the albedo palette is deliberately broad.
@@ -130,6 +155,23 @@ Shader "Planet/ProceduralSurface"
                     cloudDensity = SAMPLE_TEXTURECUBE(_CloudDensityCube, sampler_CloudDensityCube, cloudDirection).r;
                 }
                 half cloudShadow = 1.0h - cloudDensity * _CloudShadowStrength * saturate(twilight);
+                if (_RingOuterRatio > 1.0)
+                {
+                    // Ray/plane intersection in radius-normalized body space; independent of floating origin.
+                    float3 localLight = normalize(TransformWorldToObjectDir(lightDirection));
+                    if (abs(localLight.y) > 0.0001)
+                    {
+                        float referenceRadius = rsqrt(dot(directionOS / _ReferenceAxes.xyz, directionOS / _ReferenceAxes.xyz));
+                        float3 localPoint = directionOS * referenceRadius;
+                        float distanceToRing = -localPoint.y / localLight.y;
+                        float ringRadius = length((localPoint + distanceToRing * localLight).xz) / _RingOuterRatio;
+                        if (distanceToRing > 0.0 && ringRadius <= 1.0)
+                        {
+                            half opacity = SAMPLE_TEXTURE2D(_RingProfile, sampler_RingProfile, float2(ringRadius, 0.5)).a;
+                            cloudShadow *= 1.0h - opacity * 0.82h;
+                        }
+                    }
+                }
                 half3 color = albedo * (_NightAmbient + direct * mainLight.color * cloudShadow);
                 half smoothness = lerp(_LandSmoothness, _OceanSmoothness, ocean);
                 half3 halfVector = normalize(lightDirection + viewDirection);

@@ -24,7 +24,7 @@
 - 从**太阳**到**柯伊伯带**，比例不做任何压缩（海王星就在真实的 30.07 AU）
 - 21 个天体 + 主带 2200 粒子 + 柯伊伯带 5000 粒子，轨道根数取自 JPL/Standish 与 Meeus
 - **自转与公转全部由代码按开普勒方程推算**，不是动画、不是手 K
-- Earth 接入统一程序化地形、海洋、生态色彩、云层和大气，其余天体沿用白模
+- 21 个天体均接入独立程序化材质；Earth 有地形、海洋、生态、云和大气，其余有岩壳、冰壳、气层、雾霾或发光光球；五组环使用径向光学材质
 - 天空盒保持完整 HDR 星图；可见表面的测光驱动星空整体曝光，经度采样采用周期导数处理接缝
 
 **C. 程序化星球表面生成框架**（服务于 B 的实现层，见 [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md)）
@@ -32,7 +32,7 @@
 - 权威链 `PlanetDefinition → PlanetSurfaceSampler → CubeSphere → PlanetSurfaceView`：
   定义是唯一真相，网格与 Cubemap 都是可重建的派生缓存
 - 一套米制采样函数同时供几何、颜色、云密度、星空测光使用，因此贴图与几何不可能对不上
-- 目前**只有 Earth 接入**，其余 20 个天体仍是白模；框架本身与星球半径、场景尺度无关
+- **21 个天体均接入**；`appearance` 定义可见表面类型与特征，`shapeScale` 保留 Haumea 三轴形状。近似与对策见 [PLANET-MATERIALS.md](PLANET-MATERIALS.md)
 
 ---
 
@@ -63,13 +63,13 @@ D:\UnityProjects\Planet\
 ├── Assets/                     281.6 MB   ← 入库
 │   ├── Scenes/                 3 个场景（含 SolarSystem.unity，707 KB）+ 1 个 Volume Profile
 │   ├── Scripts/                Solar/ 轨道系统、Procedural/ 星球框架、相机与天空控制
-│   ├── Editor/                 菜单 Tools ▸ Planet：构建、视觉刷新、截图
+│   ├── Editor/                 菜单 Tools ▸ Planet：构建、全部天体材质、视觉刷新、截图
 │   ├── Shaders/                行星表面、大气、云、星空、白模和轨道
 │   ├── Settings/               URP 配置、3 个材质、后处理 Profile
-│   ├── Resources/Solar/        白模材质、ProceduralTerra 定义与派生 Cubemap
+│   ├── Resources/Solar/        Terra、BodyMaterials/ 独立定义／派生缓存与回退白模材质
+│   ├── Tests/EditMode/         程序化材质采样、形状与缓存回归测试
 │   ├── Textures/               182.9 MB，12 张贴图
 │   ├── Screenshots/            93.6 MB，46 张验证截图（其中 solar_* 15 张）
-│   └── TutorialInfo/           模板自带（可删）
 ├── Packages/                   3.4 MB     ← 入库
 ├── ProjectSettings/            0.1 MB     ← 入库
 ├── MCP-Setup/                  握手报告与工具清单 ← 入库
@@ -80,6 +80,7 @@ D:\UnityProjects\Planet\
 ├── PLANET-ASSETS.md            资产来源与授权
 ├── PLANET-DEMO.md              贴图版地球/月球参考场景说明
 ├── PLANET-PROCEDURAL.md        程序化星球表面生成框架（实现、参数、限制）
+├── PLANET-MATERIALS.md         21 个天体的外观、资产、框架缺口与对策
 ├── PLANET-SOLARSYSTEM.md       真实比例太阳系场景说明（正式工程场景）
 ├── PROJECT-OVERVIEW.md         本文档
 └── .gitignore / .gitattributes
@@ -135,7 +136,8 @@ Renderer Feature: ScreenSpaceAmbientOcclusion
 | Fog | 关闭 | 关闭 |
 
 > 环境设置是**逐场景**保存在 `.unity` 里的，不是全局的。两个场景共用同一个天空盒材质，
-> 但环境光不同。SolarSystem 的程序化 Earth 另有局部大气和云层；其余天体仍采用白模光照。
+> 但环境光不同。SolarSystem 的 Earth 有局部大气和云层；其他天体使用各自的程序化可见层，
+> 大气按定义启用，太阳使用发光光球，环采用稳定解析遮光。
 
 ### 天空盒的全包围修复
 
@@ -179,6 +181,8 @@ Renderer Feature: ScreenSpaceAmbientOcclusion
 |---|---|---|
 | **Solar System/Bodies** | 21 × `CelestialBody` | 太阳、八大行星、月球、木卫一至四、土卫六、海卫一、冥卫一、谷神星、冥王星、妊神星、鸟神星 |
 | **Bodies/Earth** | `PlanetSurfaceView`、`PlanetAtmosphere`、`PlanetCloudLayer` | Cube Sphere 表面、海洋、可选生态与壳层；半径由统一接口 `IPlanetRadiusProvider` 供应 |
+| **Bodies/其余 20 天体** | `PlanetSurfaceView`、按需 `PlanetAtmosphere` | 独立定义／Cubemap／材质；每面 64 段、真实起伏 1×；云顶、雾霾或光球不作为固体地面 |
+| **五组 Rings** | MeshFilter / MeshRenderer | 土星、木星、天王星、海王星、Haumea 的主环或代表性环；径向颜色／透明度、环影和天体影 |
 | **Solar System/Orbits** | 12 × `OrbitPath` + 2 × `CircleLine` | 12 条完整轨道椭圆 + 30 AU / 50 AU 柯伊伯带边界圈 |
 | **Solar System/Asteroid Belt 2.1-3.3 AU** | `BeltField` | 2200 个粒子，真实轨道根数，`Graphics.DrawMeshInstanced` 绘制 |
 | **Solar System/Kuiper Belt 30-50 AU** | `BeltField` | 5000 个粒子，同上 |
@@ -237,10 +241,10 @@ Unity.Mathematics。地形与纹素缓冲按面并行计算，Unity Mesh / Textu
 
 | 程序集 | 内容 | 显式引用 |
 |---|---|---|
-| **`Planet.Solar`** | `Assets/Scripts/Solar/`，13 个文件的星系运行时 | `Planet.Procedural`、`Unity.InputSystem`、URP Core / Universal Runtime |
+| **`Planet.Solar`** | `Assets/Scripts/Solar/` 的星系运行时 | `Planet.Procedural`、`Unity.InputSystem`、URP Core / Universal Runtime |
 | **`Planet.Procedural`** | `Assets/Scripts/Procedural/`，程序化星球框架 | `Unity.Mathematics`、`Unity.Burst` |
-| `Assembly-CSharp` | `Assets/Scripts/` 根目录：`PlanetAtmosphere`、`PlanetLightingController`、PlanetDemo 脚本 | 自动引用上面两个程序集 |
-| `Assembly-CSharp-Editor` | `Assets/Editor/` 的三个编辑器工具 | 自动引用上面两个程序集 |
+| `Assembly-CSharp` | `Assets/Scripts/` 根目录：`PlanetLightingController` 与 PlanetDemo 参考脚本 | 自动引用上面两个程序集 |
+| `Assembly-CSharp-Editor` | `Assets/Editor/` 的四个编辑器工具 | 自动引用上面两个程序集 |
 
 依赖是**单向**的：`Planet.Solar → Planet.Procedural`，反向没有任何引用。星系与星球框架之间
 只有两处接口（`IPlanetRadiusProvider`，以及 `PlanetSurfaceView` 的四个成员），完整边界、
@@ -249,7 +253,7 @@ Unity.Mathematics。地形与纹素缓冲按面并行计算，Unity Mesh / Textu
 这样划分的直接目的：**不同工作树合并时，不会因为新增的引用或被引用而互相绊住。** 星系程序集
 的引用列表是穷举的，任何新增依赖都必须显式写进 `Planet.Solar.asmdef`，无法偷偷长出来。
 
-### 8.1 太阳系（`Assets/Scripts/Solar/`，13 个文件）
+### 8.1 太阳系（`Assets/Scripts/Solar/`）
 
 这是 `SolarSystem.unity` 的轨道与姿态逻辑；位置和自转每一帧从日期算出来，Earth 的外观另由
 `Procedural/` 及其派生 Cubemap 驱动。
@@ -268,22 +272,24 @@ Unity.Mathematics。地形与纹素缓冲按面并行计算，Unity Mesh / Textu
 | `OrbitPath.cs` | 轨道椭圆线 |
 | `SolarSystemPoses.cs` | 可复现截图机位 |
 | `SolarMaterials.cs` | 材质缓存与经纬网开关 |
+| `SolarSystemAppearanceCatalog.cs` | 21 个天体首次外观预设、Catalog 物理形状同步；已有定义保留手工调整 |
 | `CircleLine.cs` | 柯伊伯带边界参考圆 |
 
-### 8.2 编辑器工具（`Assets/Editor/`，3 个文件）
+### 8.2 编辑器工具（`Assets/Editor/`）
 
 | 脚本 | 职责 |
 |---|---|
 | `SolarSystemBuilder.cs` | 重建太阳系、白模材质、11 机位出图 |
 | `PlanetFrameworkBuilder.cs` | 程序化示例构建、缓存管理、视觉刷新 |
 | `PlanetSurfaceBaker.cs` | 按面并行生成地表与云密度 Cubemap |
+| `SolarSystemMaterialBuilder.cs` | 全部天体的独立缓存／材质生成、分批构建、场景接线与环 profile |
 
 ### 8.3 其余脚本
 
 | 目录 | 文件数 | 职责 |
 |---|---|---|
-| `Assets/Scripts/`（根） | 5 | 高程球、相机、自转、大气和表面测光 |
-| `Assets/Scripts/Procedural/` | 10 | 统一定义、坐标、采样、Cube Sphere、云、半径接口与共享壳层 Mesh |
+| `Assets/Scripts/`（根） | 4 | 高程球、相机、自转和表面测光 |
+| `Assets/Scripts/Procedural/` | 13 | 统一定义、坐标、采样、外观参数／采样器、Cube Sphere、云、大气、半径接口与共享壳层 Mesh |
 
 ### 8.4 着色器
 
@@ -296,12 +302,11 @@ Unity.Mathematics。地形与纹素缓冲按面并行计算，Unity Mesh / Textu
 | `PlanetProceduralSurface.shader` | — | 程序化地表、宽海面高光、稳定太阳光照与确定性云影 |
 | `PlanetAtmosphere.shader` | — | 薄大气边缘、窄晨昏暖色、昼夜散射 |
 | `PlanetCloudVolume.shader` | — | 云壳密度与视角光程近似 |
+| `PlanetRing.shader` | — | 独立径向光学环材质与解析天体遮挡 |
 
 > **为什么太阳系场景需要自己写着色器**：URP/Unlit 会丢弃 `LineRenderer` 的顶点色，做不出
 > 可调透明度的轨道线；而一个完全均匀的白色球体，**转与不转看起来一模一样**，所以白模着色器
 > 带了一层经纬网（`L` 键可关掉），让自转可见。
-
-模板自带的 `Readme.cs` / `ReadmeEditor.cs` 仍在 `Assets/TutorialInfo/`，不影响构建。
 
 ### 8.5 程序化星球表面生成框架
 
@@ -311,8 +316,8 @@ PlanetSurfaceView`。定义是唯一权威，网格与 Cubemap 都是可重建�
 
 | 关注点 | 现状 |
 |---|---|
-| 接入范围 | 只有 `SolarSystem.unity` 的 **Earth**；其余 20 个天体仍是白模 |
-| 参数 | 米 / 秒 / 千克；`features` 分别开关海洋、大气、云、生态、冰帽 |
+| 接入范围 | `SolarSystem.unity` 的 **21 个天体**；Earth 延续原 Terra，其余独立外观定义与派生缓存 |
+| 参数 | 米 / 秒 / 千克；`features` 开关地表特性；`appearance` 区分岩壳、冰壳、气层、雾霾与发光光球 |
 | 网格 | 6 面 × 96 段，56,454 顶点 / 110,592 三角形；物理高度保持米制，显示用 4× 起伏夸张 |
 | 派生缓存 | 256²×6 Albedo + 128²×6 云密度 Cubemap，指纹存于 importer 元数据，重建保留 GUID |
 | 海平面 | 由地形最低 / 最高点按比例推导（示例 −438.55 m）；与地形函数分离，改水位不会移动山脉 |
@@ -321,6 +326,7 @@ PlanetSurfaceView`。定义是唯一权威，网格与 Cubemap 都是可重建�
 
 菜单 **Tools ▸ Planet ▸ Build Procedural Planet Example** 走完整条链并保存场景；
 **Refresh Procedural Planet Visuals** 复用现有 Cubemap，只刷新材质与壳层参数。
+**Build Solar System Materials** 分批构建全部天体并保存 SolarSystem；完整场景重建同样接入所有材质。
 
 > **完整说明见 [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md)**：设计原则、坐标与单位、高度函数与
 > 水体推导、网格接缝处理、烘焙缓存与指纹、三个着色器的取舍、壳层与半径同步、分辨率预算、
@@ -462,6 +468,7 @@ set_active_instance "<projectName>@<hash>"                  # 切到自己的实
 | `PLANET-ASSETS.md` | 贴图来源、授权、编码公式、复现步骤 |
 | `PLANET-DEMO.md` | 贴图版地球/月球**参考场景**：构成、参数、操作方法、"高度图为何是红色" |
 | `PLANET-PROCEDURAL.md` | **程序化星球表面生成框架**：数据链、坐标与单位、地形 / 水体 / 云算法、网格与烘焙缓存、着色器取舍、已知限制 |
+| `PLANET-MATERIALS.md` | 21 个天体材质、观测解释、独立资产、框架扩展、缺口与验证 |
 | `PLANET-SOLARSYSTEM.md` | 真实比例太阳系场景（正式工程场景）：轨道力学、数值验证、坐标系、操作键位、光照取舍、**§9 程序集边界与对外接口** |
 | `MCP-Setup/MCP-HANDSHAKE-REPORT.md` | 四客户端握手验证记录 |
 | `MCP-Setup/mcp-tool-list.json` | 47 个工具的完整清单 |
@@ -476,9 +483,9 @@ set_active_instance "<projectName>@<hash>"                  # 切到自己的实
 2. 想看贴图版地球（精度参考），打开 `Assets/Scenes/PlanetDemo.unity` → Play。
 3. 场景是**代码生成**的：改了 `SolarSystemCatalog` / `SolarSystemFactory` 里的数字后，
    跑一次 **Tools ▸ Planet ▸ Rebuild Solar System Scene**，不要手工在 Hierarchy 里挪物体。
-4. 改程序化星球的外观：先读 [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md)，
-   参数改 `Assets/Resources/Solar/ProceduralTerra.asset`，再跑
-   **Tools ▸ Planet ▸ Build Procedural Planet Example**（改到噪声 / 公式时别忘了提升 `GeneratorVersion`）。
+4. 改程序化星球的外观：先读 [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) 与
+   [PLANET-MATERIALS.md](PLANET-MATERIALS.md)，修改 `ProceduralTerra.asset` 或 `BodyMaterials/<Name>.asset`，
+   再跑 **Tools ▸ Planet ▸ Build Solar System Materials**（改到噪声 / 公式时提升 `GeneratorVersion`）。
 
 ---
 

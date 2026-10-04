@@ -31,21 +31,29 @@ Material:
         m_Texture: {fileID: 8900000, guid: 83b7397c18dca344995b972eef1ecb59, type: 2}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _RingProfile:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
     - _CloudShadowEnabled: 1
     - _CloudShadowOffset: 0.035
     - _CloudShadowStrength: 0.32
+    - _EmissionStrength: 0
     - _LandSmoothness: 0.12
+    - _LimbDarkening: 0
     - _NightAmbient: 0.012
     - _OceanDepth: 7200
     - _OceanEnabled: 1
     - _OceanSmoothness: 0.42
     - _RimPower: 2.7
     - _RimStrength: 0.1
+    - _RingOuterRatio: 0
     - _SeaLevel: -438.54868
     - _WaterCoverage: 0.5638129
     m_Colors:
     - _OceanTint: {r: 0.82, g: 0.94, b: 1, a: 1}
+    - _ReferenceAxes: {r: 1, g: 0.9966472, b: 1, a: 0}
     - _RimColor: {r: 0.11, g: 0.38, b: 0.95, a: 1}
   m_BuildTextureStacks: []

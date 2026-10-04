@@ -1,0 +1,6 @@
+{
+    "name": "Planet.Procedural.Tests",
+    "references": ["Planet.Procedural", "Unity.Mathematics"],
+    "includePlatforms": ["Editor"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}

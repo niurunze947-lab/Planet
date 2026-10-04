@@ -53,10 +53,10 @@
 ### 星系程序集划分
 
 - 新增 **`Planet.Solar`** 独立程序集（`Assets/Scripts/Solar/Planet.Solar.asmdef`），
-  13 个星系运行时文件迁出 `Assembly-CSharp`；引用列表穷举为
+  星系运行时代码迁出 `Assembly-CSharp`；引用列表穷举为
   `Planet.Procedural` + `Unity.InputSystem` + URP Core / Universal Runtime 四项
 - 依赖单向化：`Planet.Solar → Planet.Procedural`，反向无引用。`CelestialBody` 不再反向推送
-  大气 / 云壳半径（那要求引用位于 `Assembly-CSharp` 的 `PlanetAtmosphere`，asmdef 结构上做不到），
+  大气 / 云壳半径（壳层位于 `Planet.Procedural`，Solar 只发布半径接口），
   改为壳层自己经 `IPlanetRadiusProvider` 反查——壳层本来就有这条路径，行为不变
 - 编辑器工具**故意不另立 asmdef**：多一个 asmdef 就多一个合并冲突点
 - 验证：编译零错误零警告；场景 21 个 `CelestialBody` / 12 `OrbitPath` / 2 `BeltField` 引用全部完好
@@ -64,6 +64,14 @@
   `PlanetLightingController` 跨程序集调用正常（EV −0.82）
 - 文档：`PLANET-SOLARSYSTEM.md` 新增 §9「程序集边界与对外接口」；总览补程序集表、
   多工作树 MCP 实例端口表与两条 asmdef 风险项；`PLANET-PROCEDURAL.md` 同步
+### 全部天体材质
+
+- SolarSystem 的 21 个天体均接入定义／统一采样／Cube Sphere／独立 Albedo 缓存；Earth 保留 Terra 原资产
+- 添加表面类型：岩壳、冰裂纹、硫磺火山、气巨星／冰巨星云顶、不透明雾霾、太阳发光光球
+- 保留扁率与 Haumea 三轴形状；程序化表面继续构建环，补木星主尘环、天王星窄环、海王星主要环、Haumea 环
+- 土星环径向光学透明度、环影和天体影；修正约 325 km 恩克缝、增加约 42 km 开勒缝
+- 新菜单 Build Solar System Materials 分批重建所有天体；生成器版本升至 4，保留 GUID、已有手工定义参数和独立资产路径
+- 材质观测解释、示意范围与框架缺口见新增 `PLANET-MATERIALS.md`；采样／接缝／形状／指纹回归测试见 `Assets/Tests/EditMode/`
 
 ---
 
@@ -81,7 +89,7 @@
 | 重烘贴图后场景引用丢失 | 用 `CopySerialized` 覆盖旧资产，勿删除重建 |
 | MCP 调用改的其实是另一个工作树 | 多实例各有端口，先查 `Application.dataPath` 再 `set_active_instance` |
 | 新建 asmdef 后 Unity 说找不到 | 窗口失焦时资源库不自动刷新，显式 `AssetDatabase.Refresh` |
-| asmdef 程序集引不到 `PlanetAtmosphere` | asmdef 不能引用 `Assembly-CSharp`，改用接口反查 |
+| asmdef 程序集不应直接驱动壳层 | `Planet.Solar` 只发布 `IPlanetRadiusProvider`；大气 / 云在 `Planet.Procedural` 中自行读取半径 |
 
 ---
 

@@ -24,7 +24,7 @@ namespace Planet.Solar
         /// <summary>Default graticule strength of the clay shader (see Planet/ClayGrid).</summary>
         public const float GridStrength = 0.30f;
 
-        private static float _gridStrength = -1f;
+        private static float _gridStrength;
 
         /// <summary>Matte white clay: the default surface of every body.</summary>
         public static Material Clay { get { return _clay != null ? _clay : (_clay = Load("WhiteClay")); } }
@@ -44,7 +44,8 @@ namespace Planet.Solar
         public static void ClearCache()
         {
             _clay = _ring = _sun = _marker = _orbit = null;
-            _gridStrength = -1f;
+            _gridStrength = 0f;
+            Shader.SetGlobalFloat("_PlanetGridStrength", 0f);
         }
 
         /// <summary>
@@ -54,6 +55,7 @@ namespace Planet.Solar
         public static void SetGridStrength(float strength)
         {
             _gridStrength = strength;
+            Shader.SetGlobalFloat("_PlanetGridStrength", strength);
             ApplyGridStrength(Clay);
             ApplyGridStrength(Ring);
         }
@@ -66,7 +68,7 @@ namespace Planet.Solar
 
         public static void ResetGridStrength()
         {
-            SetGridStrength(GridStrength);
+            SetGridStrength(0f);
         }
 
         private static void ApplyGridStrength(Material m)

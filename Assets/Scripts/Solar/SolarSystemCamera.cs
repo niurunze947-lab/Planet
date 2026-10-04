@@ -173,8 +173,7 @@ namespace Planet.Solar
                 _targetDistance = FrameDistance();
             }
 
-            // L toggles the clay graticule. Without it a uniform white sphere shows no evidence of
-            // rotating, which is half of what this scene exists to demonstrate.
+            // L toggles the angular reference grid on procedural surfaces and the fallback clay.
             if (kb.lKey.wasPressedThisFrame)
                 SolarMaterials.SetGridStrength(SolarMaterials.CurrentGridStrength > 0.001f ? 0f : SolarMaterials.GridStrength);
         }

@@ -52,7 +52,7 @@ namespace Planet.EditorTools
             UnityEngine.SceneManagement.Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             GameObject root = SolarSystemFactory.BuildAll(skybox, profile);
-            PlanetFrameworkBuilder.ConfigureSolarSystemEarth(root);
+            SolarSystemMaterialBuilder.ConfigureSolarSystem(root);
 
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
             bool ok = EditorSceneManager.SaveScene(scene, ScenePath);

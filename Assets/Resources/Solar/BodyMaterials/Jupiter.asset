@@ -1,0 +1,100 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db5cb4c9d0792ed409f4e4aaa4f5db52, type: 3}
+  m_Name: Jupiter
+  m_EditorClassIdentifier: 
+  displayName: Jupiter
+  physical:
+    radiusMetres: 69911000
+    massKilograms: 1.8982e+27
+    rotationPeriodSeconds: 35730
+    flattening: 0.06487
+    shapeScale: {x: 1, y: 1, z: 1}
+    northPoleRightAscensionDegrees: 268.06
+    northPoleDeclinationDegrees: 64.5
+    seaLevelMetres: 0
+    atmosphereHeightMetres: 500000
+  generation:
+    seed: -1335889124
+    continentFrequency: 1.65
+    continentThreshold: 0.08
+    domainWarp: 0.32
+    continentOctaves: 6
+    oceanDepthMetres: 7200
+    plateauHeightMetres: 1600
+    seaLevelFraction: 0.52
+    terrainMinimumMetres: 0
+    terrainMaximumMetres: 1
+    waterCoverage: 0
+    visualReliefScale: 1
+    mountainFrequency: 12
+    mountainHeightMetres: 6200
+    mountainOctaves: 6
+    detailFrequency: 140
+    detailHeightMetres: 220
+    slopeSampleDistanceMetres: 24468.85
+    temperatureOffset: 0
+    moistureOffset: 0.02
+    altitudeCoolingPerKilometre: 0.085
+    cloudFrequency: 5.4
+    cloudCoverage: 0.49
+    cloudSoftness: 0.18
+    cloudDetailFrequency: 23
+  palette:
+    deepOcean: {r: 0.025, g: 0.065, b: 0.24, a: 1}
+    shallowOcean: {r: 0.035, g: 0.32, b: 0.39, a: 1}
+    beach: {r: 0.72, g: 0.66, b: 0.46, a: 1}
+    desert: {r: 0.79, g: 0.64, b: 0.4, a: 1}
+    grassland: {r: 0.42, g: 0.46, b: 0.22, a: 1}
+    forest: {r: 0.25, g: 0.35, b: 0.16, a: 1}
+    rainforest: {r: 0.13, g: 0.27, b: 0.13, a: 1}
+    tundra: {r: 0.48, g: 0.48, b: 0.35, a: 1}
+    rock: {r: 0.42, g: 0.39, b: 0.33, a: 1}
+    snow: {r: 0.89, g: 0.93, b: 0.94, a: 1}
+  features:
+    hasOcean: 0
+    hasAtmosphere: 1
+    hasClouds: 0
+    hasEcology: 0
+    hasIceCaps: 0
+  appearance:
+    surfaceKind: 5
+    baseColor: {r: 0.64, g: 0.43, b: 0.29, a: 1}
+    secondaryColor: {r: 0.94, g: 0.88, b: 0.75, a: 1}
+    accentColor: {r: 0.4, g: 0.25, b: 0.15, a: 1}
+    regionFrequency: 3
+    reliefMetres: 1000
+    craterFrequency: 18
+    craterDepthMetres: 1200
+    craterStrength: 0
+    fractureStrength: 0
+    fractureFrequency: 14
+    fractureWidth: 0.025
+    bandContrast: 0.9
+    bandCount: 25
+    turbulence: 0.75
+    polarCapStart: 1
+    featureLongitudeLatitude: {x: 30, y: -22}
+    featureAngularSize: {x: 13, y: 7}
+    featureStrength: 0.9
+    featureColor: {r: 0.76, g: 0.34, b: 0.19, a: 1}
+    opticalSurfaceHeightMetres: 0
+    emissionStrength: 0
+    limbDarkening: 0
+    landSmoothness: 0
+    atmosphereColor: {r: 0.94, g: 0.88, b: 0.75, a: 1}
+    atmosphereDensity: 0.07
+    ringColor: {r: 0.45, g: 0.38, b: 0.3, a: 1}
+    ringOpacity: 0.055
+    interpretation: Ammonia-cloud belts/zones and illustrative Great Red Spot at
+      22 degrees south. Storm longitude, shape and wind evolution are not ephemerides.
+      Faint main dust ring.

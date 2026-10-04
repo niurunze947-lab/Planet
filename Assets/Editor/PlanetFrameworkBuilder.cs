@@ -209,6 +209,7 @@ namespace Planet.EditorTools
             AssetImporter importer = AssetImporter.GetAtPath(path);
             importer.userData = "PlanetBake:" + fingerprint;
             AssetDatabase.WriteImportSettingsIfDirty(path);
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
             return result;
         }
 

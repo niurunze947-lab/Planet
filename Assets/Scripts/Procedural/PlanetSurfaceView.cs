@@ -127,6 +127,7 @@ namespace Planet.Procedural
                 if (surfaceMaterial.HasProperty("_OceanEnabled")) surfaceMaterial.SetFloat("_OceanEnabled", definition.features.hasOcean ? 1f : 0f);
                 if (surfaceMaterial.HasProperty("_WaterCoverage")) surfaceMaterial.SetFloat("_WaterCoverage", definition.generation.waterCoverage);
                 if (surfaceMaterial.HasProperty("_CloudShadowEnabled")) surfaceMaterial.SetFloat("_CloudShadowEnabled", definition.features.hasClouds && cloudDensityCubemap != null ? 1f : 0f);
+                ApplyAppearance(surfaceMaterial);
                 return surfaceMaterial;
             }
 
@@ -146,7 +147,17 @@ namespace Planet.Procedural
             _runtimeMaterial.SetFloat("_OceanEnabled", definition.features.hasOcean ? 1f : 0f);
             _runtimeMaterial.SetFloat("_WaterCoverage", definition.generation.waterCoverage);
             _runtimeMaterial.SetFloat("_CloudShadowEnabled", definition.features.hasClouds && cloudDensityCubemap != null ? 1f : 0f);
+            ApplyAppearance(_runtimeMaterial);
             return _runtimeMaterial;
+        }
+
+        private void ApplyAppearance(Material material)
+        {
+            Vector3 axes = definition.physical.shapeScale;
+            axes.y *= 1f - definition.physical.flattening;
+            if (material.HasProperty("_ReferenceAxes")) material.SetVector("_ReferenceAxes", new Vector4(axes.x, axes.y, axes.z, 0f));
+            if (material.HasProperty("_EmissionStrength")) material.SetFloat("_EmissionStrength", definition.appearance.emissionStrength);
+            if (material.HasProperty("_LimbDarkening")) material.SetFloat("_LimbDarkening", definition.appearance.limbDarkening);
         }
     }
 }

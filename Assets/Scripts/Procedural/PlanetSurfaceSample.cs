@@ -4,7 +4,8 @@ namespace Planet.Procedural
 {
     public enum PlanetBiome : byte
     {
-        Ocean, Coast, Desert, Grassland, Forest, Rainforest, Tundra, Alpine, Ice
+        Ocean, Coast, Desert, Grassland, Forest, Rainforest, Tundra, Alpine, Ice,
+        Rock, Volcanic, CloudTop, Haze, Photosphere
     }
 
     /// <summary>All values describe the physical planet, independently of the rendering scale.</summary>

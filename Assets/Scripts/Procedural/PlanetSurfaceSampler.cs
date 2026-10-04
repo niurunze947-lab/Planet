@@ -31,6 +31,8 @@ namespace Planet.Procedural
         private readonly float visualReliefScale;
         private readonly float3 deepOcean, shallowOcean, beach, desert, grassland;
         private readonly float3 forest, rainforest, tundra, rock, snow;
+        private readonly PlanetAppearanceSampler appearance;
+        private readonly float3 referenceAxes;
 
         public PlanetSurfaceSampler(PlanetDefinition definition)
         {
@@ -52,6 +54,8 @@ namespace Planet.Procedural
             uint seed = unchecked((uint)g.seed);
             seedOffset = new float3(SeedUnit(seed ^ 0x68bc21ebu), SeedUnit(seed ^ 0x02e5be93u),
                 SeedUnit(seed ^ 0x967a889bu)) * 240f + 17f;
+            appearance = new PlanetAppearanceSampler(definition.appearance, seedOffset);
+            referenceAxes = new float3(p.shapeScale.x, p.shapeScale.y * (1f - flattening), p.shapeScale.z);
             continentFrequency = g.continentFrequency;
             continentThreshold = g.continentThreshold;
             domainWarp = g.domainWarp;
@@ -81,6 +85,7 @@ namespace Planet.Procedural
         public float EvaluateHeight(float3 direction)
         {
             float3 d = math.normalizesafe(direction, new float3(0f, 1f, 0f));
+            if (appearance.kind != PlanetSurfaceKind.Terrestrial) return appearance.Height(d);
             float3 p = d * 2.1f + seedOffset;
             float3 warp = new float3(noise.snoise(p), noise.snoise(p + 31.73f), noise.snoise(p - 19.31f));
             float3 w = d + warp * domainWarp;
@@ -110,8 +115,7 @@ namespace Planet.Procedural
             float step = slopeStep / radiusMetres;
             float dhT = (EvaluateHeight(d + tangent * step) - EvaluateHeight(d - tangent * step)) / (2f * slopeStep);
             float dhB = (EvaluateHeight(d + bitangent * step) - EvaluateHeight(d - bitangent * step)) / (2f * slopeStep);
-            float polarRatio = 1f - flattening;
-            float3 referenceNormal = math.normalize(new float3(d.x, d.y / (polarRatio * polarRatio), d.z));
+            float3 referenceNormal = ReferenceNormal(d);
             float3 normal = math.normalize(referenceNormal - tangent * dhT * visualReliefScale - bitangent * dhB * visualReliefScale);
             float slope = math.degrees(math.atan(math.sqrt(dhT * dhT + dhB * dhB)));
             float elevation = math.max(0f, h - seaLevelMetres);
@@ -130,7 +134,8 @@ namespace Planet.Procedural
                 heightMetres = h, slopeDegrees = slope, temperature = temperature, moisture = moisture,
                 ocean = ocean, waterDepthMetres = waterDepth, waterContent = waterContent,
                 biome = biome, normal = normal,
-                albedoLinear = Albedo(d, h, temperature, moisture, slope, ocean)
+                albedoLinear = appearance.kind == PlanetSurfaceKind.Terrestrial
+                    ? Albedo(d, h, temperature, moisture, slope, ocean) : appearance.Albedo(d)
             };
         }
 
@@ -142,6 +147,7 @@ namespace Planet.Procedural
         public float3 EvaluateAlbedoOnly(float3 direction)
         {
             float3 d = math.normalizesafe(direction, new float3(0f, 1f, 0f));
+            if (appearance.kind != PlanetSurfaceKind.Terrestrial) return appearance.Albedo(d);
             float h = EvaluateHeight(d);
             float elevation = math.max(0f, h - seaLevelMetres);
             float latitude = math.abs(d.y);
@@ -172,10 +178,14 @@ namespace Planet.Procedural
         public float3 SurfacePosition(float3 direction, float heightMetres)
         {
             float3 d = math.normalizesafe(direction, new float3(0f, 1f, 0f));
-            float polarRatio = 1f - flattening;
-            float reference = math.rsqrt(d.x * d.x + d.z * d.z + d.y * d.y / (polarRatio * polarRatio));
+            float reference = math.rsqrt(math.csum(d * d / (referenceAxes * referenceAxes)));
             float displayedHeight = hasOcean ? math.max(heightMetres, seaLevelMetres) : heightMetres;
-            return d * (reference + displayedHeight * visualReliefScale / radiusMetres);
+            return d * (reference + (displayedHeight * visualReliefScale + appearance.opticalHeight) / radiusMetres);
+        }
+
+        public float3 ReferenceNormal(float3 direction)
+        {
+            return math.normalize(direction / (referenceAxes * referenceAxes));
         }
 
         public float NormalizeHeight(float heightMetres)
@@ -185,6 +195,17 @@ namespace Planet.Procedural
 
         private PlanetBiome SelectBiome(float h, float temperature, float moisture)
         {
+            switch (appearance.kind)
+            {
+                case PlanetSurfaceKind.CrateredRock:
+                case PlanetSurfaceKind.DustyRock: return PlanetBiome.Rock;
+                case PlanetSurfaceKind.FracturedIce: return PlanetBiome.Ice;
+                case PlanetSurfaceKind.SulfurVolcanic: return PlanetBiome.Volcanic;
+                case PlanetSurfaceKind.GasGiant:
+                case PlanetSurfaceKind.IceGiant: return PlanetBiome.CloudTop;
+                case PlanetSurfaceKind.OpaqueHaze: return PlanetBiome.Haze;
+                case PlanetSurfaceKind.StellarPhotosphere: return PlanetBiome.Photosphere;
+            }
             if (hasOcean && h < seaLevelMetres) return PlanetBiome.Ocean;
             if (hasIceCaps && temperature < 0.16f) return PlanetBiome.Ice;
             if (!hasEcology) return PlanetBiome.Alpine;

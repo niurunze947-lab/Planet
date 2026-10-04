@@ -200,6 +200,8 @@ namespace Planet.Solar
                 RadiusKm = 69911.0, Flattening = 0.06487, RotationHours = 9.9250,   // fastest spin
                 PoleRaDeg = 268.06, PoleDecDeg = 64.50,
                 HasOrbit = true,
+                // Main dust ring only; the extended halo and gossamer rings need a volume model.
+                Rings = new RingSet(122500.0, 129000.0),
                 Orbit = new KeplerianElements(
                     5.20288700, 0.04838624, 1.30439695, 34.39644051, 14.72847983, 100.47390909,
                     -0.00011607, -0.00013253, -0.00183714, 3034.74612775, 0.21252668, 0.20469106)
@@ -223,7 +225,9 @@ namespace Planet.Solar
                     74500.0,  92000.0,    // C ring
                     92000.0, 117580.0,    // B ring (brightest, densest)
                     // 117,580 - 122,170 is the Cassini division
-                    122170.0, 136775.0,   // A ring, with the 3,250 km Encke gap inside it
+                    122170.0, 133426.5,   // A ring, split at the 325 km Encke gap
+                    133751.5, 136484.0,
+                    136526.0, 136775.0,   // 42 km Keeler gap
                     // 136,775 - 140,180 is the Roche division
                     140180.0, 140580.0    // F ring
                 }),
@@ -240,6 +244,14 @@ namespace Planet.Solar
                 RadiusKm = 25362.0, Flattening = 0.02293, RotationHours = -17.24,  // retrograde
                 PoleRaDeg = 257.31, PoleDecDeg = -15.18,                            // 97.8 deg tilt
                 HasOrbit = true,
+                // Representative main narrow rings. Centre radii/widths are approximate.
+                Rings = new RingSet(41807.0, 51200.0, new[]
+                {
+                    41807.0, 41867.0, 42214.0, 42254.0, 42551.0, 42591.0,
+                    44703.0, 44733.0, 45646.0, 45676.0, 47166.0, 47186.0,
+                    47616.0, 47636.0, 48290.0, 48310.0, 49995.0, 50055.0,
+                    51100.0, 51200.0
+                }),
                 Orbit = new KeplerianElements(
                     19.18916464, 0.04725744, 0.77263783, 313.23810451, 170.95427630, 74.01692503,
                     -0.00196176, -0.00004397, -0.00242939, 428.48202785, 0.40805281, 0.04240589)
@@ -251,6 +263,11 @@ namespace Planet.Solar
                 RadiusKm = 24622.0, Flattening = 0.01708, RotationHours = 16.11,
                 PoleRaDeg = 299.36, PoleDecDeg = 43.46,
                 HasOrbit = true,
+                Rings = new RingSet(40900.0, 62960.0, new[]
+                {
+                    40900.0, 42900.0, 53150.0, 53250.0,
+                    55200.0, 57200.0, 62900.0, 62960.0
+                }),
                 Orbit = new KeplerianElements(
                     30.06992276, 0.00859048, 1.77004347, -55.12002969, 44.96476227, 131.78422574,
                     0.00026291, 0.00005105, 0.00035372, 218.45945325, -0.32241464, -0.00508664)
@@ -287,6 +304,7 @@ namespace Planet.Solar
                 RotationHours = 3.9155,
                 PoleRaDeg = 282.0, PoleDecDeg = -13.0,          // approximate
                 HasOrbit = true,
+                Rings = new RingSet(2252.0, 2322.0),  // 2287 km radius, approximately 70 km width
                 Orbit = new KeplerianElements(
                     43.182, 0.191, 28.21, 219.7, 1.34, 122.16,
                     0.0, 0.0, 0.0, 126.72, 0.0, 0.0)

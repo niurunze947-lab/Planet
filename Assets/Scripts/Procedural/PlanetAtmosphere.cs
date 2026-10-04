@@ -1,5 +1,7 @@
 using UnityEngine;
 
+namespace Planet.Procedural
+{
 /// <summary>
 /// Adds a thin, transparent atmosphere shell around a displaced planet mesh.
 /// The shell is generated in edit mode and is intentionally not serialized as a second mesh.
@@ -10,7 +12,7 @@ using UnityEngine;
 public sealed class PlanetAtmosphere : MonoBehaviour
 {
     [Header("Optional planet feature")]
-    public Planet.Procedural.PlanetDefinition planetDefinition;
+    public PlanetDefinition planetDefinition;
     [Header("Shell")]
     public Material atmosphereMaterial;
     [Tooltip("When enabled, a sibling CelestialBody supplies the current floating-origin radius.")]
@@ -178,7 +180,7 @@ public sealed class PlanetAtmosphere : MonoBehaviour
         if (_shell == null || _renderer == null) return;
         if (autoSyncPlanetRadius)
         {
-            Planet.Procedural.IPlanetRadiusProvider body = GetComponent<Planet.Procedural.IPlanetRadiusProvider>();
+            IPlanetRadiusProvider body = GetComponent<IPlanetRadiusProvider>();
             if (body != null)
             {
                 // SolarSystemSimulation writes RadiusUnits after the body is built. Keep the
@@ -226,4 +228,5 @@ public sealed class PlanetAtmosphere : MonoBehaviour
         _properties.SetVector("_SunDirection", new Vector4(_sunDirection.x, _sunDirection.y, _sunDirection.z, 0f));
         _renderer.SetPropertyBlock(_properties);
     }
+}
 }

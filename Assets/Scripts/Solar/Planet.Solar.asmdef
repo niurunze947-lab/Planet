@@ -1,0 +1,11 @@
+{
+    "name": "Planet.Solar",
+    "rootNamespace": "Planet.Solar",
+    "references": [
+        "Planet.Procedural",
+        "Unity.InputSystem",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Runtime"
+    ],
+    "autoReferenced": true
+}

@@ -8,6 +8,7 @@ Earth 另挂载程序化 Cube Sphere、海洋、云与大气；其余天体沿�
 - 代码目录：`Assets/Scripts/Solar/`、`Assets/Scripts/Procedural/`
 - 着色器：白模、轨道、程序化地表、云、大气和星空，均在 `Assets/Shaders/`
 - 材质与定义：`Assets/Resources/Solar/`；天空与大气材质在 `Assets/Settings/`
+- 程序化星球框架：见 **[PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md)**（Earth 地表 / 云 / 大气的实现）
 - 编辑器工具：菜单 **Tools ▸ Planet**
 
 ---
@@ -163,9 +164,8 @@ transform.rotation = poleRotation * Quaternion.AngleAxis((float)spinDeg, Vector3
 
 ### Earth：统一程序化星球尺度框架
 
-Earth 使用 `ProceduralTerra.asset`，按 `PlanetDefinition → PlanetSurfaceSampler → CubeSphere →
-PlanetSurfaceView` 生成地表。坐标入口 `PlanetCoordinates` 提供经纬度、单位球面方向和双精度
-局部东 / 上 / 北坐标；本轮纬度采用地心纬度，海拔是参考扁球面上的径向距离。
+Earth 使用 `ProceduralTerra.asset`：地表、海洋、生态、云与大气全部由程序化采样生成，没有贴图。
+**框架本身的实现说明见 [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md)**，这里只列本场景当前的取值。
 
 | 项目 | 当前示例 |
 |---|---|
@@ -179,23 +179,11 @@ PlanetSurfaceView` 生成地表。坐标入口 `PlanetCoordinates` 提供经纬�
 | 大气高度 | 80,000 m；壳层赤道半径比 1.012557 |
 | 云壳半径比 | 外层 1.009；使用密度 Cubemap 与视角光程近似 |
 
-`features` 分别提供 `hasOcean`、`hasAtmosphere`、`hasClouds`、`hasEcology`、`hasIceCaps`。
-海平面和地形函数分离，调水位不会移动山脉。液体计算使用：
-
-```text
-seaLevel = terrainMinimum + seaLevelFraction × (terrainMaximum − terrainMinimum)
-waterDepth = max(0, seaLevel − height)
-waterContent = waterDepth / max(seaLevel − terrainMinimum, 1 m)
-oceanMask = 水深 0 … 120 m 的连续过渡
-```
-
-其中 `waterContent` 是归一化水深指标；总水量还需对水深进行面积积分。关闭海洋时保留海底盆地
-几何，不会继续按海平面压平。关闭生态时使用岩石配色。
+`features` 分别提供 `hasOcean`、`hasAtmosphere`、`hasClouds`、`hasEcology`、`hasIceCaps`；
+水位与地形函数分离，改水位不会移动山脉。水体、生物群系与配色的完整规则见框架文档 §7 / §8。
 
 `CelestialBody` 在编辑器初始化时就计算实际场景半径，再通过 `IPlanetRadiusProvider` 供壳层读取；
-大气与云不再强制设置最小直径 0.1。因而 1× 和 `G` 的 400× 模式下，壳层与表面比例相同。
-共享 `PlanetShellMesh` 提供平滑轮廓；晨昏使用有符号光照点积，仅在终止线附近保留弱暖色。
-Cube Sphere 边界采用对称整数网格坐标，保证相邻面的方向输入与地形法线采样一致。
+因而 1× 和 `G` 的 400× 模式下，壳层与表面比例相同。
 
 ### 两条碎带是真的在转
 
@@ -357,9 +345,10 @@ HUD 显示：模拟日期、时间流速、焦点天体的半径/扁率/自转�
 
 | | `PlanetDemo.unity` | `SolarSystem.unity` |
 |---|---|---|
+| 定位 | **渲染精度参考**：星系视角下星球应当精细到什么程度 | **正式工程场景**：功能开发与验证都以此为准 |
 | 内容 | 贴图地球 + 月球特写 | 太阳系白模 + 程序化 Earth |
 | 视觉 | 8K 贴图、法线、地形起伏 | Earth 的程序化地表 / 云 / 大气，其余天体白模 + 经纬网 |
 | 尺度 | 局部（趣味比例） | 太阳 → 柯伊伯带（真实比例） |
 | 说明 | [PLANET-DEMO.md](PLANET-DEMO.md) | 本文件 |
 
-两个场景共用星空天空盒与 URP 设置，互不依赖。
+两个场景共用星空天空盒与 URP 设置，互不依赖；参考场景**不接入程序化框架**。

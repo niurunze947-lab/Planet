@@ -1,28 +1,38 @@
 # Planet — 项目概览
 
 > 更新：2026-10-04 ｜ 数据来源：Unity Editor 实时查询、工程文件与运行时验证。
-> 本版包含真实比例太阳系与 Earth 的程序化星球尺度示例；操作和实现见
-> [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md)，派生资源见 [PLANET-ASSETS.md](PLANET-ASSETS.md)。
+> 本版包含真实比例太阳系与 Earth 的程序化星球尺度示例：场景与轨道见
+> [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md)，程序化星球表面生成框架见
+> [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md)，贴图来源见 [PLANET-ASSETS.md](PLANET-ASSETS.md)。
 
 ---
 
 ## 1. 这是什么
 
-一个 **Unity 2022.3 LTS + URP** 的行星演示工程，现在有两条并行的内容线：
+一个 **Unity 2022.3 LTS + URP** 的行星演示工程，现在有两条并行的内容线，外加一层共用的程序化框架：
 
-**A. 真实数据的地球与月球**（`PlanetDemo.unity`）
+**A. 贴图版地球与月球**（`PlanetDemo.unity`，**仅作参考**）
 
+- 定位：这两颗星球的用途是**星系视角下星球渲染精度的参考基准**，不是工程主线。
+  工程实际的承载场景是 `SolarSystem.unity`；新增功能、比例与验证都以它为准。
 - 地表颜色来自 NASA 真实影像，高程来自真实地形测量数据（含海底地形）
 - 星球**不是贴图球**，几何体由 16 位高程图逐顶点径向位移生成
 - 背景是 NASA 基于 **Gaia DR2（17 亿颗恒星）** 绘制的 HDR 星空
 
-**B. 真实比例的太阳系**（`SolarSystem.unity`）
+**B. 真实比例的太阳系**（`SolarSystem.unity`）← **正式工程文件**
 
 - 从**太阳**到**柯伊伯带**，比例不做任何压缩（海王星就在真实的 30.07 AU）
 - 21 个天体 + 主带 2200 粒子 + 柯伊伯带 5000 粒子，轨道根数取自 JPL/Standish 与 Meeus
 - **自转与公转全部由代码按开普勒方程推算**，不是动画、不是手 K
 - Earth 接入统一程序化地形、海洋、生态色彩、云层和大气，其余天体沿用白模
 - 天空盒保持完整 HDR 星图；可见表面的测光驱动星空整体曝光，经度采样采用周期导数处理接缝
+
+**C. 程序化星球表面生成框架**（服务于 B 的实现层，见 [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md)）
+
+- 权威链 `PlanetDefinition → PlanetSurfaceSampler → CubeSphere → PlanetSurfaceView`：
+  定义是唯一真相，网格与 Cubemap 都是可重建的派生缓存
+- 一套米制采样函数同时供几何、颜色、云密度、星空测光使用，因此贴图与几何不可能对不上
+- 目前**只有 Earth 接入**，其余 20 个天体仍是白模；框架本身与星球半径、场景尺度无关
 
 ---
 
@@ -66,9 +76,11 @@ D:\UnityProjects\Planet\
 ├── _assets_src/                384.2 MB   ← 仅 .py 与 qa/ 入库
 ├── _mcp_setup_backup_20261002/ 配置备份    ← 入库
 ├── .git/                       225.7 MB（含 LFS 对象池）
+├── DEVLOG.md                   开发日志（日期线，细节以各文档为准）
 ├── PLANET-ASSETS.md            资产来源与授权
-├── PLANET-DEMO.md              贴图版地球/月球演示场景说明
-├── PLANET-SOLARSYSTEM.md       真实比例太阳系场景说明
+├── PLANET-DEMO.md              贴图版地球/月球参考场景说明
+├── PLANET-PROCEDURAL.md        程序化星球表面生成框架（实现、参数、限制）
+├── PLANET-SOLARSYSTEM.md       真实比例太阳系场景说明（正式工程场景）
 ├── PROJECT-OVERVIEW.md         本文档
 └── .gitignore / .gitattributes
 ```
@@ -127,28 +139,25 @@ Renderer Feature: ScreenSpaceAmbientOcclusion
 
 ### 天空盒的全包围修复
 
-原材质用的是内置 `Skybox/Panoramic`，`_ImageType` 被设成了 **`1`（180 Degrees）**，
-于是天空盒只铺满朝向 `+Z` 的半边天球，`-Z` / `-X` / `-Y` 三个方向全黑。
+历史症状：天空盒只铺满朝向 `+Z` 的半边天球，`-Z` / `-X` / `-Y` 三个方向全黑。
 
-修复分两步：
+- **采样端已重写**：材质换成工程自有的 `Planet/StarfieldPhysical`，直接用视线方向求
+  `longitude = atan2(x, z)` / `latitude = asin(y)` 采样全天球，**结构上不可能**只覆盖半边；
+  当年内置 `Skybox/Panoramic` 上的 `_ImageType` 开关已不存在。
+- **贴图端仍然必需**：`starmap_2020_4k.exr` 的导入必须是**逐轴** `U = Repeat / V = Clamp / W = Clamp`。
+  单一 `wrapMode` 字段在重新导入时会被覆盖；垂直方向不 Clamp，天极会出现接缝。
 
-1. `_ImageType` 由 `1` 改为 **`0`（360 Degrees）**；`_Mapping` 保持 `1`（Latitude Longitude）、
-   `_MirrorOnBack = 0`、`_Layout = 0`。
-2. `starmap_2020_4k.exr` 的导入由单一 `wrapMode` 改为**逐轴**设置：
-   **U = Repeat，V = Clamp，W = Clamp**。只改 `wrapMode` 字段在重新导入时会被覆盖，
-   逐轴设置才是可靠的写法。垂直方向必须 Clamp，否则天极出现接缝。
-
-> **后续变更**：该材质随后被换成了工程自有的 `Planet/StarfieldPhysical`
-> （`Assets/Shaders/PlanetStarfield.shader`）。该 shader 直接用视线方向求
-> `longitude = atan2(x, z)` / `latitude = asin(y)` 采样全天球，**本身就是全包围的**，
-> 不存在 `_ImageType` 这个开关，因此上面第 1 步的枚举已不再是当前的实现方式；
-> 第 2 步的**逐轴 wrap 设置仍然是必需的**，因为采样的是同一张贴图。
+> 完整过程与六面验证方式见 [PLANET-DEMO.md](PLANET-DEMO.md) §3.1 与 [PLANET-ASSETS.md](PLANET-ASSETS.md) §4.2。
 
 ---
 
 ## 6. 场景
 
 ### `Assets/Scenes/PlanetDemo.unity` ← **build index 0**
+
+> **定位：渲染精度参考场景。** 它演示的是"星系视角下的星球表面应当精细到什么程度"，
+> 是观感与精度的参照物，**不是工程主线**；新增功能与验证都在 `SolarSystem.unity` 上进行。
+> 该场景不接入程序化框架，两者互不依赖（见 §1）。
 
 | 对象 | 组件 | 说明 |
 |---|---|---|
@@ -278,30 +287,31 @@ Unity.Mathematics。地形与纹素缓冲按面并行计算，Unity Mesh / Textu
 
 模板自带的 `Readme.cs` / `ReadmeEditor.cs` 仍在 `Assets/TutorialInfo/`，不影响构建。
 
-### 8.5 程序化星球尺度框架
+### 8.5 程序化星球表面生成框架
 
-权威数据链为 `PlanetDefinition → PlanetSurfaceSampler → CubeSphere / PlanetMeshData → PlanetSurfaceView`。
-参数采用米、秒和千克；`PlanetCoordinates` 支持经纬度、球面方向与双精度东 / 上 / 北局部坐标。
-高度函数与海平面独立，改变水量不会移动山脉。海平面按采样地形最低点与最高点之间的比例推导，
-地表入口输出水深、归一化水含量和连续海洋遮罩；示例粗采样覆盖率约为 56.4%。
+一条**定义驱动**的生成链：`PlanetDefinition → PlanetSurfaceSampler → CubeSphere / PlanetMeshData →
+PlanetSurfaceView`。定义是唯一权威，网格与 Cubemap 都是可重建的派生缓存；采样器是纯函数，
+只按体固单位球方向取值，因此与网格密度、星球半径和场景尺度都无关。
 
-海洋、大气、云、生态、冰帽可由 `features` 分别配置。96 段六面网格约有 56,454 个顶点和
-110,592 个三角形。物理高度保持米制，星球尺度示例使用 4× 几何起伏夸张。
+| 关注点 | 现状 |
+|---|---|
+| 接入范围 | 只有 `SolarSystem.unity` 的 **Earth**；其余 20 个天体仍是白模 |
+| 参数 | 米 / 秒 / 千克；`features` 分别开关海洋、大气、云、生态、冰帽 |
+| 网格 | 6 面 × 96 段，56,454 顶点 / 110,592 三角形；物理高度保持米制，显示用 4× 起伏夸张 |
+| 派生缓存 | 256²×6 Albedo + 128²×6 云密度 Cubemap，指纹存于 importer 元数据，重建保留 GUID |
+| 海平面 | 由地形最低 / 最高点按比例推导（示例 −438.55 m）；与地形函数分离，改水位不会移动山脉 |
+| 壳层 | 半径经 `IPlanetRadiusProvider` 取自模拟，不设固定最小直径；大气比 1.012557、云比 1.009 |
+| 光照 | 不读 URP 级联阴影；云影用共享密度场；96 方向样本驱动全局星空曝光 EV |
 
-- **构建**：`Build Procedural Planet Example` 重算统计、烘焙 256²×6 Albedo 与 128²×6 CloudDensity，再更新场景。
-- **视觉刷新**：`Refresh Procedural Planet Visuals` 复用现有 Cubemap，刷新材质和壳层参数后保存 SolarSystem。
-- **构建缓存**：纹素与网格按面并行；颜色路径省去四邻域坡度计算；指纹存入 importer 元数据，重新烘焙保留已有 GUID。
-- **网格接缝**：六面采用对称整数坐标后统一归一化，相邻边共享相同方向、位置和法线采样。
-- **壳层**：通过 `IPlanetRadiusProvider` 获取场景半径，不设固定最小直径；大气按物理高度计算，Earth 比例为 1.012557，示例云壳为 1.009。
-- **光照与曝光**：行星材质不读取太阳系级联阴影；云影使用共享密度场。96 个方向样本估计可见表面的反照率与受光亮度，平滑更新全局星空 EV，资产材质不会被运行时曝光写回。
-- **接缝**：星图在经度跨界处使用最短周期导数与 `tex2Dgrad`，避免错误 mip 导致的黑竖线；没有半天空灰色覆盖。
+菜单 **Tools ▸ Planet ▸ Build Procedural Planet Example** 走完整条链并保存场景；
+**Refresh Procedural Planet Visuals** 复用现有 Cubemap，只刷新材质与壳层参数。
 
-当前云层与大气为星球尺度近似；完整体积光线步进、地形自阴影、地表流式 LOD 和植被实例尚未实现。
-验证截图为 `procedural_earth_shells_fixed-1.png` 与 `skybox_seam_fixed.png`。真实比例和 400× 放大时
-壳层比值一致；昼 / 夜测光分别约为 −2.39 / +1.33 EV。
-本机完整重建约 11.48 秒，缓存命中重建约 0.93 秒；Cube Sphere 边界位置 / 法线差为零，
-经纬度与局部坐标往返最大误差约 1.3×10⁻⁹ m。时间随机器与参数变化。
-固定暂停姿态连续三次渲染的最大 RGB 像素差为 0/255，未复现闪烁阴影。
+> **完整说明见 [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md)**：设计原则、坐标与单位、高度函数与
+> 水体推导、网格接缝处理、烘焙缓存与指纹、三个着色器的取舍、壳层与半径同步、分辨率预算、
+> 新增天体的步骤、已知限制与踩坑备忘。
+
+仍属近似的部分：云与大气是壳层近似（无体积光线步进、无云自阴影）；地表不投 / 不收 URP 阴影，
+没有地形自遮挡；位移只在网格顶点上，没有位移贴图 / 视差；没有地表流式 LOD 与植被实例。
 
 ---
 
@@ -311,6 +321,7 @@ Unity.Mathematics。地形与纹素缓冲按面并行计算，Unity Mesh / Textu
 分支        : main
 基线提交    : efd0999  "星系浏览产品基线（附最新文档）"
 本轮内容    : 程序化星球可选特性、水体统计、构建优化、大气比例、星空曝光与接缝修复
+文档提交    : 新增 PLANET-PROCEDURAL.md，并同步总览 / 场景 / 资产 / 演示文档的定位与交叉引用
 历史提交    : 110212a（材质修复）、84f07b5（项目总览）、1171425（初始工程）
 ```
 
@@ -393,6 +404,8 @@ Unity.Mathematics。地形与纹素缓冲按面并行计算，Unity Mesh / Textu
 
 9. **`CapturePoses` 必须一个编辑器 tick 只处理一个机位。** 碎带标记走 `Graphics.DrawMeshInstanced`，其提交会保留到**帧末**；在一个循环里同步跑完 11 个机位，会让 11 个不同浮动原点的同一片碎带叠在一帧里画出来，画面变成一圈圈同心甜甜圈。同理，那个函数末尾**不能**调 `AssetDatabase.Refresh()`——它会重载域并把编辑器踢出 Play 模式。
 
+10. **程序化星球：改了采样数学就要提升 `PlanetDefinition.GeneratorVersion`。** 网格与 Cubemap 的缓存判定只看内容指纹；噪声、阈值、公式变了但序列化参数没变时，指纹不变，缓存不会失效——结果是"旧地形套着新参数的颜色"，而且不会有任何报错。细节见 [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §5 与 §19。
+
 ---
 
 ## 13. 文档索引
@@ -400,19 +413,27 @@ Unity.Mathematics。地形与纹素缓冲按面并行计算，Unity Mesh / Textu
 | 文档 | 内容 |
 |---|---|
 | `PROJECT-OVERVIEW.md` | 本文档：工程结构与配置总览 |
+| `DEVLOG.md` | 开发日志：按日期的简要记录与踩坑备忘 |
 | `PLANET-ASSETS.md` | 贴图来源、授权、编码公式、复现步骤 |
-| `PLANET-DEMO.md` | 贴图版地球/月球演示场景：构成、参数、操作方法、"高度图为何是红色" |
-| `PLANET-SOLARSYSTEM.md` | 真实比例太阳系场景：轨道力学、数值验证、坐标系、操作键位、光照取舍 |
+| `PLANET-DEMO.md` | 贴图版地球/月球**参考场景**：构成、参数、操作方法、"高度图为何是红色" |
+| `PLANET-PROCEDURAL.md` | **程序化星球表面生成框架**：数据链、坐标与单位、地形 / 水体 / 云算法、网格与烘焙缓存、着色器取舍、已知限制 |
+| `PLANET-SOLARSYSTEM.md` | 真实比例太阳系场景（正式工程场景）：轨道力学、数值验证、坐标系、操作键位、光照取舍 |
 | `MCP-Setup/MCP-HANDSHAKE-REPORT.md` | 四客户端握手验证记录 |
 | `MCP-Setup/mcp-tool-list.json` | 47 个工具的完整清单 |
+
+> **长期规划刻意不在根目录留档。** 这是为了避免过长的文档挤占注意力；路线图与后续目标另行保存，
+> 根目录只放"当前工程状态"类文档，请勿在此补充规划性内容。
 
 ### 上手顺序建议
 
 1. 打开 `Assets/Scenes/SolarSystem.unity` → Play。按 `1`–`0` 在太阳与行星间飞行，`空格` 暂停，
    `-` / `=` 调时间流速看公转快慢，`L` 开关经纬网看自转。
-2. 想看贴图版地球，打开 `Assets/Scenes/PlanetDemo.unity` → Play。
+2. 想看贴图版地球（精度参考），打开 `Assets/Scenes/PlanetDemo.unity` → Play。
 3. 场景是**代码生成**的：改了 `SolarSystemCatalog` / `SolarSystemFactory` 里的数字后，
    跑一次 **Tools ▸ Planet ▸ Rebuild Solar System Scene**，不要手工在 Hierarchy 里挪物体。
+4. 改程序化星球的外观：先读 [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md)，
+   参数改 `Assets/Resources/Solar/ProceduralTerra.asset`，再跑
+   **Tools ▸ Planet ▸ Build Procedural Planet Example**（改到噪声 / 公式时别忘了提升 `GeneratorVersion`）。
 
 ---
 

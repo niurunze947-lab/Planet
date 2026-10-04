@@ -2,6 +2,7 @@
 
 > 场景文件：`Assets/Scenes/PlanetDemo.unity`（已加入 Build Settings）
 > 打开后按 Play 即可：地球与月球自转，相机缓慢环绕。
+> **定位：渲染精度参考场景**——不是工程主线，正式工程场景是 `SolarSystem.unity`（见 §8）。
 
 ---
 
@@ -212,7 +213,12 @@ PlanetDemo
 
 ## 8. 另见：`SolarSystem.unity`
 
-`Assets/Scenes/SolarSystem.unity` 是按真实比例的太阳系白模场景（太阳 → 柯伊伯带，
-含自转与公转），说明见 **[PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md)**。
-本文件描述的 `PlanetDemo.unity` 仍然是贴图版地球/月球的特写场景，两者互不影响。
+`Assets/Scenes/SolarSystem.unity` 是按真实比例搭建的太阳系场景（太阳 → 柯伊伯带，含自转与公转，
+Earth 使用程序化地表 / 云 / 大气），是**正式工程场景**：功能开发、比例与验证都以它为准。
+说明见 **[PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md)**，程序化星球框架见
+**[PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md)**。
+
+本文件描述的 `PlanetDemo.unity` 是**渲染精度参考场景**：用真实贴图与真实高程演示
+"星系视角下的星球表面应当精细到什么程度"，供 `SolarSystem.unity` 里的星球外观作参照。
+它**不接入程序化框架**，两者互不影响。
 

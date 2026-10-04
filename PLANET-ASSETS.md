@@ -334,17 +334,16 @@ QA 预览图（色彩/高程对照）位于 `_assets_src/qa/`：`earth_qa.png`�
 `Assets/Settings/Atmosphere_Earth.mat` 是大气材质；壳层 Mesh 在内存生成，共享高分辨率球体，
 按米制大气高度和场景半径缩放。纹理全部是派生缓存，权威地形仍是 `PlanetSurfaceSampler`。
 
-海平面由粗采样地形范围与 `seaLevelFraction` 推导；局部输出 `waterDepthMetres`、连续 `ocean`
-遮罩以及归一化 `waterContent`。`waterCoverage` 是粗 Cube Sphere 网格上的采样占比，不能当成精确
-全球面积占比或总液体体积。当前示例约 56.4%；水位与地形高度函数解耦。
+海平面由粗采样地形范围与 `seaLevelFraction` 推导；`waterCoverage` 是粗 Cube Sphere 网格上的
+采样占比，不能当成精确全球面积占比或总液体体积（当前示例约 56.4%）。
 
-构建菜单 **Build Procedural Planet Example** 先保存地形统计，随后按面并行烘焙并逐资产保存。
-颜色路径跳过坡度四邻域计算，云密度单独采样；Unity 纹理上传在主线程。派生指纹写入 `.meta`
-的 importer `userData`，命中时跳过烘焙；替换采用 `CopySerialized` 保留 GUID。只调壳层或光照时，
-可用 **Refresh Procedural Planet Visuals** 复用已生成缓存。
-本机重建实测 11.48 秒，缓存命中重建 0.93 秒；两次构建均保留已有 Cubemap GUID。
+构建菜单 **Build Procedural Planet Example** 按面并行烘焙并逐资产保存；只调壳层或光照时，
+可用 **Refresh Procedural Planet Visuals** 复用已生成缓存。派生指纹写入 `.meta` 的 importer
+`userData`，命中即跳过烘焙；替换采用 `CopySerialized` 保留 GUID。本机实测完整重建 11.48 秒、
+缓存命中 0.93 秒。
 
-当前云与大气是星球尺度近似。云影使用密度场投影项，地形遮挡自阴影和完整体积光线步进尚未加入。
+> 采样函数、参数含义、网格与壳层的实现细节见 **[PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md)**，
+> 本节只负责资产清单。当前云与大气是星球尺度近似；地形遮挡自阴影和完整体积光线步进尚未加入。
 
 ### 白模经纬网
 

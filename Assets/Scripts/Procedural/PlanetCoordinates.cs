@@ -67,7 +67,9 @@ namespace Planet.Procedural
         public static PlanetLocation DirectionToLatLon(double3 direction)
         {
             direction = NormalizeDirection(direction);
-            return new PlanetLocation(Math.Asin(math.clamp(direction.y, -1.0, 1.0)) * Rad2Deg,
+            // atan2 retains precision near the poles, where asin(y) magnifies normalization error.
+            return new PlanetLocation(Math.Atan2(direction.y,
+                Math.Sqrt(direction.x * direction.x + direction.z * direction.z)) * Rad2Deg,
                 WrapLongitude(Math.Atan2(direction.z, direction.x) * Rad2Deg));
         }
 

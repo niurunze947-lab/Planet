@@ -9,18 +9,25 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class PlanetAtmosphere : MonoBehaviour
 {
+    [Header("Optional planet feature")]
+    public Planet.Procedural.PlanetDefinition planetDefinition;
     [Header("Shell")]
     public Material atmosphereMaterial;
-    [Min(0.1f)] public float planetRadius = 1f;
-    [Range(1.001f, 1.20f)] public float shellRadius = 1.055f;
+    [Tooltip("When enabled, a sibling CelestialBody supplies the current floating-origin radius.")]
+    public bool autoSyncPlanetRadius = true;
+    [Min(1e-9f)] public float planetRadius = 1f;
+    [Tooltip("Used when the definition has no atmosphere height or automatic scaling is disabled.")]
+    [Range(1.001f, 1.20f)] public float shellRadius = 1.0125f;
 
     [Header("Scattering")]
     [Range(0f, 2f)] public float density = 0.62f;
     [Range(0.5f, 8f)] public float horizonFalloff = 2.4f;
     [Range(0f, 2f)] public float dayScatter = 0.8f;
-    [Range(0f, 1f)] public float nightScatter = 0.12f;
+    [Range(0f, 1f)] public float nightScatter = 0.025f;
     public Color atmosphereColor = new Color(0.28f, 0.62f, 1f, 1f);
     public Color sunScatterColor = new Color(0.55f, 0.78f, 1f, 1f);
+    public Color twilightColor = new Color(1f, 0.65f, 0.40f, 1f);
+    [Range(0f, 1f)] public float twilightStrength = 0.08f;
 
     private GameObject _shell;
     private MeshRenderer _renderer;
@@ -59,7 +66,7 @@ public sealed class PlanetAtmosphere : MonoBehaviour
         }
     }
 
-    private void Update()
+    private void LateUpdate()
     {
         if (_shell == null || _renderer == null) EnsureShell();
         ApplyProperties();
@@ -84,9 +91,31 @@ public sealed class PlanetAtmosphere : MonoBehaviour
         ApplyProperties();
     }
 
+    public void Refresh()
+    {
+        EnsureShell();
+        ApplyProperties();
+    }
+
     private void EnsureShell()
     {
-        if (_shell != null && _renderer != null) return;
+        if (_shell != null && _renderer != null)
+        {
+            if (atmosphereMaterial != null && _renderer.sharedMaterial != atmosphereMaterial)
+            {
+                _renderer.sharedMaterial = atmosphereMaterial;
+                if (_fallbackMaterial != null)
+                {
+#if UNITY_EDITOR
+                    if (!Application.isPlaying) DestroyImmediate(_fallbackMaterial); else Destroy(_fallbackMaterial);
+#else
+                    Destroy(_fallbackMaterial);
+#endif
+                    _fallbackMaterial = null;
+                }
+            }
+            return;
+        }
 
         Transform existing = transform.Find("AtmosphereShell");
         if (existing != null)
@@ -114,6 +143,7 @@ public sealed class PlanetAtmosphere : MonoBehaviour
         }
 
         if (_renderer == null) return;
+        _shell.GetComponent<MeshFilter>().sharedMesh = Planet.Procedural.PlanetShellMesh.Sphere;
         _renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         _renderer.receiveShadows = false;
         _renderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
@@ -146,9 +176,41 @@ public sealed class PlanetAtmosphere : MonoBehaviour
     private void ApplyProperties()
     {
         if (_shell == null || _renderer == null) return;
+        if (autoSyncPlanetRadius)
+        {
+            Planet.Procedural.IPlanetRadiusProvider body = GetComponent<Planet.Procedural.IPlanetRadiusProvider>();
+            if (body != null)
+            {
+                // SolarSystemSimulation writes RadiusUnits after the body is built. Keep the
+                // temporary shell hidden instead of rendering a unit-radius shell for one frame.
+                if (body.RadiusUnits <= 0f)
+                {
+                    _shell.SetActive(false);
+                    return;
+                }
+                planetRadius = body.RadiusUnits;
+            }
+        }
+        if (planetRadius <= 0f || (planetDefinition != null &&
+            (!planetDefinition.features.hasAtmosphere || planetDefinition.physical.atmosphereHeightMetres <= 0f)))
+        {
+            _shell.SetActive(false);
+            return;
+        }
+        _shell.SetActive(true);
+        float effectiveShellRadius = shellRadius;
+        if (planetDefinition != null && planetDefinition.physical.radiusMetres > 0.0)
+        {
+            // Atmosphere height is physical data, so Earth uses roughly 80 km / 6371 km = 1.0126.
+            effectiveShellRadius = 1f + (float)(planetDefinition.physical.atmosphereHeightMetres /
+                planetDefinition.physical.radiusMetres);
+        }
+        effectiveShellRadius = Mathf.Clamp(effectiveShellRadius, 1.000001f, 1.20f);
         _shell.transform.localPosition = Vector3.zero;
         _shell.transform.localRotation = Quaternion.identity;
-        _shell.transform.localScale = Vector3.one * Mathf.Max(0.1f, planetRadius * shellRadius * 2f);
+        float diameter = planetRadius * effectiveShellRadius * 2f;
+        float flattening = planetDefinition != null ? planetDefinition.physical.flattening : 0f;
+        _shell.transform.localScale = new Vector3(diameter, diameter - planetRadius * flattening * 2f, diameter);
 
         if (_properties == null) _properties = new MaterialPropertyBlock();
         _renderer.GetPropertyBlock(_properties);
@@ -158,6 +220,9 @@ public sealed class PlanetAtmosphere : MonoBehaviour
         _properties.SetFloat("_RimPower", horizonFalloff);
         _properties.SetFloat("_DayScatter", dayScatter);
         _properties.SetFloat("_NightScatter", nightScatter);
+        _properties.SetColor("_TwilightColor", twilightColor);
+        _properties.SetFloat("_TwilightStrength", twilightStrength);
+        _properties.SetFloat("_ForwardGlow", 0.65f);
         _properties.SetVector("_SunDirection", new Vector4(_sunDirection.x, _sunDirection.y, _sunDirection.z, 0f));
         _renderer.SetPropertyBlock(_properties);
     }

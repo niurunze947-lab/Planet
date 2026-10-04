@@ -3,12 +3,17 @@ Shader "Planet/ProceduralSurface"
     Properties
     {
         _AlbedoCube ("Procedural Albedo", Cube) = "white" {}
+        _CloudDensityCube ("Cloud Density", Cube) = "black" {}
         _SeaLevel ("Sea Level (m)", Float) = 0
-        _OceanDepth ("Ocean Depth (m)", Float) = 7200
+        _OceanEnabled ("Ocean Enabled", Float) = 1
+        _CloudShadowEnabled ("Cloud Shadows Enabled", Float) = 1
+        _WaterCoverage ("Water Coverage", Range(0, 1)) = 0.65
+        _CloudShadowStrength ("Cloud Shadow Strength", Range(0, 1)) = 0.32
+        _CloudShadowOffset ("Cloud Shadow Offset", Range(0, 0.2)) = 0.035
         _OceanTint ("Ocean Tint", Color) = (0.82, 0.94, 1.0, 1)
-        _OceanSmoothness ("Ocean Smoothness", Range(0, 1)) = 0.92
-        _LandSmoothness ("Land Smoothness", Range(0, 1)) = 0.18
-        _NightAmbient ("Night Ambient", Range(0, 0.2)) = 0.012
+        _OceanSmoothness ("Ocean Smoothness", Range(0, 1)) = 0.42
+        _LandSmoothness ("Land Smoothness", Range(0, 1)) = 0.12
+        _NightAmbient ("Night Ambient", Range(0, 0.2)) = 0.028
         _RimColor ("Atmosphere Rim", Color) = (0.16, 0.42, 0.95, 1)
         _RimStrength ("Atmosphere Rim Strength", Range(0, 2)) = 0.42
         _RimPower ("Atmosphere Rim Power", Range(0.5, 8)) = 2.7
@@ -26,18 +31,21 @@ Shader "Planet/ProceduralSurface"
             HLSLPROGRAM
             #pragma vertex Vert
             #pragma fragment Frag
-            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE
-            #pragma multi_compile_fragment _ _SHADOWS_SOFT
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
             TEXTURECUBE(_AlbedoCube); SAMPLER(sampler_AlbedoCube);
+            TEXTURECUBE(_CloudDensityCube); SAMPLER(sampler_CloudDensityCube);
 
             CBUFFER_START(UnityPerMaterial)
                 half4 _OceanTint;
                 half4 _RimColor;
                 half _SeaLevel;
-                half _OceanDepth;
+                half _OceanEnabled;
+                half _CloudShadowEnabled;
+                half _WaterCoverage;
+                half _CloudShadowStrength;
+                half _CloudShadowOffset;
                 half _OceanSmoothness;
                 half _LandSmoothness;
                 half _NightAmbient;
@@ -85,22 +93,51 @@ Shader "Planet/ProceduralSurface"
                 half3 radialNormal = normalize(input.sphereNormalWS);
                 half3 terrainNormal = normalize(input.normalWS);
                 half height = input.surfaceData.x;
-                half ocean = saturate((-height + _SeaLevel) / max(_OceanDepth, 1.0h));
+                half slope = saturate(input.surfaceData.y / 42.0h);
+                // The mesh carries the smooth, derived liquid coverage in TEXCOORD2.z. It is
+                // computed from sea level minus terrain height, so it remains correct when the
+                // terrain range or water inventory changes.
+                half ocean = saturate(input.surfaceData.z);
+                ocean *= _OceanEnabled;
                 half3 normal = normalize(lerp(terrainNormal, radialNormal, ocean));
                 half3 viewDirection = normalize(_WorldSpaceCameraPos.xyz - input.positionWS);
-                Light mainLight = GetMainLight(input.shadowCoord);
+                // Planetary bodies are far outside the useful range of URP shadow cascades in
+                // this solar-system scene. Sampling that shadow map caused the visible flickering
+                // half-disc and a moving cascade seam. Use the stable directional light term and
+                // keep cloud shadows in the procedural cubemap below.
+                Light mainLight = GetMainLight();
                 half3 lightDirection = normalize(mainLight.direction);
                 half ndotl = dot(normal, lightDirection);
-                half wrappedDiffuse = saturate((ndotl + 0.10h) / 1.10h);
+                half radialLight = dot(radialNormal, lightDirection);
+                // Use the spheroid normal for the day/night transition. Terrain normals still
+                // shape the lit side, but cannot turn the global terminator into a hard straight
+                // shadow boundary or amplify a Cube Sphere face seam.
+                half twilight = smoothstep(-0.32h, 0.30h, radialLight);
+                half reliefDiffuse = saturate(ndotl);
+                half direct = twilight * (0.16h + 0.84h * reliefDiffuse);
                 half sunFacing = saturate(dot(radialNormal, lightDirection));
                 half3 albedo = SAMPLE_TEXTURECUBE(_AlbedoCube, sampler_AlbedoCube, directionOS).rgb;
                 albedo = lerp(albedo, albedo * _OceanTint.rgb, ocean * 0.38h);
+                // Steep terrain loses direct sky fill and appears more rock-like. This gives
+                // mountains readable form even where the albedo palette is deliberately broad.
+                albedo *= lerp(1.0h, 0.72h, slope * (1.0h - ocean));
 
-                half3 color = albedo * (_NightAmbient + wrappedDiffuse * mainLight.color * mainLight.shadowAttenuation);
+                half cloudDensity = 0.0h;
+                if (_CloudShadowEnabled > 0.5h)
+                {
+                    float3 lightDirectionOS = normalize(TransformWorldToObjectDir(lightDirection));
+                    float3 cloudDirection = normalize(directionOS + lightDirectionOS * _CloudShadowOffset);
+                    cloudDensity = SAMPLE_TEXTURECUBE(_CloudDensityCube, sampler_CloudDensityCube, cloudDirection).r;
+                }
+                half cloudShadow = 1.0h - cloudDensity * _CloudShadowStrength * saturate(twilight);
+                half3 color = albedo * (_NightAmbient + direct * mainLight.color * cloudShadow);
                 half smoothness = lerp(_LandSmoothness, _OceanSmoothness, ocean);
                 half3 halfVector = normalize(lightDirection + viewDirection);
-                half specular = pow(saturate(dot(normal, halfVector)), lerp(24.0h, 128.0h, smoothness));
-                specular *= lerp(0.025h, 0.70h, ocean) * sunFacing * mainLight.shadowAttenuation;
+                // Ocean highlights stay wide at planetary scale. The old exponent of 128 made
+                // the cubemap read as sharp, tiled wave normals from orbit.
+                half specular = pow(saturate(dot(normal, halfVector)), lerp(7.0h, 30.0h, smoothness));
+                specular *= lerp(0.018h, 0.20h, ocean) * sunFacing * saturate(twilight) *
+                    cloudShadow;
                 color += specular * mainLight.color;
 
                 half horizon = pow(saturate(1.0h - dot(radialNormal, viewDirection)), _RimPower);

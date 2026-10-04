@@ -10,7 +10,7 @@ namespace Planet.Solar
     /// </summary>
     [ExecuteAlways]
     [DisallowMultipleComponent]
-    public class CelestialBody : MonoBehaviour
+    public class CelestialBody : MonoBehaviour, IPlanetRadiusProvider
     {
         [Tooltip("Name used to look the body up in SolarSystemCatalog.")]
         public string bodyName = "Earth";
@@ -83,18 +83,6 @@ namespace Planet.Solar
             EnsureDefinition();
             if (Definition == null) return;
 
-            _proceduralSurface = GetComponent<PlanetSurfaceView>();
-            if (_proceduralSurface != null && _proceduralSurface.definition != null)
-            {
-                // The procedural view owns the derived Cube Sphere mesh and material. Keeping this
-                // branch here means the solar-system transform/orbit code remains the same for a
-                // catalog body and a generated body.
-                _proceduralSurface.BuildSurface(1f);
-                _surface = _proceduralSurface.SurfaceTransform;
-                _surfaceFilter = _surface != null ? _surface.GetComponent<MeshFilter>() : null;
-                return;
-            }
-
             // ---- pole, in Unity world axes -------------------------------------------------
             Vec3d poleEcliptic = OrbitalMechanics.PoleFromRaDec(Definition.PoleRaDeg, Definition.PoleDecDeg);
             Vector3 pole = OrbitalMechanics.ToUnity(poleEcliptic, 1.0).normalized;
@@ -111,6 +99,23 @@ namespace Planet.Solar
                 }
             }
             PoleUnity = pole;
+
+            // The render scale is needed in edit mode and during OnEnable, before the first
+            // simulation tick. Never build a unit-radius Earth in a million-km-per-unit scene.
+            SolarSystemSimulation simulation = GetComponentInParent<SolarSystemSimulation>();
+            if (simulation != null)
+                RadiusUnits = (float)(Definition.RadiusKm / simulation.KmPerUnit *
+                    Mathf.Max(simulation.bodySizeExaggeration, 1e-6f));
+            else if (RadiusUnits <= 0f) RadiusUnits = 1f;
+
+            _proceduralSurface = GetComponent<PlanetSurfaceView>();
+            if (_proceduralSurface != null && _proceduralSurface.definition != null)
+            {
+                _proceduralSurface.BuildSurface(RadiusUnits);
+                _surface = _proceduralSurface.SurfaceTransform;
+                _surfaceFilter = _surface != null ? _surface.GetComponent<MeshFilter>() : null;
+                return;
+            }
 
             // ---- surface -------------------------------------------------------------------
             if (_surface == null)
@@ -194,6 +199,19 @@ namespace Planet.Solar
             if (_proceduralSurface != null && _proceduralSurface.definition != null)
                 _proceduralSurface.SetRadius(radiusUnits);
             else if (_surface != null) _surface.localScale = Vector3.one * radiusUnits;
+
+            PlanetAtmosphere atmosphere = GetComponent<PlanetAtmosphere>();
+            if (atmosphere != null)
+            {
+                atmosphere.planetRadius = radiusUnits;
+                atmosphere.Refresh();
+            }
+            PlanetCloudLayer clouds = GetComponent<PlanetCloudLayer>();
+            if (clouds != null)
+            {
+                clouds.planetRadius = radiusUnits;
+                clouds.Refresh();
+            }
 
             if (_rings != null && _rings.gameObject.activeSelf && Definition != null && Definition.Rings.HasValue)
             {

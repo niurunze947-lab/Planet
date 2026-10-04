@@ -366,6 +366,9 @@ namespace Planet.Solar
                 if (dir.sqrMagnitude > 1e-12f)
                     sunLight.transform.rotation = Quaternion.LookRotation(dir.normalized, Vector3.up);
                 sunLight.intensity = Mathf.Clamp(intensityBase, 0f, 20f);
+                // The planet shader uses stable analytic lighting and deterministic cloud
+                // shadows. The solar-system shadow atlas cannot cover these astronomical ranges.
+                sunLight.shadows = LightShadows.None;
             }
 
             // Line widths are held at a constant fraction of the viewing distance so an orbit is

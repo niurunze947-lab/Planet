@@ -1,10 +1,10 @@
 # Planet — 地球与月球真实资产
 
-> 全部来自 NASA / 公共领域真实探测数据，非手绘、非生成式贴图。
+> §1–7 的地月与星图资产来自 NASA / 公共领域真实探测数据；§8 的程序化资源由工程自行生成。
 > 采集日期：2026-10-02 ｜ 处理脚本见 `_assets_src/`
 >
-> 本版新增：星空天空盒贴图的**逐轴 wrap 设置**（§4.2），以及
-> **真实比例太阳系场景完全不需要贴图**的说明（§8）。
+> 更新：2026-10-04。§4 记录 HDR 星空导入与经度接缝修复，§8 记录 SolarSystem 的程序化
+> Earth 派生资源。真实 NASA 资产与程序化资源使用不同的数据来源。
 
 ---
 
@@ -32,10 +32,10 @@
 
 > 海洋遮罩直接取自高程数据的 `h ≤ 0`，实测海洋占比 **70.5%**，与真实地球约 71% 吻合。
 
-> 演示场景与星空天空盒见 **`PLANET-DEMO.md`**。真实比例太阳系场景（**不使用任何贴图**）
+> 演示场景与星空天空盒见 **`PLANET-DEMO.md`**。真实比例太阳系与程序化 Earth 场景
 > 见 **`PLANET-SOLARSYSTEM.md`** 与本文 §8。
 
-全部为**等距圆柱投影（equirectangular / Plate Carrée）**，即标准 UV 球面贴图，经度 −180°…+180° 从左到右，纬度 +90°…−90° 从上到下。可直接用于 Unity 的球体 UV 或自定义 shader 采样，**无需再投影**。
+§1 清单中的真实数据贴图为**等距圆柱投影（equirectangular / Plate Carrée）**，即标准 UV 球面贴图，经度 −180°…+180° 从左到右，纬度 +90°…−90° 从上到下。可直接用于 Unity 的球体 UV 或自定义 shader 采样，**无需再投影**。
 
 ---
 
@@ -181,6 +181,21 @@ textureType = Default    alphaSource = None
 这一设置与天空盒用的是内置 `Skybox/Panoramic` 还是工程自有的 `Planet/StarfieldPhysical`
 无关——两者采样的是同一张贴图，**U 环绕 / V 钳制的组合都必须保持**。
 
+### 4.3 经度接缝的 mip 采样修复
+
+仅设置 U Repeat 无法解决导数跳变：经度在 `atan2` 的 ±π 处跳过一个整周期，普通 `tex2D`
+隐式求导会把这一差值当成一个巨大纹理足迹，选择最模糊的 mip，形成竖向暗线。当前 Shader：
+
+1. 在 `frac` 包装前计算 UV 的屏幕导数；
+2. 对经度导数使用 `delta -= round(delta)`，取最短周期差；
+3. 使用 `tex2Dgrad` 和校正后的导数采样，纬度钳制到边缘纹素中心。
+
+没有对星图进行接缝模糊带处理，也没有修改 NASA 源 EXR。验证相机正对经度接缝：
+`Assets/Screenshots/skybox_seam_fixed.png`。
+
+天空整体曝光由 `PlanetLightingController` 的可见表面测光近似驱动，全局 EV 不写入材质资产。
+`_DayFadePower`、`_DayIntensity` 和 `_HorizonGlow` 的半天空方案已由此替换。
+
 ---
 
 ## 5. 使用建议
@@ -276,36 +291,62 @@ QA 预览图（色彩/高程对照）位于 `_assets_src/qa/`：`earth_qa.png`�
 
 ---
 
-## 8. 太阳系场景：零贴图
+## 8. 太阳系场景：白模与程序化 Earth 资源
 
 `Assets/Scenes/SolarSystem.unity`（真实比例太阳系，见 `PLANET-SOLARSYSTEM.md`）
-**不使用本文档的任何一张贴图**，也不使用 `Assets/Textures/` 下的任何文件——它一张贴图都没有。
+使用同一张 NASA HDR 星空；Earth 的地表与云来自种子采样后烘焙的 Cubemap，其余天体继续使用白模。
+程序化 Earth 不使用本文件中的 NASA 地球色彩 / DEM 来生成大陆，因此示例地貌不对应真实地球。
 
 | 项 | `PlanetDemo` | `SolarSystem` |
 |---|---|---|
-| 贴图数量 | 12 张（182.9 MB 磁盘 / 319.5 MB 显存） | **0** |
-| 星球外观 | 8K 反照率 + 法线 + 金属度/光滑度 | 纯色白模 + 由 UV 生成的经纬网 |
-| 几何来源 | 16 位高程图逐顶点位移 | 程序化 UV 球（`SolarMeshFactory`） |
+| 表面贴图 | 真实色彩、高程、法线与材质图 | Earth Albedo / CloudDensity Cubemap，其余天体无表面贴图 |
+| 星球外观 | 8K 反照率 + 法线 + 金属度/光滑度 | 程序化 Earth + 其余白模经纬网 |
+| 几何来源 | 16 位高程图逐顶点位移 | Earth 六面 Cube Sphere，其他天体使用 `SolarMeshFactory` |
 | 天空盒 | `starmap_2020_4k.exr`（共用） | 同左（**唯一共用的贴图**） |
 
 ### 白模材质（`Assets/Resources/Solar/`）
 
-太阳系场景用到的 5 个材质（该目录下还有程序化星球框架用的其它材质，与本场景无关）：
+太阳系场景保留 5 个白模 / 轨道材质：
 
 | 材质 | 着色器 | 用途 |
 |---|---|---|
-| `WhiteClay.mat` | `Planet/ClayGrid` | 全部 21 个天体 |
+| `WhiteClay.mat` | `Planet/ClayGrid` | 其余白模天体 |
 | `WhiteRing.mat` | `Planet/ClayGrid`（`_GridStrength = 0`） | 土星环 |
 | `WhiteSun.mat` | URP/Lit（自发光） | 太阳 |
 | `BeltMarker.mat` | URP/Unlit（`enableInstancing`） | 碎带标记点 |
 | `OrbitLine.mat` | `Planet/OrbitLine` | 轨道线 |
 
-**为什么可以直接不要贴图**：比例是这个场景的重点，不是外观。在 1 场景单位 = 1,000,000 km
+**白模的用途**：全太阳系观察时比例是重点。在 1 场景单位 = 1,000,000 km
 的尺度下，地球直径只有 0.0127 个场景单位；贴 8K 反照率的地球和贴一张纯色图的地球，
 在能看清整个太阳系的视距下**没有任何可见差别**，却要多付 319.5 MB 显存。
 把预算留给碎带（7200 个实例）和轨道线更值。
 
-### 唯一"像贴图"的东西是程序生成的
+### Earth 的程序化派生资源
+
+| 资源（`Assets/Resources/Solar/`） | 内容 |
+|---|---|
+| `ProceduralTerra.asset` | 权威物理 / 地形 / 气候参数、种子 271828、可选特性与地形统计 |
+| `ProceduralTerra_Albedo.cubemap` | 256²×6、线性 RGBA32、mipmap；约 2 MiB GPU 缓存 |
+| `ProceduralTerra_CloudDensity.cubemap` | 128²×6、线性 RGBA32、mipmap；约 0.5 MiB GPU 缓存 |
+| `ProceduralTerraSurface.mat` | 程序化表面与确定性云影 |
+| `ProceduralTerraClouds.mat` | 云壳密度 / 视角光程近似 |
+
+`Assets/Settings/Atmosphere_Earth.mat` 是大气材质；壳层 Mesh 在内存生成，共享高分辨率球体，
+按米制大气高度和场景半径缩放。纹理全部是派生缓存，权威地形仍是 `PlanetSurfaceSampler`。
+
+海平面由粗采样地形范围与 `seaLevelFraction` 推导；局部输出 `waterDepthMetres`、连续 `ocean`
+遮罩以及归一化 `waterContent`。`waterCoverage` 是粗 Cube Sphere 网格上的采样占比，不能当成精确
+全球面积占比或总液体体积。当前示例约 56.4%；水位与地形高度函数解耦。
+
+构建菜单 **Build Procedural Planet Example** 先保存地形统计，随后按面并行烘焙并逐资产保存。
+颜色路径跳过坡度四邻域计算，云密度单独采样；Unity 纹理上传在主线程。派生指纹写入 `.meta`
+的 importer `userData`，命中时跳过烘焙；替换采用 `CopySerialized` 保留 GUID。只调壳层或光照时，
+可用 **Refresh Procedural Planet Visuals** 复用已生成缓存。
+本机重建实测 11.48 秒，缓存命中重建 0.93 秒；两次构建均保留已有 Cubemap GUID。
+
+当前云与大气是星球尺度近似。云影使用密度场投影项，地形遮挡自阴影和完整体积光线步进尚未加入。
+
+### 白模经纬网
 
 白模着色器上的经纬网由**网格自带的 UV** 算出来（`frac(uv * 划分数)` + `fwidth` 保持恒定像素宽），
 不是一张贴图，也不占显存。加它的原因很实际：**一个完全均匀的白色球体，转与不转看起来
@@ -327,8 +368,8 @@ QA 预览图（色彩/高程对照）位于 `_assets_src/qa/`：`earth_qa.png`�
 | 场景 | 贴图显存 | 说明 |
 |---|---|---|
 | `PlanetDemo` | **319.5 MB** | 12 张全载（§5 表） |
-| `SolarSystem` | **≈ 85.3 MB** | 只有星空 EXR 一张 |
+| `SolarSystem` | **≈ 87.8 MiB** | 星空 EXR + Earth Albedo / CloudDensity 缓存，未含 Mesh 与 CPU 镜像 |
 
-两个场景共用 `starmap_2020_4k`，所以同时加载两者时不是简单相加，实际约 **319.5 MB**（天空盒只算一次）。
+两个场景共用 `starmap_2020_4k`，所以同时加载两者时不是简单相加；程序化 Earth 缓存另加约 2.5 MiB。
 若内存吃紧，**优先降星空图**：换成 2K EXR 可从 85.3 MB 降到约 21 MB，而它对两个场景都是背景，
 视觉损失最小。

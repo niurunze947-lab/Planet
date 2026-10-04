@@ -1,4 +1,5 @@
 using System;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Planet.Procedural
@@ -31,6 +32,14 @@ namespace Planet.Procedural
         [Range(2, 8)] public int continentOctaves = 6;
         [Min(0f)] public float oceanDepthMetres = 7200f;
         [Min(0f)] public float plateauHeightMetres = 1600f;
+        [Tooltip("Sea level as a fraction between the generated terrain minimum and maximum.")]
+        [Range(0f, 1f)] public float seaLevelFraction = 0.52f;
+        [Tooltip("Derived statistics from the same height function. They are cache values, not a second terrain source.")]
+        public float terrainMinimumMetres = -7200f;
+        public float terrainMaximumMetres = 8000f;
+        [Range(0f, 1f)] public float waterCoverage;
+        [Tooltip("Visual globe relief multiplier. Physical height queries remain in metres.")]
+        [Range(1f, 12f)] public float visualReliefScale = 4f;
 
         [Header("Relief")]
         [Min(0.1f)] public float mountainFrequency = 12f;
@@ -45,6 +54,27 @@ namespace Planet.Procedural
         [Range(-0.3f, 0.3f)] public float temperatureOffset;
         [Range(-0.3f, 0.3f)] public float moistureOffset = 0.02f;
         [Min(0f)] public float altitudeCoolingPerKilometre = 0.085f;
+
+        [Header("Cloud field")]
+        [Min(0.1f)] public float cloudFrequency = 5.4f;
+        [Range(0f, 1f)] public float cloudCoverage = 0.49f;
+        [Range(0f, 1f)] public float cloudSoftness = 0.18f;
+        [Min(0.1f)] public float cloudDetailFrequency = 23f;
+    }
+
+    [Serializable]
+    public sealed class PlanetFeatureOptions
+    {
+        [Tooltip("Creates liquid coverage and ocean shading from the derived sea level.")]
+        public bool hasOcean = true;
+        [Tooltip("Enables atmospheric scattering and the limb glow shell.")]
+        public bool hasAtmosphere = true;
+        [Tooltip("Enables the procedural cloud shell and its surface shadow term.")]
+        public bool hasClouds = true;
+        [Tooltip("Enables temperature/moisture driven biome colors.")]
+        public bool hasEcology = true;
+        [Tooltip("Enables polar ice colors.")]
+        public bool hasIceCaps = true;
     }
 
     [Serializable]
@@ -66,11 +96,12 @@ namespace Planet.Procedural
     [CreateAssetMenu(menuName = "Planet/Planet Definition", fileName = "PlanetDefinition")]
     public sealed class PlanetDefinition : ScriptableObject
     {
-        public const int GeneratorVersion = 1;
+        public const int GeneratorVersion = 2;
         public string displayName = "Procedural Terra";
         public PlanetPhysicalParameters physical = new PlanetPhysicalParameters();
         public PlanetGenerationParameters generation = new PlanetGenerationParameters();
         public PlanetPalette palette = new PlanetPalette();
+        public PlanetFeatureOptions features = new PlanetFeatureOptions();
 
         public PlanetSurfaceSampler CreateSampler()
         {
@@ -82,7 +113,8 @@ namespace Planet.Procedural
         {
             ValidateParameters();
             return Hash128.Compute(GeneratorVersion + ":" + JsonUtility.ToJson(physical) + ":" +
-                JsonUtility.ToJson(generation) + ":" + JsonUtility.ToJson(palette)).ToString();
+                JsonUtility.ToJson(generation) + ":" + JsonUtility.ToJson(palette) + ":" +
+                JsonUtility.ToJson(features)).ToString();
         }
 
         public void ValidateParameters()
@@ -90,6 +122,7 @@ namespace Planet.Procedural
             if (physical == null) physical = new PlanetPhysicalParameters();
             if (generation == null) generation = new PlanetGenerationParameters();
             if (palette == null) palette = new PlanetPalette();
+            if (features == null) features = new PlanetFeatureOptions();
             physical.radiusMetres = Math.Max(1000.0, physical.radiusMetres);
             physical.massKilograms = Math.Max(0.0, physical.massKilograms);
             physical.flattening = Mathf.Clamp(physical.flattening, 0f, 0.2f);
@@ -104,8 +137,67 @@ namespace Planet.Procedural
             generation.plateauHeightMetres = Mathf.Max(0f, generation.plateauHeightMetres);
             generation.mountainHeightMetres = Mathf.Max(0f, generation.mountainHeightMetres);
             generation.detailHeightMetres = Mathf.Max(0f, generation.detailHeightMetres);
+            generation.seaLevelFraction = Mathf.Clamp01(generation.seaLevelFraction);
+            generation.visualReliefScale = Mathf.Clamp(generation.visualReliefScale, 1f, 12f);
+            generation.cloudFrequency = Mathf.Max(0.1f, generation.cloudFrequency);
+            generation.cloudDetailFrequency = Mathf.Max(0.1f, generation.cloudDetailFrequency);
+            generation.cloudCoverage = Mathf.Clamp01(generation.cloudCoverage);
+            generation.cloudSoftness = Mathf.Clamp01(generation.cloudSoftness);
             generation.slopeSampleDistanceMetres = Mathf.Clamp(generation.slopeSampleDistanceMetres,
                 10f, (float)physical.radiusMetres * 0.02f);
+        }
+
+        /// <summary>
+        /// Derives the sea level from the range of the authoritative height function. This makes
+        /// water coverage a consequence of terrain plus a planet-level water setting, rather than
+        /// a hard-coded ocean mask.
+        /// </summary>
+        public void RecalculateTerrainStatistics(int resolution = 24)
+        {
+            ValidateParameters();
+            resolution = Mathf.Clamp(resolution, 4, 64);
+            PlanetSurfaceSampler sampler = new PlanetSurfaceSampler(this);
+            float min = float.PositiveInfinity;
+            float max = float.NegativeInfinity;
+            for (int face = 0; face < 6; face++)
+            {
+                for (int y = 0; y <= resolution; y++)
+                for (int x = 0; x <= resolution; x++)
+                {
+                    float2 uv = new float2(x, y) * (2f / resolution) - 1f;
+                    float h = sampler.EvaluateHeight(CubeSphere.Direction((PlanetCubeFace)face, uv));
+                    min = Mathf.Min(min, h);
+                    max = Mathf.Max(max, h);
+                }
+            }
+
+            generation.terrainMinimumMetres = min;
+            generation.terrainMaximumMetres = Mathf.Max(max, min + 1f);
+            physical.seaLevelMetres = features.hasOcean
+                ? Mathf.Lerp(min, generation.terrainMaximumMetres, generation.seaLevelFraction)
+                : 0f;
+
+            if (!features.hasOcean)
+            {
+                generation.waterCoverage = 0f;
+                return;
+            }
+
+            sampler = new PlanetSurfaceSampler(this);
+            int water = 0;
+            int total = 0;
+            for (int face = 0; face < 6; face++)
+            {
+                for (int y = 0; y <= resolution; y++)
+                for (int x = 0; x <= resolution; x++)
+                {
+                    float2 uv = new float2(x, y) * (2f / resolution) - 1f;
+                    float h = sampler.EvaluateHeight(CubeSphere.Direction((PlanetCubeFace)face, uv));
+                    if (h < physical.seaLevelMetres) water++;
+                    total++;
+                }
+            }
+            generation.waterCoverage = total > 0 ? (float)water / total : 0f;
         }
 
         private void OnValidate() { ValidateParameters(); }

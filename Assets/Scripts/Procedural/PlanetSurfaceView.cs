@@ -16,6 +16,7 @@ namespace Planet.Procedural
 
         [Header("Derived visual assets")]
         public Cubemap albedoCubemap;
+        public Cubemap cloudDensityCubemap;
         public Material surfaceMaterial;
 
         [Header("Globe mesh")]
@@ -75,8 +76,11 @@ namespace Planet.Procedural
             _surface.GetComponent<MeshFilter>().sharedMesh = _mesh;
             MeshRenderer renderer = _surface.GetComponent<MeshRenderer>();
             renderer.sharedMaterial = ResolveMaterial();
-            renderer.shadowCastingMode = ShadowCastingMode.On;
-            renderer.receiveShadows = true;
+            // The solar-system directional shadow atlas is not useful at astronomical scale and
+            // introduces unstable cascades across the planet disc. Surface form is lit by the
+            // shader's direct term plus the deterministic cloud-shadow field.
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
             renderer.lightProbeUsage = LightProbeUsage.Off;
             renderer.reflectionProbeUsage = ReflectionProbeUsage.BlendProbes;
             renderer.motionVectorGenerationMode = MotionVectorGenerationMode.ForceNoMotion;
@@ -89,6 +93,13 @@ namespace Planet.Procedural
         {
             _radiusUnits = Mathf.Max(radiusUnits, 1e-6f);
             if (_surface != null) _surface.localScale = Vector3.one * _radiusUnits;
+        }
+
+        public void RefreshMaterial()
+        {
+            if (_surface == null) return;
+            MeshRenderer renderer = _surface.GetComponent<MeshRenderer>();
+            if (renderer != null) renderer.sharedMaterial = ResolveMaterial();
         }
 
         private void EnsureSurfaceObject()
@@ -110,8 +121,12 @@ namespace Planet.Procedural
             {
                 if (surfaceMaterial.HasProperty("_AlbedoCube") && albedoCubemap != null)
                     surfaceMaterial.SetTexture("_AlbedoCube", albedoCubemap);
+                if (surfaceMaterial.HasProperty("_CloudDensityCube"))
+                    surfaceMaterial.SetTexture("_CloudDensityCube", cloudDensityCubemap);
                 if (surfaceMaterial.HasProperty("_SeaLevel")) surfaceMaterial.SetFloat("_SeaLevel", definition.physical.seaLevelMetres);
-                if (surfaceMaterial.HasProperty("_OceanDepth")) surfaceMaterial.SetFloat("_OceanDepth", definition.generation.oceanDepthMetres);
+                if (surfaceMaterial.HasProperty("_OceanEnabled")) surfaceMaterial.SetFloat("_OceanEnabled", definition.features.hasOcean ? 1f : 0f);
+                if (surfaceMaterial.HasProperty("_WaterCoverage")) surfaceMaterial.SetFloat("_WaterCoverage", definition.generation.waterCoverage);
+                if (surfaceMaterial.HasProperty("_CloudShadowEnabled")) surfaceMaterial.SetFloat("_CloudShadowEnabled", definition.features.hasClouds && cloudDensityCubemap != null ? 1f : 0f);
                 return surfaceMaterial;
             }
 
@@ -126,8 +141,11 @@ namespace Planet.Procedural
                 _runtimeMaterial = new Material(shader) { hideFlags = HideFlags.DontSave };
             }
             if (albedoCubemap != null) _runtimeMaterial.SetTexture("_AlbedoCube", albedoCubemap);
+            if (cloudDensityCubemap != null) _runtimeMaterial.SetTexture("_CloudDensityCube", cloudDensityCubemap);
             _runtimeMaterial.SetFloat("_SeaLevel", definition.physical.seaLevelMetres);
-            _runtimeMaterial.SetFloat("_OceanDepth", definition.generation.oceanDepthMetres);
+            _runtimeMaterial.SetFloat("_OceanEnabled", definition.features.hasOcean ? 1f : 0f);
+            _runtimeMaterial.SetFloat("_WaterCoverage", definition.generation.waterCoverage);
+            _runtimeMaterial.SetFloat("_CloudShadowEnabled", definition.features.hasClouds && cloudDensityCubemap != null ? 1f : 0f);
             return _runtimeMaterial;
         }
     }

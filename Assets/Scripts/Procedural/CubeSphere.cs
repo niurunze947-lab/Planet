@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using Unity.Mathematics;
 using UnityEngine;
 
@@ -66,14 +67,17 @@ namespace Planet.Procedural
             int side = resolution + 1;
             int perFace = side * side;
             var data = new PlanetMeshData(perFace * 6, resolution * resolution * 36);
-            int t = 0;
-            for (int face = 0; face < 6; face++)
+            Parallel.For(0, 6, faceValue =>
             {
+                int face = faceValue;
                 for (int y = 0; y <= resolution; y++)
                 for (int x = 0; x <= resolution; x++)
                 {
                     int index = face * perFace + y * side + x;
-                    float2 uv = new float2(x, y) * (2f / resolution) - 1f;
+                    // Form the signed grid coordinate before dividing. Opposite cube edges then
+                    // receive bit-identical values instead of slightly different subtraction
+                    // roundoff, which the finite-difference terrain normals would amplify.
+                    float2 uv = new float2(2 * x - resolution, 2 * y - resolution) / resolution;
                     float3 d = Direction((PlanetCubeFace)face, uv);
                     PlanetSurfaceSample sample = sampler.Evaluate(d);
                     data.positions[index] = sampler.SurfacePosition(d, sample.heightMetres);
@@ -83,8 +87,11 @@ namespace Planet.Procedural
                     data.normals[index] = math.normalize(math.lerp(sample.normal, radialNormal, sample.ocean));
                     data.directions[index] = d;
                     data.faceUV[index] = (uv + 1f) * 0.5f;
-                    data.samples[index] = new Vector4(sample.heightMetres, sample.slopeDegrees, sample.temperature, sample.moisture);
+                    // x = physical height, y = slope, z = smooth ocean mask, w = water content.
+                    data.samples[index] = new Vector4(sample.heightMetres, sample.slopeDegrees, sample.ocean, sample.waterContent);
                 }
+                int triangleOffset = face * resolution * resolution * 6;
+                int t = triangleOffset;
                 for (int y = 0; y < resolution; y++)
                 for (int x = 0; x < resolution; x++)
                 {
@@ -93,7 +100,7 @@ namespace Planet.Procedural
                     data.triangles[t++] = a; data.triangles[t++] = c; data.triangles[t++] = b;
                     data.triangles[t++] = b; data.triangles[t++] = c; data.triangles[t++] = d;
                 }
-            }
+            });
             return data;
         }
     }

@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: ProceduralTerraClouds
+  m_Shader: {fileID: 4800000, guid: 93c9eb6d1f93caf4bafd3d212d3b2211, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: 3010
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _DensityCube:
+        m_Texture: {fileID: 8900000, guid: 83b7397c18dca344995b972eef1ecb59, type: 2}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _Density: 0.74
+    - _InnerRadius: 0.975
+    - _ShadowStrength: 0.56
+    - _SilverLining: 0.46
+    m_Colors:
+    - _SunDirection: {r: 0.45, g: -0.3, b: 0.84, a: 0}
+  m_BuildTextureStacks: []

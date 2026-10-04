@@ -1,12 +1,13 @@
-# Planet — 真实比例太阳系白模场景
+# Planet — 真实比例太阳系与程序化星球示例
 
-`Assets/Scenes/SolarSystem.unity`：从**太阳**到**柯伊伯带**、按真实比例搭建的白模太阳系，
+`Assets/Scenes/SolarSystem.unity`：从**太阳**到**柯伊伯带**、按真实比例搭建的太阳系，
 每个天体的**自转**与**公转**全部由代码按开普勒轨道根数推算。
+Earth 另挂载程序化 Cube Sphere、海洋、云与大气；其余天体沿用白模。更新：2026-10-04。
 
 - 场景文件：`Assets/Scenes/SolarSystem.unity`（已加入 Build Settings）
-- 代码目录：`Assets/Scripts/Solar/`
-- 着色器：`Assets/Shaders/ClayGrid.shader`、`Assets/Shaders/OrbitLine.shader`
-- 材质：`Assets/Resources/Solar/`（白模五件套）
+- 代码目录：`Assets/Scripts/Solar/`、`Assets/Scripts/Procedural/`
+- 着色器：白模、轨道、程序化地表、云、大气和星空，均在 `Assets/Shaders/`
+- 材质与定义：`Assets/Resources/Solar/`；天空与大气材质在 `Assets/Settings/`
 - 编辑器工具：菜单 **Tools ▸ Planet**
 
 ---
@@ -160,6 +161,42 @@ transform.rotation = poleRotation * Quaternion.AngleAxis((float)spinDeg, Vector3
 | `Main Camera` | `SolarSystemCamera` + `SolarSystemHud` + URP `UniversalAdditionalCameraData` |
 | `Global Volume` | `Assets/Settings/SolarSystemPost.asset`（Bloom 0.85 / ACES / Vignette 0.22） |
 
+### Earth：统一程序化星球尺度框架
+
+Earth 使用 `ProceduralTerra.asset`，按 `PlanetDefinition → PlanetSurfaceSampler → CubeSphere →
+PlanetSurfaceView` 生成地表。坐标入口 `PlanetCoordinates` 提供经纬度、单位球面方向和双精度
+局部东 / 上 / 北坐标；本轮纬度采用地心纬度，海拔是参考扁球面上的径向距离。
+
+| 项目 | 当前示例 |
+|---|---|
+| 物理半径 / 扁率 | 6,371,000 m / 1÷298.257 |
+| 种子 | 271828 |
+| 网格 | 6 面，每面 96 段；56,454 顶点，110,592 三角形 |
+| 几何起伏 | 高度函数真实位移；星球尺度显示夸张为 4×，查询仍返回米制高度 |
+| 地形粗采样范围 | −7,200 m … +5,802.79 m |
+| 海平面 | −438.55 m，`seaLevelFraction = 0.52` |
+| 采样水覆盖率 | 约 56.4%，按粗网格采样统计，不是面积积分的精确值 |
+| 大气高度 | 80,000 m；壳层赤道半径比 1.012557 |
+| 云壳半径比 | 外层 1.009；使用密度 Cubemap 与视角光程近似 |
+
+`features` 分别提供 `hasOcean`、`hasAtmosphere`、`hasClouds`、`hasEcology`、`hasIceCaps`。
+海平面和地形函数分离，调水位不会移动山脉。液体计算使用：
+
+```text
+seaLevel = terrainMinimum + seaLevelFraction × (terrainMaximum − terrainMinimum)
+waterDepth = max(0, seaLevel − height)
+waterContent = waterDepth / max(seaLevel − terrainMinimum, 1 m)
+oceanMask = 水深 0 … 120 m 的连续过渡
+```
+
+其中 `waterContent` 是归一化水深指标；总水量还需对水深进行面积积分。关闭海洋时保留海底盆地
+几何，不会继续按海平面压平。关闭生态时使用岩石配色。
+
+`CelestialBody` 在编辑器初始化时就计算实际场景半径，再通过 `IPlanetRadiusProvider` 供壳层读取；
+大气与云不再强制设置最小直径 0.1。因而 1× 和 `G` 的 400× 模式下，壳层与表面比例相同。
+共享 `PlanetShellMesh` 提供平滑轮廓；晨昏使用有符号光照点积，仅在终止线附近保留弱暖色。
+Cube Sphere 边界采用对称整数网格坐标，保证相邻面的方向输入与地形法线采样一致。
+
 ### 两条碎带是真的在转
 
 每个粒子都带真实的 `a`、`e`、`i`、`Ω`、`ϖ`、`M₀`，用**和行星同一套**开普勒求解器推进，
@@ -175,8 +212,8 @@ transform.rotation = poleRotation * Quaternion.AngleAxis((float)spinDeg, Vector3
 
 ### 白模着色器：为什么加经纬网
 
-`Planet/ClayGrid` 是场景里所有天体的着色器。它本质就是一个白模（Lambert + 平坦环境光，
-无贴图、无金属度、无阴影），但多了一层**由 UV 生成的经纬网**。
+`Planet/ClayGrid` 是其余白模天体的着色器；Earth 使用 `Planet/ProceduralSurface`，太阳使用自发光材质。
+白模本质是 Lambert + 平坦环境光，无贴图、无金属度、无阴影，但多了一层**由 UV 生成的经纬网**。
 
 原因很直接：**一个完全均匀的白色球体，转与不转看起来一模一样**。而"自转"恰恰是这个场景要
 演示的东西之一。经纬网让自转立刻可见，同时它仍然是一个"技术白模"该有的样子。按 `L` 可以
@@ -240,6 +277,20 @@ HUD 显示：模拟日期、时间流速、焦点天体的半径/扁率/自转�
 
 这些都是为了"每个天体单独看的时候是对的"而做的取舍，并已在场景中注释说明。
 
+程序化地表也不读取太阳系的 URP 级联阴影贴图；云层 ShadowCaster 关闭，避免大场景范围与
+天体半径不匹配造成闪烁和半圆直线分割。云影由共享密度 Cubemap 沿主光方向偏移采样。
+地形法线影响光照，但地形遮挡式自阴影、食和完整体积云尚未实现。
+
+### 星空曝光和经度接缝
+
+`PlanetLightingController` 缓存 96 个球面方向样本，读取统一地表采样器的反照率与法线，按
+可见投影权重、太阳颜色和强度估计地表亮度，再结合星球屏幕大小平滑更新 `_PlanetSkyExposureEV`。
+相机移动、暂停后的环绕和焦点变化都会继续更新。该 EV 只控制星图整体曝光，是表面测光近似，
+不是 URP 全画面的自动曝光。运行时不会写回共享天空材质。
+
+星空没有半天空灰色覆盖或方向性底色。采样在 `atan2` 的 ±180° 接缝处先修正 UV 导数到最短
+周期差，再使用 `tex2Dgrad`；仍保持贴图 `U=Repeat / V=Clamp`，避免接缝错误 mip 黑线。
+
 ---
 
 ## 6. 编辑器工具（菜单 Tools ▸ Planet）
@@ -251,6 +302,8 @@ HUD 显示：模拟日期、时间流速、焦点天体的半径/扁率/自转�
 | **Open Solar System Scene** | 打开场景 |
 | **Capture Solar System Poses** | 按 `SolarSystemPoses` 的 11 个机位出图到 `Assets/Screenshots/`（需在 Play 模式） |
 | **Reimport Solar Screenshots** | 出图后手动触发资源导入 |
+| **Build Procedural Planet Example** | 重算 Earth 地形统计，生成或复用地表 / 云 Cubemap，更新材质和场景 |
+| **Refresh Procedural Planet Visuals** | 复用已生成 Cubemap，刷新壳层、光照与材质并保存；在编辑模式使用 |
 
 场景是**代码生成**的，不是手工摆的。改比例、加天体、调分辨率都改 `SolarSystemCatalog` /
 `SolarSystemFactory` 里的数字，然后重跑菜单，不会出现"场景和 HUD 数字对不上"的情况。
@@ -289,6 +342,14 @@ HUD 显示：模拟日期、时间流速、焦点天体的半径/扁率/自转�
 | `solar_10-system-top.png` | 黄道俯视 |
 | `solar_11-inner-halved.png` | 内太阳系，日期 +半年（用于对照公转） |
 | `solar_hud_saturn.png` | 带 HUD 的土星，验证面板数值 |
+| `procedural_earth_shells_fixed-1.png` | 程序化昼面：正确比例的大气 / 云层、连续地表光照和整体天空曝光 |
+| `skybox_seam_fixed.png` | 相机正对 ±180° 经度接缝的纯天空验证 |
+
+2026-10-04 验证：1× / 400× 下大气比均为 1.012557、云比均为 1.009；同一地形姿态下昼面
+约 −2.39 EV，夜面约 +1.33 EV。四个相关 Shader 和脚本编译没有错误。
+24 段验证网格的 292 组重复边界顶点，位置 / 法线差均为零；坐标往返最大误差约 1.3×10⁻⁹ m。
+海洋 / 云 / 生态关闭与水位不改变地形的检查通过。本机完整构建 11.48 秒，缓存构建 0.93 秒。
+固定暂停姿态连续三次渲染最大 RGB 差为 0/255，未复现阴影闪烁。
 
 ---
 
@@ -296,8 +357,8 @@ HUD 显示：模拟日期、时间流速、焦点天体的半径/扁率/自转�
 
 | | `PlanetDemo.unity` | `SolarSystem.unity` |
 |---|---|---|
-| 内容 | 贴图地球 + 月球特写 | 太阳系全体白模 |
-| 视觉 | 8K 贴图、法线、地形起伏 | 白模 + 经纬网 |
+| 内容 | 贴图地球 + 月球特写 | 太阳系白模 + 程序化 Earth |
+| 视觉 | 8K 贴图、法线、地形起伏 | Earth 的程序化地表 / 云 / 大气，其余天体白模 + 经纬网 |
 | 尺度 | 局部（趣味比例） | 太阳 → 柯伊伯带（真实比例） |
 | 说明 | [PLANET-DEMO.md](PLANET-DEMO.md) | 本文件 |
 

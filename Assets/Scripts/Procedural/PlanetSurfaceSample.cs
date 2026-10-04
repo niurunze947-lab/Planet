@@ -15,6 +15,8 @@ namespace Planet.Procedural
         public float temperature;
         public float moisture;
         public float ocean;
+        public float waterDepthMetres;
+        public float waterContent;
         public PlanetBiome biome;
         public float3 normal;
         public float3 albedoLinear;

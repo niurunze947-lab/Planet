@@ -19,21 +19,24 @@ Material:
   m_CustomRenderQueue: -1
   stringTagMap: {}
   disabledShaderPasses: []
-  m_LockedProperties:
+  m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
-    - _DayScatter: 1
-    - _Density: 0.85
+    - _DayScatter: 1.05
+    - _Density: 0.22
+    - _ForwardGlow: 0.65
     - _MiePower: 16
-    - _MieStrength: 0.4
-    - _NightScatter: 0.03
-    - _RimPower: 3.2
-    - _SoftEdge: 0.35
+    - _MieStrength: 0.48
+    - _NightScatter: 0.025
+    - _RimPower: 2.8
+    - _SoftEdge: 0.42
+    - _TwilightStrength: 0.08
     m_Colors:
     - _AtmosphereColor: {r: 0.3, g: 0.58, b: 1, a: 1}
     - _SunColor: {r: 0.85, g: 0.78, b: 0.55, a: 1}
     - _SunDirection: {r: 0.45, g: -0.3, b: 0.84, a: 0}
+    - _TwilightColor: {r: 1, g: 0.65, b: 0.4, a: 1}
   m_BuildTextureStacks: []

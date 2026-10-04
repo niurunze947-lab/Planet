@@ -1,9 +1,8 @@
 # Planet — 项目概览
 
-> 更新：2026-10-03 ｜ 数据来源：Unity Editor 实时查询（MCP）+ 工程文件直读 + git 仓库状态
-> 上一版把本工程描述为"几乎空白的 URP 模板工程"，那一版已完全过时，本版为准。
-> **本版新增**：全包围星空天空盒、真实比例太阳系场景 `SolarSystem.unity`（详见
-> **[PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md)**）。
+> 更新：2026-10-04 ｜ 数据来源：Unity Editor 实时查询、工程文件与运行时验证。
+> 本版包含真实比例太阳系与 Earth 的程序化星球尺度示例；操作和实现见
+> [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md)，派生资源见 [PLANET-ASSETS.md](PLANET-ASSETS.md)。
 
 ---
 
@@ -22,9 +21,8 @@
 - 从**太阳**到**柯伊伯带**，比例不做任何压缩（海王星就在真实的 30.07 AU）
 - 21 个天体 + 主带 2200 粒子 + 柯伊伯带 5000 粒子，轨道根数取自 JPL/Standish 与 Meeus
 - **自转与公转全部由代码按开普勒方程推算**，不是动画、不是手 K
-- 全白模，不含任何贴图
-
-名字里的 "Planet" 现在名副其实了。
+- Earth 接入统一程序化地形、海洋、生态色彩、云层和大气，其余天体沿用白模
+- 天空盒保持完整 HDR 星图；可见表面的测光驱动星空整体曝光，经度采样采用周期导数处理接缝
 
 ---
 
@@ -54,11 +52,11 @@
 D:\UnityProjects\Planet\
 ├── Assets/                     281.6 MB   ← 入库
 │   ├── Scenes/                 3 个场景（含 SolarSystem.unity，707 KB）+ 1 个 Volume Profile
-│   ├── Scripts/                25 个 C#（3,420 行）—— Solar/ 13 个、Procedural/ 7 个、根目录 5 个
-│   ├── Editor/                 3 个 C#（444 行）—— 菜单 Tools ▸ Planet
-│   ├── Shaders/                6 个 .shader（639 行）
+│   ├── Scripts/                Solar/ 轨道系统、Procedural/ 星球框架、相机与天空控制
+│   ├── Editor/                 菜单 Tools ▸ Planet：构建、视觉刷新、截图
+│   ├── Shaders/                行星表面、大气、云、星空、白模和轨道
 │   ├── Settings/               URP 配置、3 个材质、后处理 Profile
-│   ├── Resources/Solar/        太阳系白模材质（4.0 MB）
+│   ├── Resources/Solar/        白模材质、ProceduralTerra 定义与派生 Cubemap
 │   ├── Textures/               182.9 MB，12 张贴图
 │   ├── Screenshots/            93.6 MB，46 张验证截图（其中 solar_* 15 张）
 │   └── TutorialInfo/           模板自带（可删）
@@ -75,7 +73,8 @@ D:\UnityProjects\Planet\
 └── .gitignore / .gitattributes
 ```
 
-`Library/`（2,353.7 MB）与 `Logs/` 已被 `.gitignore` 排除。
+此目录树中的磁盘大小与旧截图数量沿用 2026-10-03 基线快照，新增代码与资源见 §8.5；
+`Library/` 与 `Logs/` 已被 `.gitignore` 排除。
 
 ---
 
@@ -124,7 +123,7 @@ Renderer Feature: ScreenSpaceAmbientOcclusion
 | Fog | 关闭 | 关闭 |
 
 > 环境设置是**逐场景**保存在 `.unity` 里的，不是全局的。两个场景共用同一个天空盒材质，
-> 但环境光不同：太阳系场景整体更暗，因为那里没有大气散射，只有恒星本身。
+> 但环境光不同。SolarSystem 的程序化 Earth 另有局部大气和云层；其余天体仍采用白模光照。
 
 ### 天空盒的全包围修复
 
@@ -164,16 +163,17 @@ Renderer Feature: ScreenSpaceAmbientOcclusion
 
 ### `Assets/Scenes/SolarSystem.unity` ← **build index 2**
 
-真实比例的太阳系白模，**整个场景由代码生成**（`Tools ▸ Planet ▸ Rebuild Solar System Scene`），
+真实比例太阳系与程序化 Earth 示例，**整个场景由代码生成**（`Tools ▸ Planet ▸ Rebuild Solar System Scene`），
 不是手工摆放的。
 
 | 对象 | 组件 | 说明 |
 |---|---|---|
 | **Solar System/Bodies** | 21 × `CelestialBody` | 太阳、八大行星、月球、木卫一至四、土卫六、海卫一、冥卫一、谷神星、冥王星、妊神星、鸟神星 |
+| **Bodies/Earth** | `PlanetSurfaceView`、`PlanetAtmosphere`、`PlanetCloudLayer` | Cube Sphere 表面、海洋、可选生态与壳层；半径由统一接口 `IPlanetRadiusProvider` 供应 |
 | **Solar System/Orbits** | 12 × `OrbitPath` + 2 × `CircleLine` | 12 条完整轨道椭圆 + 30 AU / 50 AU 柯伊伯带边界圈 |
 | **Solar System/Asteroid Belt 2.1-3.3 AU** | `BeltField` | 2200 个粒子，真实轨道根数，`Graphics.DrawMeshInstanced` 绘制 |
 | **Solar System/Kuiper Belt 30-50 AU** | `BeltField` | 5000 个粒子，同上 |
-| **Solar System/Sun Light** | Light, `UniversalAdditionalLightData` | 平行光，强度 1.35，**阴影关闭**（1e10 km 场景里级联阴影无意义） |
+| **Solar System/Sun Light** | Light, `UniversalAdditionalLightData`、`PlanetLightingController` | 平行光，强度 1.35；阴影关闭；驱动壳层光照与星空测光 |
 | **Main Camera** | Camera, `SolarSystemCamera`, `SolarSystemHud`, `UniversalAdditionalCameraData` | FOV 50，动态近/远裁剪面，SMAA High，后处理开启 |
 | **Global Volume** | Volume | `Assets/Settings/SolarSystemPost.asset`（Bloom 0.85 + ACES + Vignette 0.22） |
 
@@ -221,55 +221,56 @@ Renderer Feature: ScreenSpaceAmbientOcclusion
 
 ## 8. 代码
 
-`Assets/Scripts/` 共 **25 个脚本、3,420 行**，`Assets/Editor/` **3 个脚本、444 行**，
-**无第三方依赖**（只用 UnityEngine / UnityEditor / 新输入系统）。
+太阳系逻辑使用 UnityEngine 与新输入系统；独立 `Planet.Procedural` 程序集使用已安装的
+Unity.Mathematics。地形与纹素缓冲按面并行计算，Unity Mesh / Texture 上传仍在主线程。
 
-### 8.1 太阳系（`Assets/Scripts/Solar/`，13 个文件，2,345 行）
+### 8.1 太阳系（`Assets/Scripts/Solar/`，13 个文件）
 
-这是 `SolarSystem.unity` 的全部逻辑。**没有任何贴图、没有任何动画文件**——位置和姿态每一帧从
-日期算出来。
+这是 `SolarSystem.unity` 的轨道与姿态逻辑；位置和自转每一帧从日期算出来，Earth 的外观另由
+`Procedural/` 及其派生 Cubemap 驱动。
 
-| 脚本 | 行数 | 职责 |
-|---|---|---|
-| `Astro.cs` | 237 | `Vec3d`（双精度矢量）、`KeplerianElements`（含 6 个长期变化率）、`MoonOrbit`、`OrbitalMechanics`（开普勒方程求解、儒略日换算、IAU 极点、黄道→Unity 映射） |
-| `SolarSystemCatalog.cs` | 308 | 21 个天体的物理与轨道数据、`RingSet`（含土星环分段） |
-| `SolarSystemSimulation.cs` | 408 | 主循环：推进日期、算位置、算自转、浮动原点、光照与轨道线宽度 |
-| `SolarSystemFactory.cs` | 162 | 从 Catalog 生成整个场景（天体、轨道、碎带、光照、相机、环境） |
-| `CelestialBody.cs` | 185 | 单个天体的可见部分：UV 球网格、扁率、环、转轴姿态 |
-| `SolarSystemCamera.cs` | 193 | 飞行相机：焦点切换、取景、对数缩放、环绕、输入 |
-| `SolarSystemHud.cs` | 214 | IMGUI 中文面板：日期、时间流速、焦点天体的全部物理量 |
-| `BeltField.cs` | 161 | 碎带粒子场：真实轨道根数 + 实例化绘制 + 恒定张角标记 |
-| `SolarMeshFactory.cs` | 161 | 程序化网格：UV 球（支持扁率与三轴形状）、多段圆环 |
-| `OrbitPath.cs` | 105 | 轨道椭圆线（按偏近点角均匀采样） |
-| `SolarSystemPoses.cs` | 77 | 11 个固定机位，用于可复现出图 |
-| `SolarMaterials.cs` | 72 | 材质缓存与经纬网开关 |
-| `CircleLine.cs` | 62 | 参考圆（30 AU / 50 AU 柯伊伯边界） |
+| 脚本 | 职责 |
+|---|---|
+| `Astro.cs` | 双精度矢量、轨道根数、开普勒方程、日期和坐标换算 |
+| `SolarSystemCatalog.cs` | 21 个天体的物理与轨道数据、土星环分段 |
+| `SolarSystemSimulation.cs` | 日期、位置、自转、浮动原点、光照和轨道线 |
+| `SolarSystemFactory.cs` | 从 Catalog 创建场景对象、相机和环境 |
+| `CelestialBody.cs` | 白模或程序化表面适配、实际渲染半径、环和转轴 |
+| `SolarSystemCamera.cs` | 焦点切换、取景、对数缩放、环绕、输入 |
+| `SolarSystemHud.cs` | 日期、比例、天体物理量与操作提示 |
+| `BeltField.cs` | 轨道粒子实例化与恒定张角标记 |
+| `SolarMeshFactory.cs` | UV 球、扁率与多段圆环 |
+| `OrbitPath.cs` | 轨道椭圆线 |
+| `SolarSystemPoses.cs` | 可复现截图机位 |
+| `SolarMaterials.cs` | 材质缓存与经纬网开关 |
+| `CircleLine.cs` | 柯伊伯带边界参考圆 |
 
-### 8.2 编辑器工具（`Assets/Editor/`，3 个文件，444 行）
+### 8.2 编辑器工具（`Assets/Editor/`，3 个文件）
 
-| 脚本 | 行数 | 职责 |
-|---|---|---|
-| `SolarSystemBuilder.cs` | 268 | 菜单 **Tools ▸ Planet**：重建太阳系场景、重建白模材质、11 机位出图（`EditorApplication.update` 驱动，每 tick 一帧） |
-| `PlanetFrameworkBuilder.cs` | 133 | 程序化星球框架的搭建入口 |
-| `PlanetSurfaceBaker.cs` | 43 | 地表数据烘焙 |
+| 脚本 | 职责 |
+|---|---|
+| `SolarSystemBuilder.cs` | 重建太阳系、白模材质、11 机位出图 |
+| `PlanetFrameworkBuilder.cs` | 程序化示例构建、缓存管理、视觉刷新 |
+| `PlanetSurfaceBaker.cs` | 按面并行生成地表与云密度 Cubemap |
 
 ### 8.3 其余脚本
 
-| 目录 | 文件数 | 行数 | 职责 |
-|---|---|---|---|
-| `Assets/Scripts/`（根） | 5 | 389 | `PlanetMeshGenerator`（高程图位移球）、`OrbitCamera`、`PlanetSpin`、`PlanetAtmosphere`、`PlanetLightingController` |
-| `Assets/Scripts/Procedural/` | 7 | 686 | 程序化星球框架：立方球体、坐标映射、地表采样、网格数据、`PlanetDefinition` |
+| 目录 | 文件数 | 职责 |
+|---|---|---|
+| `Assets/Scripts/`（根） | 5 | 高程球、相机、自转、大气和表面测光 |
+| `Assets/Scripts/Procedural/` | 10 | 统一定义、坐标、采样、Cube Sphere、云、半径接口与共享壳层 Mesh |
 
-### 8.4 着色器（`Assets/Shaders/`，6 个，639 行）
+### 8.4 着色器
 
 | 着色器 | 行数 | 用途 |
 |---|---|---|
 | `ClayGrid.shader` | 119 | 太阳系白模：Lambert + 平坦环境光 + 由 UV 生成的经纬网 |
 | `OrbitLine.shader` | 68 | 轨道线：顶点色 + alpha 混合（URP/Unlit 会忽略 `LineRenderer` 的顶点色） |
-| `PlanetStarfield.shader` | 83 | 天空盒：全天球星空 + 朝日方向的昼侧淡出 |
+| `PlanetStarfield.shader` | — | 全天球 HDR 星空、运行时全局曝光 EV、周期 UV 导数采样 |
 | `PlanetEarthPhysical.shader` | 167 | 地球物理材质 |
-| `PlanetProceduralSurface.shader` | 106 | 程序化星球表面 |
-| `PlanetAtmosphere.shader` | 96 | 大气散射 |
+| `PlanetProceduralSurface.shader` | — | 程序化地表、宽海面高光、稳定太阳光照与确定性云影 |
+| `PlanetAtmosphere.shader` | — | 薄大气边缘、窄晨昏暖色、昼夜散射 |
+| `PlanetCloudVolume.shader` | — | 云壳密度与视角光程近似 |
 
 > **为什么太阳系场景需要自己写着色器**：URP/Unlit 会丢弃 `LineRenderer` 的顶点色，做不出
 > 可调透明度的轨道线；而一个完全均匀的白色球体，**转与不转看起来一模一样**，所以白模着色器
@@ -277,21 +278,43 @@ Renderer Feature: ScreenSpaceAmbientOcclusion
 
 模板自带的 `Readme.cs` / `ReadmeEditor.cs` 仍在 `Assets/TutorialInfo/`，不影响构建。
 
+### 8.5 程序化星球尺度框架
+
+权威数据链为 `PlanetDefinition → PlanetSurfaceSampler → CubeSphere / PlanetMeshData → PlanetSurfaceView`。
+参数采用米、秒和千克；`PlanetCoordinates` 支持经纬度、球面方向与双精度东 / 上 / 北局部坐标。
+高度函数与海平面独立，改变水量不会移动山脉。海平面按采样地形最低点与最高点之间的比例推导，
+地表入口输出水深、归一化水含量和连续海洋遮罩；示例粗采样覆盖率约为 56.4%。
+
+海洋、大气、云、生态、冰帽可由 `features` 分别配置。96 段六面网格约有 56,454 个顶点和
+110,592 个三角形。物理高度保持米制，星球尺度示例使用 4× 几何起伏夸张。
+
+- **构建**：`Build Procedural Planet Example` 重算统计、烘焙 256²×6 Albedo 与 128²×6 CloudDensity，再更新场景。
+- **视觉刷新**：`Refresh Procedural Planet Visuals` 复用现有 Cubemap，刷新材质和壳层参数后保存 SolarSystem。
+- **构建缓存**：纹素与网格按面并行；颜色路径省去四邻域坡度计算；指纹存入 importer 元数据，重新烘焙保留已有 GUID。
+- **网格接缝**：六面采用对称整数坐标后统一归一化，相邻边共享相同方向、位置和法线采样。
+- **壳层**：通过 `IPlanetRadiusProvider` 获取场景半径，不设固定最小直径；大气按物理高度计算，Earth 比例为 1.012557，示例云壳为 1.009。
+- **光照与曝光**：行星材质不读取太阳系级联阴影；云影使用共享密度场。96 个方向样本估计可见表面的反照率与受光亮度，平滑更新全局星空 EV，资产材质不会被运行时曝光写回。
+- **接缝**：星图在经度跨界处使用最短周期导数与 `tex2Dgrad`，避免错误 mip 导致的黑竖线；没有半天空灰色覆盖。
+
+当前云层与大气为星球尺度近似；完整体积光线步进、地形自阴影、地表流式 LOD 和植被实例尚未实现。
+验证截图为 `procedural_earth_shells_fixed-1.png` 与 `skybox_seam_fixed.png`。真实比例和 400× 放大时
+壳层比值一致；昼 / 夜测光分别约为 −2.39 / +1.33 EV。
+本机完整重建约 11.48 秒，缓存命中重建约 0.93 秒；Cube Sphere 边界位置 / 法线差为零，
+经纬度与局部坐标往返最大误差约 1.3×10⁻⁹ m。时间随机器与参数变化。
+固定暂停姿态连续三次渲染的最大 RGB 像素差为 0/255，未复现闪烁阴影。
+
 ---
 
 ## 9. 版本控制
 
 ```
 分支        : main
-提交        : 110212a  "Fix silently-reset _Smoothness on Earth_Surface, document the trap"
-上一个提交  : 84f07b5  "Add git repo health check corrections + rewrite the project overview"
-初始提交    : 1171425  "Initial commit: Unity 2022.3 LTS planet demo with real Earth/Moon assets"
-工作区      : 有未提交改动（太阳系场景 / 程序化框架 / 着色器均尚未提交）
+基线提交    : efd0999  "星系浏览产品基线（附最新文档）"
+本轮内容    : 程序化星球可选特性、水体统计、构建优化、大气比例、星空曝光与接缝修复
+历史提交    : 110212a（材质修复）、84f07b5（项目总览）、1171425（初始工程）
 ```
 
-**未提交的主要内容**：`Assets/Scenes/SolarSystem.unity`、`Assets/Scripts/Solar/`、
-`Assets/Scripts/Procedural/`、`Assets/Editor/`、`Assets/Shaders/`、`Assets/Resources/Solar/`、
-`Assets/Screenshots/solar_*.png`，以及 `Skybox_Starfield.mat` 与 `starmap_2020_4k.exr.meta` 的修改。
+提交状态与哈希以 `git log` 为准；示例资源、场景、源码及本轮验证截图纳入版本控制。
 
 **Git LFS 跟踪**：贴图、模型、音频、视频、字体、压缩包。
 **保留为普通文本**（可 diff）：`.unity` `.asset` `.mat` `.prefab` `.meta` `.inputactions` 及全部源码——靠的是 Unity 的 Force Text 模式。
@@ -324,7 +347,7 @@ Renderer Feature: ScreenSpaceAmbientOcclusion
 
 ---
 
-## 11. 磁盘占用
+## 11. 磁盘占用（2026-10-03 基线快照）
 
 | 目录 | 大小 | 备注 |
 |---|---|---|

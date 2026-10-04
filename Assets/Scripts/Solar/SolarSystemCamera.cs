@@ -43,6 +43,35 @@ namespace Planet.Solar
         /// <summary>Distance the rig is easing towards; also the exact position when scripted.</summary>
         public float TargetDistance { get { return _targetDistance; } }
 
+        /// <summary>Distance from the camera to the focused body's center in scene units.</summary>
+        public float CurrentViewHeightUnits { get { return distance; } }
+
+        /// <summary>Current focused body's physical render radius in scene units.</summary>
+        public float FocusSurfaceRadiusUnits
+        {
+            get
+            {
+                if (_sim == null) _sim = SolarSystemSimulation.Instance;
+                return _sim != null ? _sim.FocusRadiusUnits : 0f;
+            }
+        }
+
+        /// <summary>Non-negative distance from the camera to the body's solid surface.</summary>
+        public float SurfaceClearanceUnits
+        {
+            get { return Mathf.Max(CurrentViewHeightUnits - FocusSurfaceRadiusUnits, 0f); }
+        }
+
+        /// <summary>Surface clearance normalized by the focused body's radius.</summary>
+        public float SurfaceClearanceRatio
+        {
+            get
+            {
+                float radius = FocusSurfaceRadiusUnits;
+                return radius > 1e-6f ? SurfaceClearanceUnits / radius : 0f;
+            }
+        }
+
         /// <summary>
         /// Jumps the rig to an exact distance with no easing. Used by capture scripts and by the
         /// editor tooling; the interactive path goes through <see cref="FrameDistance"/> instead.

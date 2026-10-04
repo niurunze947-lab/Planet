@@ -82,6 +82,7 @@ D:\UnityProjects\Planet\
 ├── PLANET-PROCEDURAL.md        程序化星球表面生成框架（实现、参数、限制）
 ├── PLANET-MATERIALS.md         21 个天体的外观、资产、框架缺口与对策
 ├── PLANET-SOLARSYSTEM.md       真实比例太阳系场景说明（正式工程场景）
+├── DEVELOPMENT-WORKFLOW.md     隔离开发、视场高度契约与合并流程
 ├── PROJECT-OVERVIEW.md         本文档
 └── .gitignore / .gitattributes
 ```
@@ -341,9 +342,9 @@ PlanetSurfaceView`。定义是唯一权威，网格与 Cubemap 都是可重建�
 
 ```
 分支        : main
-基线提交    : efd0999  "星系浏览产品基线（附最新文档）"
-本轮内容    : 程序化星球可选特性、水体统计、构建优化、大气比例、星空曝光与接缝修复
-文档提交    : 新增 PLANET-PROCEDURAL.md，并同步总览 / 场景 / 资产 / 演示文档的定位与交叉引用
+权威标签    : integration/authority-2026-10-04（本轮合并后的母分叉点）
+合并提交    : 4325161（SolarSystem 边界）、116aa34（程序化定义与材质）
+本轮内容    : 21 个天体的定义驱动外观、程序集隔离、半径发布契约、编辑器模板清理与协作协议
 历史提交    : 110212a（材质修复）、84f07b5（项目总览）、1171425（初始工程）
 ```
 
@@ -470,6 +471,7 @@ set_active_instance "<projectName>@<hash>"                  # 切到自己的实
 | `PLANET-PROCEDURAL.md` | **程序化星球表面生成框架**：数据链、坐标与单位、地形 / 水体 / 云算法、网格与烘焙缓存、着色器取舍、已知限制 |
 | `PLANET-MATERIALS.md` | 21 个天体材质、观测解释、独立资产、框架扩展、缺口与验证 |
 | `PLANET-SOLARSYSTEM.md` | 真实比例太阳系场景（正式工程场景）：轨道力学、数值验证、坐标系、操作键位、光照取舍、**§9 程序集边界与对外接口** |
+| `DEVELOPMENT-WORKFLOW.md` | 三工作树 ownership、程序集边界、当前视场高度契约、近地 debug 阈值与合并刷新流程 |
 | `MCP-Setup/MCP-HANDSHAKE-REPORT.md` | 四客户端握手验证记录 |
 | `MCP-Setup/mcp-tool-list.json` | 47 个工具的完整清单 |
 

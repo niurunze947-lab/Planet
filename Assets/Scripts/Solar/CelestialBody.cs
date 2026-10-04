@@ -200,18 +200,11 @@ namespace Planet.Solar
                 _proceduralSurface.SetRadius(radiusUnits);
             else if (_surface != null) _surface.localScale = Vector3.one * radiusUnits;
 
-            PlanetAtmosphere atmosphere = GetComponent<PlanetAtmosphere>();
-            if (atmosphere != null)
-            {
-                atmosphere.planetRadius = radiusUnits;
-                atmosphere.Refresh();
-            }
-            PlanetCloudLayer clouds = GetComponent<PlanetCloudLayer>();
-            if (clouds != null)
-            {
-                clouds.planetRadius = radiusUnits;
-                clouds.Refresh();
-            }
+            // The atmosphere and cloud shells are deliberately NOT pushed from here. Both live
+            // outside this assembly and already pull RadiusUnits from the IPlanetRadiusProvider on
+            // this component in their own ApplyProperties, which runs every frame from LateUpdate.
+            // Radius travels one way only - the body publishes it, the shells subscribe - so this
+            // assembly never needs a compile-time reference to the shell components.
 
             if (_rings != null && _rings.gameObject.activeSelf && Definition != null && Definition.Rings.HasValue)
             {

@@ -50,6 +50,21 @@
 - 星空曝光改由焦点星球测光驱动；修掉星图经度接缝的错误 mip 黑竖线
 - 文档：新增 `PLANET-PROCEDURAL.md`；总览与太阳系 / 资产 / 演示文档同步定位与交叉引用
 
+### 星系程序集划分
+
+- 新增 **`Planet.Solar`** 独立程序集（`Assets/Scripts/Solar/Planet.Solar.asmdef`），
+  13 个星系运行时文件迁出 `Assembly-CSharp`；引用列表穷举为
+  `Planet.Procedural` + `Unity.InputSystem` + URP Core / Universal Runtime 四项
+- 依赖单向化：`Planet.Solar → Planet.Procedural`，反向无引用。`CelestialBody` 不再反向推送
+  大气 / 云壳半径（那要求引用位于 `Assembly-CSharp` 的 `PlanetAtmosphere`，asmdef 结构上做不到），
+  改为壳层自己经 `IPlanetRadiusProvider` 反查——壳层本来就有这条路径，行为不变
+- 编辑器工具**故意不另立 asmdef**：多一个 asmdef 就多一个合并冲突点
+- 验证：编译零错误零警告；场景 21 个 `CelestialBody` / 12 `OrbitPath` / 2 `BeltField` 引用全部完好
+  （GUID 不变）；Play 模式实测 `planetRadius == RadiusUnits`、大气壳比 1.012557、云壳与地表半径一致；
+  `PlanetLightingController` 跨程序集调用正常（EV −0.82）
+- 文档：`PLANET-SOLARSYSTEM.md` 新增 §9「程序集边界与对外接口」；总览补程序集表、
+  多工作树 MCP 实例端口表与两条 asmdef 风险项；`PLANET-PROCEDURAL.md` 同步
+
 ---
 
 ## 踩坑备忘
@@ -64,6 +79,9 @@
 | 改大气材质的 `_Density` / `_RimPower` 没反应 | 组件用 MaterialPropertyBlock 覆盖 |
 | 改了采样公式但地形没变 | 需提升 `GeneratorVersion` 让内容指纹失效 |
 | 重烘贴图后场景引用丢失 | 用 `CopySerialized` 覆盖旧资产，勿删除重建 |
+| MCP 调用改的其实是另一个工作树 | 多实例各有端口，先查 `Application.dataPath` 再 `set_active_instance` |
+| 新建 asmdef 后 Unity 说找不到 | 窗口失焦时资源库不自动刷新，显式 `AssetDatabase.Refresh` |
+| asmdef 程序集引不到 `PlanetAtmosphere` | asmdef 不能引用 `Assembly-CSharp`，改用接口反查 |
 
 ---
 

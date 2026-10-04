@@ -5,7 +5,7 @@
 Earth 另挂载程序化 Cube Sphere、海洋、云与大气；其余天体沿用白模。更新：2026-10-04。
 
 - 场景文件：`Assets/Scenes/SolarSystem.unity`（已加入 Build Settings）
-- 代码目录：`Assets/Scripts/Solar/`、`Assets/Scripts/Procedural/`
+- 代码目录：`Assets/Scripts/Solar/`（独立程序集 **`Planet.Solar`**，见 §9）、`Assets/Scripts/Procedural/`
 - 着色器：白模、轨道、程序化地表、云、大气和星空，均在 `Assets/Shaders/`
 - 材质与定义：`Assets/Resources/Solar/`；天空与大气材质在 `Assets/Settings/`
 - 程序化星球框架：见 **[PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md)**（Earth 地表 / 云 / 大气的实现）
@@ -355,32 +355,61 @@ HUD 显示：模拟日期、时间流速、焦点天体的半径/扁率/自转�
 
 ---
 
-## 9. 程序集边界（多工作树合并）
+## 9. 程序集边界与对外接口
 
-星系（Solar System）相关运行时代码已收进独立程序集，避免不同工作树互相加引用时把合并面撑大。
+星系运行时（`Assets/Scripts/Solar/`）编译进**独立程序集 `Planet.Solar`**
+（`Assets/Scripts/Solar/Planet.Solar.asmdef`），不再与 `Assembly-CSharp` 混编。
+目的只有一个：**让不同工作树合并时，不会因为新增的引用或被引用而互相绊住。**
 
-| 程序集 | 路径 | 职责 | 允许引用 |
-|---|---|---|---|
-| `Planet.Procedural` | `Assets/Scripts/Procedural/` | 程序化星球表面 / 云 / 大气、`IPlanetRadiusProvider` | Unity.Mathematics / Burst |
-| `Planet.Solar` | `Assets/Scripts/Solar/` | 轨道、目录、模拟、相机、HUD、白模 | **仅** `Planet.Procedural` + Unity 包 |
-| `Assembly-CSharp` | `Assets/Scripts/`（根） | 场景拼装层：`PlanetLightingController` 与 PlanetDemo 参考脚本 | 可引用以上两者 |
-| `Assembly-CSharp-Editor` | `Assets/Editor/` | `Tools ▸ Planet` 构建 / 截图 | 可引用以上全部 |
+### 依赖方向（单向，无环）
 
-### 对外公开面（其他程序只应使用这些）
+```
+Assembly-CSharp / Assembly-CSharp-Editor   （胶水层：PlanetLightingController、编辑器工具）
+        │                        │
+        ▼                        ▼
+   Planet.Solar  ──────────►  Planet.Procedural
+        （只经由 IPlanetRadiusProvider 与 PlanetSurfaceView 接触）
+```
 
-- **模拟与查询**：`SolarSystemSimulation`（焦点、时间、`BodyCount` / `ViewAt` / `DefinitionAt` / `PositionKmAt`）
-- **天体视图**：`CelestialBody`（`bodyName`、`Definition`、`RadiusUnits`、`PoleUnity`）
-- **目录数据**：`SolarSystemCatalog`、`Body`、`BodyKind`、`RingSet`
-- **轨道数学**：`Vec3d`、`KeplerianElements`、`MoonOrbit`、`OrbitalMechanics`（出现在公开签名里）
-- **相机 / 场景件**：`SolarSystemCamera`、`SolarSystemHud`、`OrbitPath`、`CircleLine`、`BeltField`
-- **编辑器构建**：`SolarSystemFactory`、`SolarMaterials`、`SolarSystemPoses`
+`Planet.Solar.asmdef` 的引用列表是**穷举**的，只有四项：
 
-`SolarMeshFactory` 已标为 `internal`，仅 `Planet.Solar` 内部使用。
+| 引用 | 谁在用 |
+|---|---|
+| `Planet.Procedural` | `CelestialBody` 实现 `IPlanetRadiusProvider`，并驱动 `PlanetSurfaceView` |
+| `Unity.InputSystem` | `SolarSystemCamera`、`SolarSystemSimulation` 的时间控制 |
+| `Unity.RenderPipelines.Core.Runtime` | `SolarSystemFactory` 的 `Volume` / `VolumeProfile` |
+| `Unity.RenderPipelines.Universal.Runtime` | `SolarSystemFactory` 的相机 / 灯光 URP 附加数据 |
 
-### 引用纪律
+`autoReferenced: true`，所以 `Assembly-CSharp` 与 `Assembly-CSharp-Editor` **不需要改任何 asmdef**
+就能继续调用星系程序集——这是刻意的：**新增的 asmdef 越少，工作树合并时的冲突点越少。**
 
-1. `Planet.Solar` **不得**引用 `Assembly-CSharp`、编辑器程序集，或其他工作树专属程序集。
-2. 需要新的数据源 / 下游类型时，先在工作树之间讨论，再决定是升进 `Planet.Procedural`、
-   加接口，还是由调用方注入——不要在 `Planet.Solar` 里直接 `using` 对方的程序集。
-3. 交互层新代码建议放在 `Assembly-CSharp` 或未来的 `Planet.Interaction`，**单向**依赖
-   `Planet.Solar` 的公开面。
+### 对外契约：其他程序只应调用这些
+
+| 调用方 | 允许使用的成员 |
+|---|---|
+| `PlanetLightingController`（`Assembly-CSharp`，**唯一的运行时外部调用方**） | `SolarSystemSimulation.Instance` / `.FocusDefinition` / `.FocusView` / `.FocusRadiusUnits` / `.ViewCamera`、`Body.IsSun` |
+| 编辑器工具（`Assembly-CSharp-Editor`） | `SolarSystemFactory.BuildAll`、`SolarMaterials`、`SolarSystemPoses`、`CelestialBody` 的 `bodyName` / `BuildVisuals` / `RadiusUnits` |
+| 交互层 | `SolarSystemCamera` 的视距查询与设置、`SolarSystemSimulation` 的焦点查询；不得读取网格或材质缓存 |
+
+`SolarMeshFactory` 是 `internal`，仅 `Planet.Solar` 内部使用。其他未列入契约的类型即使目前为
+`public`，也视为程序集内部实现；需要新的数据源时，先在主线确定接口，再由调用方注入或把最小
+接口放入 `Planet.Procedural`，不要在 `Planet.Solar` 中直接引用下游程序集。
+
+编辑器工具（`Assets/Editor/`）**故意留在 `Assembly-CSharp-Editor`**，不另立 asmdef：它们不参与
+构建产物，而多一个 asmdef 就多一个合并冲突点。
+
+### 与星球框架的接口只有两处
+
+`CelestialBody` 是星系程序集与程序化星球框架之间**唯一**的接触点，它只用到：
+
+- `Planet.Procedural.IPlanetRadiusProvider` —— 由 `CelestialBody` **实现**，供壳层反查半径；
+- `PlanetSurfaceView` 的 `definition` / `BuildSurface(float)` / `SetRadius(float)` / `SurfaceTransform`。
+
+半径**只朝一个方向流动**：`CelestialBody` 发布 `RadiusUnits`，大气壳与云壳各自在
+`ApplyProperties()` 里自取。`CelestialBody.ApplyState` **不再**反向推送
+`PlanetAtmosphere` / `PlanetCloudLayer` —— 那会要求星系程序集引用壳层组件，而 `PlanetAtmosphere`
+位于 `Planet.Procedural` 程序集，Solar 程序集不需要引用具体渲染实现。
+
+> **给其他工作树的提醒**：只要不动上面这两个接口，`Planet.Procedural` 内部怎么改都不会波及
+> 星系程序集。若确实需要改动 `IPlanetRadiusProvider`，或 `PlanetSurfaceView` 这四个成员，
+> 或者星系程序集需要**新的数据源**，请先在主工作树把接口定下来再动分支。

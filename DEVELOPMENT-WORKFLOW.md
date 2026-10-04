@@ -130,4 +130,4 @@ surfaceClearanceRatio = surfaceClearance / max(surfaceRadius, 1e-6)
 - 生成资产的 GUID、场景对象和 Build Settings 引用未丢失；
 - 程序化 EditMode 回归测试存在且只覆盖可长期复用的确定性/接缝/形状/光学契约；
 - `Assets/TutorialInfo` 等模板遗留物、临时测试脚本和中间截图不进入权威提交；
-- 每个工作树的分支指针与 `main` 的权威标签相同，工作区没有未提交的代码或资源改动。
+- 每个工作树的分支指针与 `main` 的权威标签相同；除明确保留的本地验证截图外，工作区没有未提交的代码或源资源改动。

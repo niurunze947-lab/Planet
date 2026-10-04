@@ -352,3 +352,35 @@ HUD 显示：模拟日期、时间流速、焦点天体的半径/扁率/自转�
 | 说明 | [PLANET-DEMO.md](PLANET-DEMO.md) | 本文件 |
 
 两个场景共用星空天空盒与 URP 设置，互不依赖；参考场景**不接入程序化框架**。
+
+---
+
+## 9. 程序集边界（多工作树合并）
+
+星系（Solar System）相关运行时代码已收进独立程序集，避免不同工作树互相加引用时把合并面撑大。
+
+| 程序集 | 路径 | 职责 | 允许引用 |
+|---|---|---|---|
+| `Planet.Procedural` | `Assets/Scripts/Procedural/` | 程序化星球表面 / 云 / 大气、`IPlanetRadiusProvider` | Unity.Mathematics / Burst |
+| `Planet.Solar` | `Assets/Scripts/Solar/` | 轨道、目录、模拟、相机、HUD、白模 | **仅** `Planet.Procedural` + Unity 包 |
+| `Assembly-CSharp` | `Assets/Scripts/`（根） | 场景拼装层：`PlanetLightingController` 与 PlanetDemo 参考脚本 | 可引用以上两者 |
+| `Assembly-CSharp-Editor` | `Assets/Editor/` | `Tools ▸ Planet` 构建 / 截图 | 可引用以上全部 |
+
+### 对外公开面（其他程序只应使用这些）
+
+- **模拟与查询**：`SolarSystemSimulation`（焦点、时间、`BodyCount` / `ViewAt` / `DefinitionAt` / `PositionKmAt`）
+- **天体视图**：`CelestialBody`（`bodyName`、`Definition`、`RadiusUnits`、`PoleUnity`）
+- **目录数据**：`SolarSystemCatalog`、`Body`、`BodyKind`、`RingSet`
+- **轨道数学**：`Vec3d`、`KeplerianElements`、`MoonOrbit`、`OrbitalMechanics`（出现在公开签名里）
+- **相机 / 场景件**：`SolarSystemCamera`、`SolarSystemHud`、`OrbitPath`、`CircleLine`、`BeltField`
+- **编辑器构建**：`SolarSystemFactory`、`SolarMaterials`、`SolarSystemPoses`
+
+`SolarMeshFactory` 已标为 `internal`，仅 `Planet.Solar` 内部使用。
+
+### 引用纪律
+
+1. `Planet.Solar` **不得**引用 `Assembly-CSharp`、编辑器程序集，或其他工作树专属程序集。
+2. 需要新的数据源 / 下游类型时，先在工作树之间讨论，再决定是升进 `Planet.Procedural`、
+   加接口，还是由调用方注入——不要在 `Planet.Solar` 里直接 `using` 对方的程序集。
+3. 交互层新代码建议放在 `Assembly-CSharp` 或未来的 `Planet.Interaction`，**单向**依赖
+   `Planet.Solar` 的公开面。

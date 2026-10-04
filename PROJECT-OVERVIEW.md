@@ -233,6 +233,22 @@ Renderer Feature: ScreenSpaceAmbientOcclusion
 太阳系逻辑使用 UnityEngine 与新输入系统；独立 `Planet.Procedural` 程序集使用已安装的
 Unity.Mathematics。地形与纹素缓冲按面并行计算，Unity Mesh / Texture 上传仍在主线程。
 
+**程序集划分**（2026-10-04 起）：
+
+| 程序集 | 内容 | 显式引用 |
+|---|---|---|
+| **`Planet.Solar`** | `Assets/Scripts/Solar/`，13 个文件的星系运行时 | `Planet.Procedural`、`Unity.InputSystem`、URP Core / Universal Runtime |
+| **`Planet.Procedural`** | `Assets/Scripts/Procedural/`，程序化星球框架 | `Unity.Mathematics`、`Unity.Burst` |
+| `Assembly-CSharp` | `Assets/Scripts/` 根目录：`PlanetAtmosphere`、`PlanetLightingController`、PlanetDemo 脚本 | 自动引用上面两个程序集 |
+| `Assembly-CSharp-Editor` | `Assets/Editor/` 的三个编辑器工具 | 自动引用上面两个程序集 |
+
+依赖是**单向**的：`Planet.Solar → Planet.Procedural`，反向没有任何引用。星系与星球框架之间
+只有两处接口（`IPlanetRadiusProvider`，以及 `PlanetSurfaceView` 的四个成员），完整边界、
+对外契约与"哪些类型可以动"见 **[PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) §9**。
+
+这样划分的直接目的：**不同工作树合并时，不会因为新增的引用或被引用而互相绊住。** 星系程序集
+的引用列表是穷举的，任何新增依赖都必须显式写进 `Planet.Solar.asmdef`，无法偷偷长出来。
+
 ### 8.1 太阳系（`Assets/Scripts/Solar/`，13 个文件）
 
 这是 `SolarSystem.unity` 的轨道与姿态逻辑；位置和自转每一帧从日期算出来，Earth 的外观另由
@@ -354,6 +370,31 @@ PlanetSurfaceView`。定义是唯一权威，网格与 Cubemap 都是可重建�
 - 桥接 `127.0.0.1:6400` —— **单消费者**，同一时刻只应一个客户端驱动
 - 实例标识 `Planet@73cccd62`，注册工具 **47 个** + 19 个资源
 
+### 多工作树并行时的实例选择（2026-10-04 实测）
+
+现在同时有多个工作树各自开着 Unity，**每个实例注册自己的端口**，写在
+`%USERPROFILE%\.unity-mcp\unity-mcp-port-<hash>.json` 与 `unity-mcp-status-<hash>.json` 里：
+
+| 工作树 | 端口 | 实例 hash |
+|---|---|---|
+| `Planet-worktrees/interaction` | 6400 | `e07d6cc3` |
+| `Planet-worktrees/planet-definition` | 6401 | `77f70dab` |
+| `Planet-worktrees/SolarSystem` | 6402 | `2a3e3cbe` |
+
+**踩过的坑**：MCP 客户端会**记住上次连接的实例**。本轮一开始所有调用都落到
+`planet-definition` 的编辑器上——因为四个工作树的场景与脚本在同一基线，读出来的结构
+完全一样，**不专门查 `Application.dataPath` 根本发现不了**，会以为改的是自己的工程。
+驱动前先确认：
+
+```
+unity_reflect / execute_code → Application.dataPath        # 确认是哪个工作树
+set_active_instance "<projectName>@<hash>"                  # 切到自己的实例
+```
+
+> 另外，Unity 窗口**失去焦点时不会自动刷新资源库**。新建的 asmdef / 脚本如果没被导入，
+> 显式调一次 `AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate)` 即可——上面那个
+> "asmdef 建好了但 Unity 说找不到" 就是这么解决的。
+
 详见 `MCP-Setup/MCP-HANDSHAKE-REPORT.md` 与 `MCP-Setup/mcp-tool-list.json`。
 
 ---
@@ -406,6 +447,10 @@ PlanetSurfaceView`。定义是唯一权威，网格与 Cubemap 都是可重建�
 
 10. **程序化星球：改了采样数学就要提升 `PlanetDefinition.GeneratorVersion`。** 网格与 Cubemap 的缓存判定只看内容指纹；噪声、阈值、公式变了但序列化参数没变时，指纹不变，缓存不会失效——结果是"旧地形套着新参数的颜色"，而且不会有任何报错。细节见 [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §5 与 §19。
 
+11. **不要随手往 asmdef 的 `references` 里加东西。** 星系运行时是 `Planet.Solar`，星球框架是 `Planet.Procedural`，两个都是独立程序集，依赖方向必须保持 `Planet.Solar → Planet.Procedural` **单向**。加一条反向引用立刻变成循环依赖；加一条新的包引用会和其他工作树的同名 asmdef 改动**逐行冲突**。需要新数据源时先把接口定下来，再动 asmdef——边界与对外契约见 [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) §9。
+
+12. **`Planet.Solar` 不能引用 `Assembly-CSharp`。** asmdef 程序集在结构上就引用不到 `Assembly-CSharp` / `Assembly-CSharp-Editor`（方向是反的）。所以 `CelestialBody` 不直接碰 `PlanetAtmosphere`，而是实现 `IPlanetRadiusProvider` 让壳层自己来取。要把 `Assets/Scripts/` 根目录的脚本挪进星系逻辑时，先确认它不在 `Assembly-CSharp` 里。
+
 ---
 
 ## 13. 文档索引
@@ -417,7 +462,7 @@ PlanetSurfaceView`。定义是唯一权威，网格与 Cubemap 都是可重建�
 | `PLANET-ASSETS.md` | 贴图来源、授权、编码公式、复现步骤 |
 | `PLANET-DEMO.md` | 贴图版地球/月球**参考场景**：构成、参数、操作方法、"高度图为何是红色" |
 | `PLANET-PROCEDURAL.md` | **程序化星球表面生成框架**：数据链、坐标与单位、地形 / 水体 / 云算法、网格与烘焙缓存、着色器取舍、已知限制 |
-| `PLANET-SOLARSYSTEM.md` | 真实比例太阳系场景（正式工程场景）：轨道力学、数值验证、坐标系、操作键位、光照取舍 |
+| `PLANET-SOLARSYSTEM.md` | 真实比例太阳系场景（正式工程场景）：轨道力学、数值验证、坐标系、操作键位、光照取舍、**§9 程序集边界与对外接口** |
 | `MCP-Setup/MCP-HANDSHAKE-REPORT.md` | 四客户端握手验证记录 |
 | `MCP-Setup/mcp-tool-list.json` | 47 个工具的完整清单 |
 

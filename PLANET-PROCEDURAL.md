@@ -29,8 +29,14 @@
 
 > 程序集 `Planet.Procedural` 引用了 `Unity.Mathematics` 与 `Unity.Burst`（`autoReferenced`）。
 > 采样器写成 blittable 就是为了将来接 Burst，**但当前代码里没有任何 `[BurstCompile]`**，
-> 目前的并行只来自 `Parallel.For`。其余脚本（`CelestialBody`、`PlanetAtmosphere`、
-> `PlanetLightingController`、编辑器工具）都在默认的 `Assembly-CSharp` 里。
+> 目前的并行只来自 `Parallel.For`。
+>
+> **程序集划分**（2026-10-04 起）：星系运行时是独立程序集 **`Planet.Solar`**
+> （`Assets/Scripts/Solar/Planet.Solar.asmdef`）；`PlanetAtmosphere`、`PlanetLightingController`
+> 与 `Assets/Editor/` 的编辑器工具仍在默认的 `Assembly-CSharp` / `Assembly-CSharp-Editor` 里。
+> 依赖方向是**单向**的：`Planet.Solar → Planet.Procedural`，反向没有任何引用——壳层靠
+> `IPlanetRadiusProvider` **反查**半径，而不是让星系程序集把半径**推**给壳层。
+> 完整边界与对外契约见 [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) §9。
 
 ---
 

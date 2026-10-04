@@ -9,7 +9,8 @@
 一句话：**给定一个 `PlanetDefinition`，框架生成这颗星球的地形几何、地表颜色、云密度、大气与云壳层，
 并让同一份采样数据同时服务于运行时查询、网格生成和贴图烘焙。**
 
-当前**只有 `SolarSystem.unity` 里的 Earth 接了这套框架**，其余 20 个天体仍是白模（`Planet/ClayGrid`）。
+当前 `SolarSystem.unity` 的 **21 个天体均已接入框架**。Earth 保留原 Terra 地形与云层；其余天体使用
+独立的岩壳、冰壳、气层、雾霾或发光光球定义，具体特征与近似范围见 [PLANET-MATERIALS.md](PLANET-MATERIALS.md)。
 太阳系（星系视角）是本工程的正式场景与工程文件；`PlanetDemo.unity` 的贴图地球 / 月球只作为
 **星球渲染精度的参考基准**，不参与这套框架。
 
@@ -104,7 +105,7 @@ PlanetLightingController             (推太阳方向 + 全局星空曝光 EV)
 
 ## 5. 定义资产：`PlanetDefinition`
 
-四组参数，`ValidateParameters()` 在 `OnValidate` 与 `CreateSampler()` 时钳制取值范围：
+五组参数，`ValidateParameters()` 在 `OnValidate` 与 `CreateSampler()` 时钳制取值范围：
 
 | 组 | 内容 |
 |---|---|
@@ -112,6 +113,7 @@ PlanetLightingController             (推太阳方向 + 全局星空曝光 EV)
 | `generation` | 种子、大陆 / 山系 / 细节的频率与幅度、域扭曲、海平面比例、视觉夸张、坡度采样距离、气候偏移、云场 |
 | `palette` | 10 个基色：深海、浅海、沙滩、沙漠、草原、森林、雨林、苔原、岩石、雪 |
 | `features` | `hasOcean` / `hasAtmosphere` / `hasClouds` / `hasEcology` / `hasIceCaps` |
+| `appearance` | 可见表面类型、矿物颜色、撞击坑、冰裂纹、气带、球面大斑、光学高度、发光、临边昏暗、环与大气外观；每个预设保存观测解释和局限 |
 
 示例 `Assets/Resources/Solar/ProceduralTerra.asset` 的关键值：
 
@@ -127,7 +129,10 @@ PlanetLightingController             (推太阳方向 + 全局星空曝光 EV)
 | 地形范围（粗采样） | −7,200 … +5,802.79 m | 水覆盖率（粗采样） | 0.5638 |
 | 温度 / 湿度偏移 | 0 / +0.02 | 高度递减率 | 0.085 /km |
 
-**内容指纹**：`ContentFingerprint() = Hash128(GeneratorVersion + 四组参数的 JSON)`，用于网格与贴图缓存判定。
+**内容指纹**：`ContentFingerprint() = Hash128(GeneratorVersion + 五组参数的 JSON)`，用于网格与贴图缓存判定。
+当前版本为 **4**；`physical.shapeScale` 支持 Haumea 的三轴形状。以下 §6–8 的高度和气候公式描述 `Terrestrial`
+类型，其他类型由 `PlanetAppearanceSampler` 采样。气巨星、雾霾、光球的高度为光学参考层上的零起伏，
+另由 `opticalSurfaceHeightMetres` 控制可见壳层半径；样本 `biome` 可为 `CloudTop`、`Haze`、`Photosphere`、`Volcanic`、`Rock`。
 **改了采样数学（噪声、阈值、公式）就必须提升 `GeneratorVersion`**，否则参数一个没变、指纹不变，
 缓存不会失效，你会看到旧地形上套着新参数的颜色。
 
@@ -364,7 +369,11 @@ RadiusUnits = (float)(Definition.RadiusKm / KmPerUnit * bodySizeExaggeration);
 |---|---|---|
 | **Build Procedural Planet Example** | 重算地形统计（28 段）→ 烘焙 Albedo / 云密度 → 生成或复用材质 → 给 Earth 接线（网格 96 段）→ 保存场景 | 首次生成，或改了 `PlanetDefinition` 的生成参数 |
 | **Refresh Procedural Planet Visuals** | 复用已有 Cubemap，只刷新材质与壳层参数并保存场景；**编辑模式专用**（Play 模式下直接抛错） | 只调材质 / 壳层数值时，省掉一次烘焙 |
-| **Rebuild Solar System Scene** | 重建整个太阳系；内部会调用 `ConfigureSolarSystemEarth`，所以重建后 Earth 的程序化接线仍在 | 改 `SolarSystemCatalog` 或比例之后 |
+| **Rebuild Solar System Scene** | 重建整个太阳系，调用 `SolarSystemMaterialBuilder.ConfigureSolarSystem` 接入全部天体材质 | 改 `SolarSystemCatalog` 或比例之后 |
+| **Build Solar System Materials** | 按编辑器更新分批构建 21 个天体的定义／独立缓存／材质，完成后保存 SolarSystem；保留已有定义的外观调整 | 全部天体接入、修改定义后重烘 |
+
+`Rebuild Solar System Scene` 现在通过 `SolarSystemMaterialBuilder.ConfigureSolarSystem` 接入全部天体；
+其中 Earth 继续调用原 `ConfigureSolarSystemEarth`。程序化分支也会构建环，环与天体半径同比缩放。
 
 - `ConfigureSolarSystemEarth` 按 `bodyName == "Earth"` 查找天体，并依次写入
   `PlanetSurfaceView`（定义、两张 Cubemap、材质、96 段）、`PlanetAtmosphere`、`PlanetCloudLayer`，
@@ -376,16 +385,14 @@ RadiusUnits = (float)(Definition.RadiusKm / KmPerUnit * bodySizeExaggeration);
 
 ## 16. 新增一个程序化天体
 
-1. 复制 `Assets/Resources/Solar/ProceduralTerra.asset`，改 `displayName`、`physical`（半径、扁率、
-   自转周期、大气高度、极点）与种子。
-2. 重算地形统计：跑一次构建（它以 28 段重算），让地形范围、水位、水覆盖率按新地形更新。
-3. 给目标天体加三个组件：`PlanetSurfaceView`（定义 + 两张 Cubemap + 材质）、`PlanetAtmosphere`、
-   `PlanetCloudLayer`；半径会自动从 `IPlanetRadiusProvider` 来。
-4. 接线代码改 `PlanetFrameworkBuilder.ConfigureSolarSystemEarth` 里的 `bodyName` 过滤条件。
+1. 在 `SolarSystemCatalog` 添加天体，在 `SolarSystemAppearanceCatalog` 添加首次外观预设。
+2. 重建 SolarSystem，或对已存在的天体执行 `SolarSystemMaterialBuilder.BuildBody(name)`；构建器自动创建
+   `BodyMaterials/<Name>.asset`，同步 Catalog 的物理形状并重算统计、烘焙独立缓存与接线。
+3. 修改生成出的 `PlanetDefinition`，再执行 **Build Solar System Materials**。后续构建保留手工外观参数，
+   不以初始预设覆盖定义。大气／独立云层只按特性启用；地下海洋不能通过 `hasOcean` 表示。
 
-> ⚠️ 当前烘焙器的资产路径（`ProceduralTerra_*`）是**写死的单星球路径**。要同时接入多颗星球，
-> 必须先把 `PlanetSurfaceBaker` / `PlanetFrameworkBuilder` 的路径参数化，否则第二颗星球会覆盖第一颗的
-> Cubemap 与材质。共享同一个 `PlanetDefinition` 的天体会共用同一套派生资产 —— 这是特性，不是 bug。
+Earth 保留 `ProceduralTerra_*` 路径及 GUID；其他天体使用各自的路径，不会覆盖 Earth 或彼此的资源。
+框架扩展、材质资产布局和环的限制见 [PLANET-MATERIALS.md](PLANET-MATERIALS.md)。
 
 ---
 
@@ -413,13 +420,15 @@ RadiusUnits = (float)(Definition.RadiusKm / KmPerUnit * bodySizeExaggeration);
 
 - **云与大气是壳层近似**，不是体积光线步进：没有真正的散射积分、没有云自阴影、没有云内阴影。
 - **地表不投 / 不接收 URP 阴影**，也没有地形自遮挡（山体不会互相遮挡），因此没有日食、没有山影。
+  环影和天体遮住环的太阳光已采用解析求交近似，详见材质文档。
 - **位移只发生在网格顶点上**，没有位移贴图 / 视差，镜头贴近地表会看到面片化。
 - **没有地形 LOD 与地表流式加载**：网格一次性生成，分辨率上限 192 段。
 - **没有植被实例、河流 / 湖泊、潮汐、海面波浪几何**；水体只有水位、水深与颜色。
 - **网格是静态缓存**：运行时不监听参数变化，改 `PlanetDefinition` 后需要重新触发一次构建
   （`PlanetSurfaceView` 只在指纹或分辨率变化时重建）。
-- **单星球资产路径写死**（见 §16）；`PlanetLightingController` 依赖 `SolarSystemSimulation`，
-  不能直接搬到 `PlanetDemo` 之类的场景。
+- `PlanetLightingController` 依赖 `SolarSystemSimulation`，不能直接搬到 `PlanetDemo` 之类的场景。
+- 新外观仍是统计场：不含观测地图、气带动力学、地下海洋、日冕、喷发、多层散射或环弧。
+  `appearance.interpretation` 与 [PLANET-MATERIALS.md](PLANET-MATERIALS.md) 明确每颗天体的解释边界。
 
 ---
 

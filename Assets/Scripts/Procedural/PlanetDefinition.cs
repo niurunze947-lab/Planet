@@ -12,6 +12,8 @@ namespace Planet.Procedural
         [Tooltip("Signed sidereal period. Negative values mean retrograde rotation.")]
         public double rotationPeriodSeconds = 86164.09056;
         [Range(0f, 0.2f)] public float flattening = 1f / 298.257f;
+        [Tooltip("Triaxial reference shape, multiplied by the catalog radius. Y also includes flattening.")]
+        public Vector3 shapeScale = Vector3.one;
         [Tooltip("IAU pole orientation, in the same equatorial frame as the solar catalog.")]
         public double northPoleRightAscensionDegrees;
         public double northPoleDeclinationDegrees = 90.0;
@@ -96,12 +98,13 @@ namespace Planet.Procedural
     [CreateAssetMenu(menuName = "Planet/Planet Definition", fileName = "PlanetDefinition")]
     public sealed class PlanetDefinition : ScriptableObject
     {
-        public const int GeneratorVersion = 2;
+        public const int GeneratorVersion = 4;
         public string displayName = "Procedural Terra";
         public PlanetPhysicalParameters physical = new PlanetPhysicalParameters();
         public PlanetGenerationParameters generation = new PlanetGenerationParameters();
         public PlanetPalette palette = new PlanetPalette();
         public PlanetFeatureOptions features = new PlanetFeatureOptions();
+        public PlanetAppearanceParameters appearance = new PlanetAppearanceParameters();
 
         public PlanetSurfaceSampler CreateSampler()
         {
@@ -114,7 +117,7 @@ namespace Planet.Procedural
             ValidateParameters();
             return Hash128.Compute(GeneratorVersion + ":" + JsonUtility.ToJson(physical) + ":" +
                 JsonUtility.ToJson(generation) + ":" + JsonUtility.ToJson(palette) + ":" +
-                JsonUtility.ToJson(features)).ToString();
+                JsonUtility.ToJson(features) + ":" + JsonUtility.ToJson(appearance)).ToString();
         }
 
         public void ValidateParameters()
@@ -123,9 +126,13 @@ namespace Planet.Procedural
             if (generation == null) generation = new PlanetGenerationParameters();
             if (palette == null) palette = new PlanetPalette();
             if (features == null) features = new PlanetFeatureOptions();
+            if (appearance == null) appearance = new PlanetAppearanceParameters();
+            appearance.Validate();
             physical.radiusMetres = Math.Max(1000.0, physical.radiusMetres);
             physical.massKilograms = Math.Max(0.0, physical.massKilograms);
             physical.flattening = Mathf.Clamp(physical.flattening, 0f, 0.2f);
+            physical.shapeScale = new Vector3(Mathf.Max(0.1f, physical.shapeScale.x),
+                Mathf.Max(0.1f, physical.shapeScale.y), Mathf.Max(0.1f, physical.shapeScale.z));
             physical.atmosphereHeightMetres = Mathf.Max(0f, physical.atmosphereHeightMetres);
             generation.continentFrequency = Mathf.Max(0.1f, generation.continentFrequency);
             generation.continentOctaves = Mathf.Clamp(generation.continentOctaves, 2, 8);

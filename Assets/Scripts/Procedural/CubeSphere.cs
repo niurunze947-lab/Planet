@@ -82,8 +82,7 @@ namespace Planet.Procedural
                     PlanetSurfaceSample sample = sampler.Evaluate(d);
                     data.positions[index] = sampler.SurfacePosition(d, sample.heightMetres);
                     // Water normals ignore the seabed gradient. Same rule is used by the surface shader.
-                    float polar = 1f - sampler.flattening;
-                    float3 radialNormal = math.normalize(new float3(d.x, d.y / (polar * polar), d.z));
+                    float3 radialNormal = sampler.ReferenceNormal(d);
                     data.normals[index] = math.normalize(math.lerp(sample.normal, radialNormal, sample.ocean));
                     data.directions[index] = d;
                     data.faceUV[index] = (uv + 1f) * 0.5f;

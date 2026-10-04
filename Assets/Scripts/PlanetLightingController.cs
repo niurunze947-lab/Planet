@@ -85,7 +85,7 @@ public sealed class PlanetLightingController : MonoBehaviour
     private float EstimateSurfaceBrightness(SolarSystemSimulation sim, Vector3 lightDirection, out float coverage)
     {
         coverage = 0f;
-        if (sim == null || sim.FocusDefinition == null || sim.FocusDefinition.IsSun || sim.FocusView == null)
+        if (sim == null || sim.FocusDefinition == null || sim.FocusView == null)
             return 0.02f;
 
         float radius = Mathf.Max(sim.FocusRadiusUnits, 1e-5f);
@@ -102,6 +102,10 @@ public sealed class PlanetLightingController : MonoBehaviour
         coverage = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(screenRadius));
 
         PlanetSurfaceView surface = body.GetComponent<PlanetSurfaceView>();
+        if (sim.FocusDefinition.IsSun)
+            return surface != null && surface.definition != null
+                ? surface.definition.appearance.emissionStrength * Luminance(surface.definition.appearance.baseColor.linear)
+                : 0.95f;
         Vector3 viewLocal = body.InverseTransformDirection(offset.normalized);
         Vector3 sunLocal = body.InverseTransformDirection(lightDirection);
         float lightLuminance = sun != null ? Luminance(sun.color.linear) * sun.intensity : 1.35f;

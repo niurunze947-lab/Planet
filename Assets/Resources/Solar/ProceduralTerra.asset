@@ -18,6 +18,7 @@ MonoBehaviour:
     massKilograms: 5.9722e+24
     rotationPeriodSeconds: 86164.09056
     flattening: 0.0033528134
+    shapeScale: {x: 1, y: 1, z: 1}
     northPoleRightAscensionDegrees: 0
     northPoleDeclinationDegrees: 90
     seaLevelMetres: -438.54868
@@ -65,3 +66,33 @@ MonoBehaviour:
     hasClouds: 1
     hasEcology: 1
     hasIceCaps: 1
+  appearance:
+    surfaceKind: 0
+    baseColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+    secondaryColor: {r: 1, g: 1, b: 1, a: 1}
+    accentColor: {r: 0.4, g: 0.25, b: 0.15, a: 1}
+    regionFrequency: 3
+    reliefMetres: 1000
+    craterFrequency: 18
+    craterDepthMetres: 1200
+    craterStrength: 0.7
+    fractureStrength: 0
+    fractureFrequency: 14
+    fractureWidth: 0.025
+    bandContrast: 0.5
+    bandCount: 14
+    turbulence: 0.4
+    polarCapStart: 1
+    featureLongitudeLatitude: {x: 30, y: -22}
+    featureAngularSize: {x: 12, y: 8}
+    featureStrength: 0
+    featureColor: {r: 1, g: 1, b: 1, a: 1}
+    opticalSurfaceHeightMetres: 0
+    emissionStrength: 0
+    limbDarkening: 0
+    landSmoothness: 0.12
+    atmosphereColor: {r: 0.28, g: 0.62, b: 1, a: 1}
+    atmosphereDensity: 0.22
+    ringColor: {r: 0.85, g: 0.79, b: 0.66, a: 1}
+    ringOpacity: 0.8
+    interpretation: 

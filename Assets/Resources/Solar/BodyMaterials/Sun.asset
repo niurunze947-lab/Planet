@@ -1,0 +1,100 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db5cb4c9d0792ed409f4e4aaa4f5db52, type: 3}
+  m_Name: Sun
+  m_EditorClassIdentifier: 
+  displayName: Sun
+  physical:
+    radiusMetres: 696340000
+    massKilograms: 1.98847e+30
+    rotationPeriodSeconds: 2192832
+    flattening: 0
+    shapeScale: {x: 1, y: 1, z: 1}
+    northPoleRightAscensionDegrees: 286.13
+    northPoleDeclinationDegrees: 63.87
+    seaLevelMetres: 0
+    atmosphereHeightMetres: 0
+  generation:
+    seed: 51592139
+    continentFrequency: 1.65
+    continentThreshold: 0.08
+    domainWarp: 0.32
+    continentOctaves: 6
+    oceanDepthMetres: 7200
+    plateauHeightMetres: 1600
+    seaLevelFraction: 0.52
+    terrainMinimumMetres: 0
+    terrainMaximumMetres: 1
+    waterCoverage: 0
+    visualReliefScale: 1
+    mountainFrequency: 12
+    mountainHeightMetres: 6200
+    mountainOctaves: 6
+    detailFrequency: 140
+    detailHeightMetres: 220
+    slopeSampleDistanceMetres: 243719
+    temperatureOffset: 0
+    moistureOffset: 0.02
+    altitudeCoolingPerKilometre: 0.085
+    cloudFrequency: 5.4
+    cloudCoverage: 0.49
+    cloudSoftness: 0.18
+    cloudDetailFrequency: 23
+  palette:
+    deepOcean: {r: 0.025, g: 0.065, b: 0.24, a: 1}
+    shallowOcean: {r: 0.035, g: 0.32, b: 0.39, a: 1}
+    beach: {r: 0.72, g: 0.66, b: 0.46, a: 1}
+    desert: {r: 0.79, g: 0.64, b: 0.4, a: 1}
+    grassland: {r: 0.42, g: 0.46, b: 0.22, a: 1}
+    forest: {r: 0.25, g: 0.35, b: 0.16, a: 1}
+    rainforest: {r: 0.13, g: 0.27, b: 0.13, a: 1}
+    tundra: {r: 0.48, g: 0.48, b: 0.35, a: 1}
+    rock: {r: 0.42, g: 0.39, b: 0.33, a: 1}
+    snow: {r: 0.89, g: 0.93, b: 0.94, a: 1}
+  features:
+    hasOcean: 0
+    hasAtmosphere: 0
+    hasClouds: 0
+    hasEcology: 0
+    hasIceCaps: 0
+  appearance:
+    surfaceKind: 8
+    baseColor: {r: 1, g: 0.98, b: 0.93, a: 1}
+    secondaryColor: {r: 0.58, g: 0.56, b: 0.51, a: 1}
+    accentColor: {r: 0.4, g: 0.25, b: 0.15, a: 1}
+    regionFrequency: 3
+    reliefMetres: 1000
+    craterFrequency: 18
+    craterDepthMetres: 1200
+    craterStrength: 0.7
+    fractureStrength: 0
+    fractureFrequency: 14
+    fractureWidth: 0.025
+    bandContrast: 0.5
+    bandCount: 14
+    turbulence: 0.4
+    polarCapStart: 1
+    featureLongitudeLatitude: {x: 25, y: 12}
+    featureAngularSize: {x: 4.5, y: 3}
+    featureStrength: 0.9
+    featureColor: {r: 0.16, g: 0.12, b: 0.09, a: 1}
+    opticalSurfaceHeightMetres: 0
+    emissionStrength: 0.95
+    limbDarkening: 0.65
+    landSmoothness: 0.12
+    atmosphereColor: {r: 0.28, g: 0.62, b: 1, a: 1}
+    atmosphereDensity: 0.22
+    ringColor: {r: 0.85, g: 0.79, b: 0.66, a: 1}
+    ringOpacity: 0.8
+    interpretation: White warm photosphere, illustrative spot and unresolved statistical
+      granulation. No corona, prominences, differential rotation or radiometric solar
+      luminance.

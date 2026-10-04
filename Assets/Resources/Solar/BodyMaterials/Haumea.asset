@@ -1,0 +1,99 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db5cb4c9d0792ed409f4e4aaa4f5db52, type: 3}
+  m_Name: Haumea
+  m_EditorClassIdentifier: 
+  displayName: Haumea
+  physical:
+    radiusMetres: 780000
+    massKilograms: 4.006e+21
+    rotationPeriodSeconds: 14095.800000000001
+    flattening: 0
+    shapeScale: {x: 1.346, y: 0.688, z: 1.077}
+    northPoleRightAscensionDegrees: 282
+    northPoleDeclinationDegrees: -13
+    seaLevelMetres: 0
+    atmosphereHeightMetres: 0
+  generation:
+    seed: -949953586
+    continentFrequency: 1.65
+    continentThreshold: 0.08
+    domainWarp: 0.32
+    continentOctaves: 6
+    oceanDepthMetres: 7200
+    plateauHeightMetres: 1600
+    seaLevelFraction: 0.52
+    terrainMinimumMetres: -362.8868
+    terrainMaximumMetres: 337.3943
+    waterCoverage: 0
+    visualReliefScale: 1
+    mountainFrequency: 12
+    mountainHeightMetres: 6200
+    mountainOctaves: 6
+    detailFrequency: 140
+    detailHeightMetres: 220
+    slopeSampleDistanceMetres: 273
+    temperatureOffset: 0
+    moistureOffset: 0.02
+    altitudeCoolingPerKilometre: 0.085
+    cloudFrequency: 5.4
+    cloudCoverage: 0.49
+    cloudSoftness: 0.18
+    cloudDetailFrequency: 23
+  palette:
+    deepOcean: {r: 0.025, g: 0.065, b: 0.24, a: 1}
+    shallowOcean: {r: 0.035, g: 0.32, b: 0.39, a: 1}
+    beach: {r: 0.72, g: 0.66, b: 0.46, a: 1}
+    desert: {r: 0.79, g: 0.64, b: 0.4, a: 1}
+    grassland: {r: 0.42, g: 0.46, b: 0.22, a: 1}
+    forest: {r: 0.25, g: 0.35, b: 0.16, a: 1}
+    rainforest: {r: 0.13, g: 0.27, b: 0.13, a: 1}
+    tundra: {r: 0.48, g: 0.48, b: 0.35, a: 1}
+    rock: {r: 0.42, g: 0.39, b: 0.33, a: 1}
+    snow: {r: 0.89, g: 0.93, b: 0.94, a: 1}
+  features:
+    hasOcean: 0
+    hasAtmosphere: 0
+    hasClouds: 0
+    hasEcology: 0
+    hasIceCaps: 0
+  appearance:
+    surfaceKind: 4
+    baseColor: {r: 0.77, g: 0.78, b: 0.77, a: 1}
+    secondaryColor: {r: 0.93, g: 0.94, b: 0.92, a: 1}
+    accentColor: {r: 0.56, g: 0.52, b: 0.45, a: 1}
+    regionFrequency: 3
+    reliefMetres: 400
+    craterFrequency: 18
+    craterDepthMetres: 1200
+    craterStrength: 0.1
+    fractureStrength: 0.08
+    fractureFrequency: 14
+    fractureWidth: 0.025
+    bandContrast: 0.5
+    bandCount: 14
+    turbulence: 0.4
+    polarCapStart: 1
+    featureLongitudeLatitude: {x: 30, y: 5}
+    featureAngularSize: {x: 24, y: 19}
+    featureStrength: 0.38
+    featureColor: {r: 0.58, g: 0.39, b: 0.31, a: 1}
+    opticalSurfaceHeightMetres: 0
+    emissionStrength: 0
+    limbDarkening: 0
+    landSmoothness: 0.08
+    atmosphereColor: {r: 0.28, g: 0.62, b: 1, a: 1}
+    atmosphereDensity: 0.22
+    ringColor: {r: 0.52, g: 0.49, b: 0.44, a: 1}
+    ringOpacity: 0.3
+    interpretation: Bright water-ice triaxial body, illustrative red spot and 2287
+      km ring. Detailed geography is unresolved; the spot's position is illustrative.

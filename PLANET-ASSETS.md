@@ -4,7 +4,7 @@
 > 采集日期：2026-10-02 ｜ 处理脚本见 `_assets_src/`
 >
 > 更新：2026-10-04。§4 记录 HDR 星空导入与经度接缝修复，§8 记录 SolarSystem 的程序化
-> Earth 派生资源。真实 NASA 资产与程序化资源使用不同的数据来源。
+> 天体派生资源。真实 NASA 资产与程序化资源使用不同的数据来源。
 
 ---
 
@@ -291,17 +291,17 @@ QA 预览图（色彩/高程对照）位于 `_assets_src/qa/`：`earth_qa.png`�
 
 ---
 
-## 8. 太阳系场景：白模与程序化 Earth 资源
+## 8. 太阳系场景：全部天体的程序化资源
 
 `Assets/Scenes/SolarSystem.unity`（真实比例太阳系，见 `PLANET-SOLARSYSTEM.md`）
-使用同一张 NASA HDR 星空；Earth 的地表与云来自种子采样后烘焙的 Cubemap，其余天体继续使用白模。
+使用同一张 NASA HDR 星空；全部天体来自种子采样后烘焙的独立 Cubemap，Earth 另有独立云密度。
 程序化 Earth 不使用本文件中的 NASA 地球色彩 / DEM 来生成大陆，因此示例地貌不对应真实地球。
 
 | 项 | `PlanetDemo` | `SolarSystem` |
 |---|---|---|
-| 表面贴图 | 真实色彩、高程、法线与材质图 | Earth Albedo / CloudDensity Cubemap，其余天体无表面贴图 |
-| 星球外观 | 8K 反照率 + 法线 + 金属度/光滑度 | 程序化 Earth + 其余白模经纬网 |
-| 几何来源 | 16 位高程图逐顶点位移 | Earth 六面 Cube Sphere，其他天体使用 `SolarMeshFactory` |
+| 表面贴图 | 真实色彩、高程、法线与材质图 | 21 份独立 Albedo Cubemap、Earth CloudDensity 和五份径向环 profile |
+| 星球外观 | 8K 反照率 + 法线 + 金属度/光滑度 | 定义驱动的岩壳、冰壳、气层、雾霾、光球及环 |
+| 几何来源 | 16 位高程图逐顶点位移 | 全部天体六面 Cube Sphere，环使用 `SolarMeshFactory` |
 | 天空盒 | `starmap_2020_4k.exr`（共用） | 同左（**唯一共用的贴图**） |
 
 ### 白模材质（`Assets/Resources/Solar/`）
@@ -310,16 +310,15 @@ QA 预览图（色彩/高程对照）位于 `_assets_src/qa/`：`earth_qa.png`�
 
 | 材质 | 着色器 | 用途 |
 |---|---|---|
-| `WhiteClay.mat` | `Planet/ClayGrid` | 其余白模天体 |
-| `WhiteRing.mat` | `Planet/ClayGrid`（`_GridStrength = 0`） | 土星环 |
-| `WhiteSun.mat` | URP/Lit（自发光） | 太阳 |
+| `WhiteClay.mat` | `Planet/ClayGrid` | 缺少程序化定义时的回退表面 |
+| `WhiteRing.mat` | `Planet/ClayGrid`（`_GridStrength = 0`） | 缺少独立环材质时的回退 |
+| `WhiteSun.mat` | URP/Lit（自发光） | 缺少太阳定义时的回退 |
 | `BeltMarker.mat` | URP/Unlit（`enableInstancing`） | 碎带标记点 |
 | `OrbitLine.mat` | `Planet/OrbitLine` | 轨道线 |
 
-**白模的用途**：全太阳系观察时比例是重点。在 1 场景单位 = 1,000,000 km
-的尺度下，地球直径只有 0.0127 个场景单位；贴 8K 反照率的地球和贴一张纯色图的地球，
-在能看清整个太阳系的视距下**没有任何可见差别**，却要多付 319.5 MB 显存。
-把预算留给碎带（7200 个实例）和轨道线更值。
+这些回退资源保留白模基线；正式场景已使用独立程序化材质。
+21 份 256²×6 RGBA32 Albedo 含 mip 共约 42 MiB GPU 缓存；Earth 云密度约 0.5 MiB，
+五份环 profile 约 40 KiB。当前仍保留纹理 CPU 镜像，因此 Unity 总运行内存口径会更高。
 
 ### Earth 的程序化派生资源
 
@@ -345,11 +344,18 @@ QA 预览图（色彩/高程对照）位于 `_assets_src/qa/`：`earth_qa.png`�
 > 采样函数、参数含义、网格与壳层的实现细节见 **[PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md)**，
 > 本节只负责资产清单。当前云与大气是星球尺度近似；地形遮挡自阴影和完整体积光线步进尚未加入。
 
-### 白模经纬网
+### 其他 20 个天体的派生资源
 
-白模着色器上的经纬网由**网格自带的 UV** 算出来（`frac(uv * 划分数)` + `fwidth` 保持恒定像素宽），
-不是一张贴图，也不占显存。加它的原因很实际：**一个完全均匀的白色球体，转与不转看起来
-一模一样**，而自转正是这个场景要演示的东西之一。按 `L` 可把 `_GridStrength` 归零，回到纯白球。
+资源位于 `Assets/Resources/Solar/BodyMaterials/`，每个天体有 `<Name>.asset`、`<Name>_Albedo.cubemap`
+与 `<Name>Surface.mat`；有大气／环者另有独立材质，五组环保存 `<Name>_RingProfile.asset`。
+它们由工程自行生成，没有新增远程影像下载或第三方图像授权。
+外观与天文特征的具体依据、示意性质和未实现项见 [PLANET-MATERIALS.md](PLANET-MATERIALS.md)。
+**Build Solar System Materials** 参数化独立路径并保留现有 GUID；Earth 延续原路径。
+
+### 经纬参考网
+
+白模回退用 UV 经纬网；正式程序化表面按单位方向的角度生成经纬参考网，使用 `fwidth` 抗锯齿。
+它不占贴图显存。默认关闭；按 `L` 切换全局 `_PlanetGridStrength`，方便观察转轴与自转。
 
 ### 碎带标记点：位置真实，尺寸不真实
 

@@ -4,7 +4,7 @@ using Planet.Procedural;
 namespace Planet.Solar
 {
     /// <summary>
-    /// One white-model body: an untextured sphere sized to the real radius, plus an optional
+    /// One catalog body: a definition-driven surface sized to the real radius, plus an optional
     /// ring system. This component owns the body's *shape* and its *spin axis*; the orbital
     /// position and the spin angle are pushed in every frame by <see cref="SolarSystemSimulation"/>.
     /// </summary>
@@ -21,6 +21,7 @@ namespace Planet.Solar
 
         [Header("Rings")]
         public int ringSegments = 192;
+        public Material ringMaterial;
 
         [System.NonSerialized] public Body Definition;
 
@@ -114,34 +115,34 @@ namespace Planet.Solar
                 _proceduralSurface.BuildSurface(RadiusUnits);
                 _surface = _proceduralSurface.SurfaceTransform;
                 _surfaceFilter = _surface != null ? _surface.GetComponent<MeshFilter>() : null;
-                return;
             }
-
-            // ---- surface -------------------------------------------------------------------
-            if (_surface == null)
+            else
             {
-                _surface = GetOrCreateChild("Surface");
-                _surfaceFilter = _surface.GetComponent<MeshFilter>();
-                if (_surfaceFilter == null) _surfaceFilter = _surface.gameObject.AddComponent<MeshFilter>();
-                if (_surface.GetComponent<MeshRenderer>() == null) _surface.gameObject.AddComponent<MeshRenderer>();
+                // ---- fallback surface -----------------------------------------------------
+                if (_surface == null)
+                {
+                    _surface = GetOrCreateChild("Surface");
+                    _surfaceFilter = _surface.GetComponent<MeshFilter>();
+                    if (_surfaceFilter == null) _surfaceFilter = _surface.gameObject.AddComponent<MeshFilter>();
+                    if (_surface.GetComponent<MeshRenderer>() == null) _surface.gameObject.AddComponent<MeshRenderer>();
+                }
+
+                _surfaceFilter.sharedMesh = SolarMeshFactory.Sphere(
+                    longitudeSegments, latitudeSegments, (float)Definition.Flattening, Definition.ShapeScale);
+
+                var surfaceRenderer = _surface.GetComponent<MeshRenderer>();
+                surfaceRenderer.sharedMaterial = Definition.IsSun ? SolarMaterials.Sun : SolarMaterials.Clay;
+                surfaceRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                surfaceRenderer.receiveShadows = false;
+                surfaceRenderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+                surfaceRenderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+                surfaceRenderer.motionVectorGenerationMode = MotionVectorGenerationMode.ForceNoMotion;
+
+                // The child carries the radius; the parent transform is free for orbit placement.
+                _surface.localScale = Vector3.one * RadiusUnits;
+                _surface.localPosition = Vector3.zero;
+                _surface.localRotation = Quaternion.identity;
             }
-
-            _surfaceFilter.sharedMesh = SolarMeshFactory.Sphere(
-                longitudeSegments, latitudeSegments, (float)Definition.Flattening, Definition.ShapeScale);
-
-            var surfaceRenderer = _surface.GetComponent<MeshRenderer>();
-            surfaceRenderer.sharedMaterial = Definition.IsSun ? SolarMaterials.Sun : SolarMaterials.Clay;
-            surfaceRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            surfaceRenderer.receiveShadows = false;
-            surfaceRenderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
-            surfaceRenderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
-            surfaceRenderer.motionVectorGenerationMode = MotionVectorGenerationMode.ForceNoMotion;
-
-            // The child carries the radius; the parent transform is free for orbit placement.
-            float radiusUnits = 1.0f;
-            _surface.localScale = Vector3.one * radiusUnits;
-            _surface.localPosition = Vector3.zero;
-            _surface.localRotation = Quaternion.identity;
 
             // ---- rings ---------------------------------------------------------------------
             bool wantsRings = Definition.Rings.HasValue;
@@ -159,7 +160,7 @@ namespace Planet.Solar
                 _ringFilter.sharedMesh = SolarMeshFactory.Rings(rs.BandFractions(), ringSegments);
 
                 var rr = _rings.GetComponent<MeshRenderer>();
-                rr.sharedMaterial = SolarMaterials.Ring;
+                rr.sharedMaterial = ringMaterial != null ? ringMaterial : SolarMaterials.Ring;
                 rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 rr.receiveShadows = false;
                 rr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
@@ -168,6 +169,8 @@ namespace Planet.Solar
 
                 _rings.localRotation = Quaternion.identity;   // rings lie in the body's equator
                 _rings.localPosition = Vector3.zero;
+                float outerUnits = (float)(rs.outerKm * (RadiusUnits / Definition.RadiusKm));
+                _rings.localScale = Vector3.one * outerUnits;
                 _rings.gameObject.SetActive(true);
             }
             else if (_rings != null)
@@ -217,7 +220,7 @@ namespace Planet.Solar
             {
                 // The ring mesh has unit outer radius; scale it to the real outer edge.
                 float outerUnits = (float)(Definition.Rings.Value.outerKm * (radiusUnits / Definition.RadiusKm));
-                _rings.localScale = new Vector3(outerUnits, 1f, outerUnits);
+                _rings.localScale = Vector3.one * outerUnits;
             }
         }
 

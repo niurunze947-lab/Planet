@@ -1,0 +1,12 @@
+{
+    "name": "Planet.Solar.Tests",
+    "references": [
+        "Planet.Solar",
+        "Planet.Procedural",
+        "Unity.InputSystem",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Runtime"
+    ],
+    "includePlatforms": ["Editor"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}

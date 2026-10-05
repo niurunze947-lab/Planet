@@ -39,6 +39,8 @@ namespace Planet.Solar
         public float autoOrbitSpeed = 1.2f;
         [Tooltip("Turn off to freeze all keyboard control (useful when scripting a capture).")]
         public bool handleInput = true;
+        [Tooltip("Turn off when an external interaction controller owns zoom (ViewDistanceController).")]
+        public bool handleZoomInput = true;
 
         /// <summary>Distance the rig is easing towards; also the exact position when scripted.</summary>
         public float TargetDistance { get { return _targetDistance; } }
@@ -73,15 +75,44 @@ namespace Planet.Solar
         }
 
         /// <summary>
+        /// Surface clearance as a fraction of the camera-to-center view height (0..1).
+        /// 0 on the surface, approaching 1 far away.
+        /// </summary>
+        public float SurfaceClearanceOverViewHeight
+        {
+            get
+            {
+                float view = CurrentViewHeightUnits;
+                return view > 1e-12f ? SurfaceClearanceUnits / view : 0f;
+            }
+        }
+
+        /// <summary>
         /// Jumps the rig to an exact distance with no easing. Used by capture scripts and by the
         /// editor tooling; the interactive path goes through <see cref="FrameDistance"/> instead.
         /// </summary>
         public void SnapToDistance(float units)
         {
-            _targetDistance = Mathf.Clamp(units, minDistance, maxDistance);
+            _targetDistance = ClampToSurfaceFloor(units);
             distance = _targetDistance;
             _hasTarget = true;
             ApplyTransform();
+        }
+
+        /// <summary>
+        /// Clamps the eased distance so the camera cannot sit inside the solid surface.
+        /// Called by the interaction layer after input; also applied during smoothing.
+        /// </summary>
+        public void ClampCurrentDistanceToSurface()
+        {
+            distance = ClampToSurfaceFloor(distance);
+        }
+
+        /// <summary>Legal center distance: never below the focused body's surface radius.</summary>
+        public float ClampToSurfaceFloor(float units)
+        {
+            float floor = Mathf.Max(FocusSurfaceRadiusUnits, minDistance);
+            return Mathf.Clamp(units, floor, Mathf.Max(maxDistance, floor));
         }
 
         /// <summary>Re-frames the focused body immediately, with no easing.</summary>
@@ -126,9 +157,10 @@ namespace Planet.Solar
 
             float wanted = _hasTarget ? _targetDistance : FrameDistance();
             if (!_hasTarget) { _targetDistance = wanted; _hasTarget = true; }
+            _targetDistance = ClampToSurfaceFloor(_targetDistance);
 
             float k = 1f - Mathf.Exp(-Time.deltaTime / Mathf.Max(frameSmoothSeconds, 0.01f));
-            distance = Mathf.Clamp(Mathf.Lerp(distance, _targetDistance, k), minDistance, maxDistance);
+            distance = ClampToSurfaceFloor(Mathf.Lerp(distance, _targetDistance, k));
         }
 
         /// <summary>Comfortable viewing distance for whatever body currently has focus.</summary>
@@ -222,15 +254,21 @@ namespace Planet.Solar
                     pitch = Mathf.Clamp(pitch - d.y, -89.9f, 89.9f);
                 }
 
-                float scroll = mouse.scroll.ReadValue().y;
-                if (Mathf.Abs(scroll) > 0.01f)
-                    Zoom(System.Math.Exp(scroll * zoomStep));
+                if (handleZoomInput)
+                {
+                    float scroll = mouse.scroll.ReadValue().y;
+                    if (Mathf.Abs(scroll) > 0.01f)
+                        Zoom(System.Math.Exp(scroll * zoomStep));
+                }
             }
 
             if (kb != null)
             {
-                if (kb.pageUpKey.isPressed || kb.zKey.isPressed) Zoom(System.Math.Exp(-keyZoomRate * Time.deltaTime));
-                if (kb.pageDownKey.isPressed || kb.xKey.isPressed) Zoom(System.Math.Exp(keyZoomRate * Time.deltaTime));
+                if (handleZoomInput)
+                {
+                    if (kb.pageUpKey.isPressed || kb.zKey.isPressed) Zoom(System.Math.Exp(-keyZoomRate * Time.deltaTime));
+                    if (kb.pageDownKey.isPressed || kb.xKey.isPressed) Zoom(System.Math.Exp(keyZoomRate * Time.deltaTime));
+                }
                 if (kb.escapeKey.wasPressedThisFrame) autoOrbit = false;
             }
 
@@ -240,14 +278,15 @@ namespace Planet.Solar
 
         private void Zoom(double factor)
         {
-            _targetDistance = Mathf.Clamp((float)(_targetDistance * factor), minDistance, maxDistance);
+            _targetDistance = ClampToSurfaceFloor((float)(_targetDistance * factor));
             _hasTarget = true;
         }
 
         /// <summary>Sets the desired orbit distance in scene units (used by the HUD's "fit" button).</summary>
         public void SetDistance(float units)
         {
-            _targetDistance = Mathf.Clamp(units, minDistance, maxDistance);
+            _targetDistance = ClampToSurfaceFloor(units);
+            _hasTarget = true;
         }
     }
 }

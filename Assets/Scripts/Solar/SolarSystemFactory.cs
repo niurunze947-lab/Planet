@@ -9,7 +9,12 @@ namespace Planet.Solar
     /// heliocentric orbit, two instanced debris belts, the Sun's light, and the camera.
     ///
     /// Everything is derived from <see cref="SolarSystemCatalog"/>, so the scene and the numbers
-    /// in the HUD can never drift apart.
+    /// in the HUD can never drift apart. The one value that is *copied* rather than read live is
+    /// each body's scene-unit radius: <see cref="CelestialBody.BakeScale"/> converts it once at
+    /// scene-build time and stores it on the body, which is what makes the runtime scale a
+    /// serialized per-body property instead of a per-frame derivation. Changing the catalog or
+    /// <c>kmPerUnit</c> therefore requires re-running Tools ▸ Planet ▸ Bake Body Scales (or the
+    /// scene rebuild, which does it for you).
     /// </summary>
     public static class SolarSystemFactory
     {
@@ -35,6 +40,12 @@ namespace Planet.Solar
             orbits.transform.SetParent(root.transform, false);
             sim.orbitsRoot = orbits.transform;
 
+            // ---- space frames ---------------------------------------------------------------
+            // Added explicitly rather than left to the simulation's play-mode auto-creation, so a
+            // built scene carries the component in its serialized form and it can be inspected,
+            // tuned and audited without entering play mode.
+            root.AddComponent<SolarSpaceContext>();
+
             // ---- bodies ---------------------------------------------------------------------
             Body[] defs = SolarSystemCatalog.Bodies;
             for (int i = 0; i < defs.Length; i++)
@@ -47,6 +58,9 @@ namespace Planet.Solar
                 var cb = go.AddComponent<CelestialBody>();
                 cb.bodyName = def.Name;
                 ChooseResolution(def, out cb.longitudeSegments, out cb.latitudeSegments);
+                // The catalog's physical radius becomes the body's own serialized scene scale here,
+                // once, at scene-build time - not re-derived per frame and not re-derived per Play.
+                cb.BakeScale(kmPerUnit);
                 cb.BuildVisuals();
             }
 

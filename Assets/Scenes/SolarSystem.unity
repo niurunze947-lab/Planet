@@ -1484,6 +1484,8 @@ MonoBehaviour:
   latitudeSegments: 32
   ringSegments: 192
   ringMaterial: {fileID: 0}
+  sceneRadiusUnits: 0.0004697
+  bakedKmPerUnit: 1000000
 --- !u!114 &217054747
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1653,6 +1655,8 @@ MonoBehaviour:
   latitudeSegments: 48
   ringSegments: 192
   ringMaterial: {fileID: 0}
+  sceneRadiusUnits: 0.0033895
+  bakedKmPerUnit: 1000000
 --- !u!114 &234872390
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2801,6 +2805,8 @@ MonoBehaviour:
   latitudeSegments: 48
   ringSegments: 192
   ringMaterial: {fileID: 0}
+  sceneRadiusUnits: 0.0060518
+  bakedKmPerUnit: 1000000
 --- !u!114 &320205195
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4445,6 +4451,8 @@ MonoBehaviour:
   latitudeSegments: 32
   ringSegments: 192
   ringMaterial: {fileID: 0}
+  sceneRadiusUnits: 0.0024397
+  bakedKmPerUnit: 1000000
 --- !u!114 &370554827
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4530,6 +4538,8 @@ MonoBehaviour:
   latitudeSegments: 32
   ringSegments: 192
   ringMaterial: {fileID: 0}
+  sceneRadiusUnits: 0.0017374
+  bakedKmPerUnit: 1000000
 --- !u!114 &398422858
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5280,6 +5290,8 @@ MonoBehaviour:
   latitudeSegments: 64
   ringSegments: 192
   ringMaterial: {fileID: 2100000, guid: 0708f02abfee1f3428e928b9c87ffd40, type: 2}
+  sceneRadiusUnits: 0.069911
+  bakedKmPerUnit: 1000000
 --- !u!114 &533661590
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5557,6 +5569,8 @@ MonoBehaviour:
   latitudeSegments: 32
   ringSegments: 192
   ringMaterial: {fileID: 0}
+  sceneRadiusUnits: 0.0025747
+  bakedKmPerUnit: 1000000
 --- !u!114 &597274054
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5757,6 +5771,11 @@ MonoBehaviour:
   markerSizeJitter: 0.55
   markerLongitudes: 8
   markerLatitudes: 5
+  angularStalenessDegrees: 0.01
+  adaptSolveCadence: 1
+  cullBehindCamera: 1
+  viewConeMargin: 0.35
+  cullBeyondFarPlane: 1
 --- !u!1 &688533741
 GameObject:
   m_ObjectHideFlags: 0
@@ -8456,6 +8475,8 @@ MonoBehaviour:
   latitudeSegments: 80
   ringSegments: 192
   ringMaterial: {fileID: 0}
+  sceneRadiusUnits: 0.69634
+  bakedKmPerUnit: 1000000
 --- !u!114 &838318993
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8524,6 +8545,8 @@ MonoBehaviour:
   latitudeSegments: 32
   ringSegments: 192
   ringMaterial: {fileID: 0}
+  sceneRadiusUnits: 0.0024103
+  bakedKmPerUnit: 1000000
 --- !u!114 &940779326
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8699,6 +8722,11 @@ MonoBehaviour:
   markerSizeJitter: 0.55
   markerLongitudes: 8
   markerLatitudes: 5
+  angularStalenessDegrees: 0.01
+  adaptSolveCadence: 1
+  cullBehindCamera: 1
+  viewConeMargin: 0.35
+  cullBeyondFarPlane: 1
 --- !u!1 &1056098115
 GameObject:
   m_ObjectHideFlags: 0
@@ -8796,6 +8824,8 @@ MonoBehaviour:
   latitudeSegments: 32
   ringSegments: 192
   ringMaterial: {fileID: 0}
+  sceneRadiusUnits: 0.0026341
+  bakedKmPerUnit: 1000000
 --- !u!114 &1089580285
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -12185,6 +12215,8 @@ MonoBehaviour:
   latitudeSegments: 32
   ringSegments: 192
   ringMaterial: {fileID: 0}
+  sceneRadiusUnits: 0.000715
+  bakedKmPerUnit: 1000000
 --- !u!114 &1170795390
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -14704,6 +14736,8 @@ MonoBehaviour:
   latitudeSegments: 32
   ringSegments: 192
   ringMaterial: {fileID: 2100000, guid: a1d54c477d504fe41991793d431146ab, type: 2}
+  sceneRadiusUnits: 0.00078
+  bakedKmPerUnit: 1000000
 --- !u!114 &1359006656
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -14748,6 +14782,7 @@ GameObject:
   - component: {fileID: 1365860517}
   - component: {fileID: 1365860516}
   - component: {fileID: 1365860518}
+  - component: {fileID: 2065860518}
   m_Layer: 0
   m_Name: Solar System
   m_TagString: Untagged
@@ -14782,6 +14817,8 @@ MonoBehaviour:
   orbitsRoot: {fileID: 1056098116}
   sunLight: {fileID: 1716801188}
   viewCamera: {fileID: 1546309662}
+  enableSpaceFrames: 1
+  cullOrbitsNearBody: 0
 --- !u!4 &1365860517
 Transform:
   m_ObjectHideFlags: 0
@@ -14803,6 +14840,28 @@ Transform:
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1365860518
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1365860515}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bf9f478efeec57245b32590337b6c265, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  solInGalaxyMetres: {x: 0, y: 0, z: 0}
+  maxChunkLevel: 20
+  chunkResolution: 16
+  maxResidentChunks: 1024
+  lodPixelTolerance: 3
+  reliefRatio: 0.5
+  surfaceRebaseThresholdMetres: 64
+  cullSubPixelBodies: 1
+  subPixelThreshold: 0.15
+  markerThreshold: 3
+--- !u!114 &2065860518
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -15057,6 +15116,8 @@ MonoBehaviour:
   latitudeSegments: 32
   ringSegments: 192
   ringMaterial: {fileID: 0}
+  sceneRadiusUnits: 0.0015608
+  bakedKmPerUnit: 1000000
 --- !u!114 &1457607867
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15145,6 +15206,8 @@ MonoBehaviour:
   latitudeSegments: 48
   ringSegments: 192
   ringMaterial: {fileID: 0}
+  sceneRadiusUnits: 0.006371
+  bakedKmPerUnit: 1000000
 --- !u!114 &1473632813
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15291,6 +15354,8 @@ MonoBehaviour:
   latitudeSegments: 64
   ringSegments: 192
   ringMaterial: {fileID: 2100000, guid: 8e3537502fcf90449824ab828211cb68, type: 2}
+  sceneRadiusUnits: 0.025362
+  bakedKmPerUnit: 1000000
 --- !u!114 &1533230672
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15579,6 +15644,8 @@ MonoBehaviour:
   latitudeSegments: 32
   ringSegments: 192
   ringMaterial: {fileID: 0}
+  sceneRadiusUnits: 0.0018216
+  bakedKmPerUnit: 1000000
 --- !u!114 &1617085010
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15666,6 +15733,8 @@ MonoBehaviour:
   latitudeSegments: 64
   ringSegments: 192
   ringMaterial: {fileID: 2100000, guid: bc8fec49f08ac974ca74b58e98712b11, type: 2}
+  sceneRadiusUnits: 0.024622
+  bakedKmPerUnit: 1000000
 --- !u!114 &1626184995
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15778,6 +15847,8 @@ MonoBehaviour:
   latitudeSegments: 64
   ringSegments: 192
   ringMaterial: {fileID: 2100000, guid: 1f040f71a9c24224d90af29c549cb20f, type: 2}
+  sceneRadiusUnits: 0.058232
+  bakedKmPerUnit: 1000000
 --- !u!114 &1636714792
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15889,6 +15960,8 @@ MonoBehaviour:
   latitudeSegments: 32
   ringSegments: 192
   ringMaterial: {fileID: 0}
+  sceneRadiusUnits: 0.0013534
+  bakedKmPerUnit: 1000000
 --- !u!114 &1688934275
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -16223,6 +16296,8 @@ MonoBehaviour:
   latitudeSegments: 32
   ringSegments: 192
   ringMaterial: {fileID: 0}
+  sceneRadiusUnits: 0.0011883
+  bakedKmPerUnit: 1000000
 --- !u!114 &1800150845
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -18656,6 +18731,8 @@ MonoBehaviour:
   latitudeSegments: 32
   ringSegments: 192
   ringMaterial: {fileID: 0}
+  sceneRadiusUnits: 0.000606
+  bakedKmPerUnit: 1000000
 --- !u!114 &2031693066
 MonoBehaviour:
   m_ObjectHideFlags: 0

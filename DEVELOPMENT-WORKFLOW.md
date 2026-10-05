@@ -1,17 +1,26 @@
 # Planet 隔离开发与合并协议
 
-本文件是三条工作树共同遵守的工程协议。它描述的是代码边界、数据契约和合并顺序；
-具体实现仍以源码、程序集定义和 `PROJECT-OVERVIEW.md` 为准。
+本文件是各工作树共同遵守的工程协议，同时是**视场高度契约（§3）**与**跨程序集接口清单（§2）**
+的唯一权威来源——其它文档提到这两件事时只链接，不复述。
+
+文档分工与引用图见 [DOCS.md](DOCS.md)。
 
 ## 1. 权威分支
 
 - `main` 是唯一的整合基线。任何工作树都从 `main` 的已提交点创建，不从另一条工作树复制文件。
 - 工作树必须保持独立的 Unity 工程根目录和 MCP 实例。开始改动前先确认
   `Application.dataPath` 指向自己的工作树，再执行编辑器操作。
-- 本轮合并完成后，主线提交会打上 `integration/authority-2026-10-04` 标签；该标签是本轮的
-  权威母分叉点。工作树刷新后，三条旧分支名仍保留，但分支指针统一指向这个提交。
-- 新分支使用职责前缀：`codex/planet-definition/<topic>`、`codex/interaction/<topic>`、
-  `codex/solar-system/<topic>`。不得在功能分支里合并另一条功能分支。
+- 每轮合并完成后，主线提交打上 `integration/authority-YYYY-MM-DD` 标签，该标签是本轮的
+  权威母分叉点。工作树刷新后旧分支名保留，但分支指针统一指向这个提交。
+- 新分支使用职责前缀：`planet-definition/`、`interaction/`、`solar-system/`。
+  不得在功能分支里合并另一条功能分支。
+- **分支名不保证稳定**（历史遗留过 `codex/`、`dsh/`、`mimo/` 等前缀）。合并一律按
+  **提交哈希**执行，不要按分支名——工作树是活的，分支指针会在操作期间移动。
+
+| 轮次 | 权威母点 | 实际分支名 |
+|---|---|---|
+| 2026-10-04 | `integration/authority-2026-10-04`（`a1697b4`） | `codex/planet-definition`、`mimo/interaction`、`dsh/SolarSystem` |
+| 2026-10-05 起 | 见 `integration/authority-2026-10-05` | 沿用上表；`codex/planet-definition` 尚未合并 |
 
 ## 2. 程序集和目录 ownership
 
@@ -33,15 +42,31 @@
 - `PlanetSurfaceView.definition`、`BuildSurface(float)`、`SetRadius(float)`、`SurfaceTransform`；
 - `SolarSystemSimulation.FocusView` / `FocusRadiusUnits`（现取 `FocusView.RadiusUnits`）和
   `SolarSystemCamera.CurrentViewHeightUnits`、`FocusSurfaceRadiusUnits`、`SurfaceClearanceUnits`、
-  `SurfaceClearanceRatio`；
+  `SurfaceClearanceRatio`；`SolarSystemCamera.handleZoomInput`（外部接管缩放的开关）
+  与 `ClampToSurfaceFloor` / `ClampCurrentDistanceToSurface`（距离钳制）；
 - 程序化资源的 `ContentFingerprint()`。它是缓存失效键，不是业务状态存储。
 - **C1** `Planet.Procedural.Terrain.PlanetViewState`：双精度体固定（BF）米制视图状态，协调器每帧推送；
 - **C2** `Planet.Procedural.Terrain.IPlanetSurfaceQuery`：全频地表高程/半径查询 + `PendingDetailWork`
   背压，经 `CelestialBody` 暴露，由地形系统实现；
-- **C-ratio** `Planet.Procedural.Terrain.ViewHeightRatios`：两套命名比例，见 §3。
+- **C-ratio** `Planet.Procedural.Terrain.ViewHeightRatios`：两套命名比例，见 §3；
+- **交互层对外**：`Planet.Interaction.ViewDistanceBoundary`（纯函数：比例、速率、钳制、闸门判定）、
+  `SurfaceModeController.EnteredSurfaceMode` / `ExitedSurfaceMode` 事件与 `[SurfaceMode]` 日志口径。
+  预订这些事件的资源预加载由 `planet-definition` 实现。
 
 新增接口时先在 `main` 修改本文件和对应程序集文档，再在职责分支实现。禁止通过复制字段、
 读取私有组件或增加反向 asmdef 绕过接口。
+
+**程序集清单**（新增程序集必须同步本节与 [DOCS.md](DOCS.md)）：
+
+| 程序集 | 路径 | 依赖 | 备注 |
+|---|---|---|---|
+| `Assembly-CSharp` / `-Editor` | `Assets/Scripts/`（根）、`Assets/Editor/` | 全部 | 编辑器工具**故意不另立 asmdef**：多一个 asmdef 就多一个合并冲突点 |
+| `Planet.Procedural` | `Assets/Scripts/Procedural/` | `Unity.Mathematics`、`Unity.Burst` | 含 `Terrain/` 契约；无 `[BurstCompile]` |
+| `Planet.Solar` | `Assets/Scripts/Solar/` | `Planet.Procedural`、`Unity.InputSystem`、URP Core / Universal | `references` 是**穷举四项**，见 §2.1 |
+| `Planet.Interaction` | `Assets/Scripts/Interaction/` | `Planet.Procedural`、`Planet.Solar`、`Unity.InputSystem`、`Unity.Mathematics` | 2026-10-05 并入 |
+| `Planet.Procedural.Tests` | `Assets/Tests/EditMode/` | `Planet.Procedural` | 测试 asmdef **必须各占子目录** |
+| `Planet.Solar.Tests` | `Assets/Tests/EditMode/Solar/` | `Planet.Solar`、`Planet.Procedural` | 59 项 |
+| `Planet.Interaction.Tests` | `Assets/Tests/EditMode/Interaction/` | `Planet.Interaction`、`Planet.Procedural` | 同目录两个 asmdef 会让 Unity 导入失败 |
 
 ### 2.1 尺度层接口（2026-10-04 起，`SolarSystem` ownership）
 
@@ -87,10 +112,17 @@ clearanceOverRadius   = surfaceClearance / max(surfaceRadius, 1e-6)  // 近地�
 两套比例**都只在行星外**（`viewHeight >= surfaceRadius`，相对地表正距离）参与进入判定；
 行星内部/球心附近不得打开地表模式。渲染 LOD 连续性不依赖模式阈值。
 
-| 用途 | 比例 | 进入 | 离开 |
-|---|---|---|---|
-| 地表模式（interaction） | `clearanceOverView` | ≤ 1.524%（地球 100 km / 6562 km） | ≥ 3.0% |
-| 近地资源预载 debug | `clearanceOverRadius` | ≤ 0.25 | ≥ 0.35 |
+| 用途 | 比例 | 进入 | 离开 | 状态 |
+|---|---|---|---|---|
+| 地表模式闸门（interaction） | `clearanceOverView` | ≤ `100/6562` ≈ **1.524%** | ≥ **3.0%** | **已实现** |
+| 近地资源预载 debug | `clearanceOverRadius` | ≤ 0.25 | ≥ 0.35 | 保留，**尚无消费者** |
+
+两行的常量各自只有一处定义，不要在别处再写一份数字：
+
+- `Planet.Interaction.ViewDistanceBoundary.DefaultSurfaceModeEnterRatio` / `DefaultSurfaceModeExitRatio`
+  （`100f/6562f`、`0.030f`），由 `SurfaceModeController` 使用；
+- `Planet.Procedural.Terrain.ViewHeightRatios.ClearanceOverRadius`，目前**只有测试引用**
+  （`NearSurfaceContractTests`）。它预留给"预载地表资源"的那一天，别以为它在跑。
 
 `viewHeight` 不是大气半径、云层半径或网格顶点到相机的距离。浮动原点把焦点天体放在世界原点，
 因此当前相机轨道距离就是唯一的中心距来源。未来若相机改为局部地表坐标，必须继续对外提供
@@ -102,37 +134,41 @@ clearanceOverRadius   = surfaceClearance / max(surfaceRadius, 1e-6)  // 近地�
 > 所以不存在"切换到另一套坐标系"的那一刻，只有同一个原点体系里连续变化的相机高程。
 > 两条路径都**不产生**需要被补偿的跳变，因此介质可以一直算下去而不必分场景。
 
-### 3.1 交互输入边界
+### 3.1 交互输入边界（已实现）
 
-交互层必须在应用缩放输入后再施加边界：
+`Assets/Scripts/Interaction/`（程序集 `Planet.Interaction`）按下面的顺序做，实测顺序不可调换：
 
-1. 目标距离和当前距离都要钳制为 `viewHeight >= surfaceRadius`，允许等于半径，不允许进入实体地表。
-2. 缩放使用对数距离；靠近地表时只降低距离变化率，不改变距离单位。推荐初始参数为：
-   远距速率倍率 `1.0`、近地速率倍率 `0.08`、过渡区间 `clearanceOverView 0..1`，
-   并用平滑函数避免在阈值处跳变。近地后改为对数高程缩放 `h' = h · exp(δ · rate)`，
-   并接受 `IPlanetSurfaceQuery.PendingDetailWork` 背压降速。
-3. 每帧的边界顺序固定为「读取半径 → 处理输入 → 限制目标距离 → 平滑到当前距离 → 发布事件」。
-   禁止先移动相机再用碰撞体回弹；那会在浮动原点和极小天体上产生抖动。
+1. 目标距离和当前距离都钳制为 `viewHeight >= surfaceRadius`，允许等于半径，不允许进入实体地表
+   （`ViewDistanceBoundary.ClampToSurface` / `SolarSystemCamera.ClampCurrentDistanceToSurface`）。
+2. 缩放使用对数距离；靠近地表只降低距离变化率，不改变距离单位。
+   `ViewDistanceBoundary.ZoomRateMultiplier` 用 smoothstep 在 `nearRate 0.08 → farRate 1.0`
+   之间过渡，远端拉远不阻尼。近地后的对数高程缩放 `h' = h · exp(δ · rate)` 见
+   `ApplyLogZoom`（C4）。
+3. 每帧顺序固定为「读取半径 → 处理输入 → 限制目标距离 → 平滑到当前距离 → 发布事件」。
+   **禁止**先移动相机再用碰撞体回弹；那会在浮动原点和极小天体上产生抖动。
 
-这部分在 `interaction` 工作树暂不实现真实输入改动；本轮只建立 debug 触发和日志口径，
-不加载地表资源、不切换坐标系、不改变时间流速。
+`ViewDistanceController` 通过 `SolarSystemCamera.handleZoomInput` 接管缩放输入，
+退出时还原；`BodyFixedCameraAnchor`（C5）在进入近地带后把轨道 yaw 表达在焦点天体的
+旋转系里，使地面不再从玩家脚下滑走。
 
-### 3.2 近地转场 debug 契约
+`IPlanetSurfaceQuery.PendingDetailWork` 背压降速**尚未接入**——它要等
+`planet-definition` 提供 provider 之后才有意义。
 
-先采用带滞回的比例阈值，避免在边界来回抖动：
+### 3.2 近地转场状态机
 
-| 状态 | 条件 | 本轮行为 | 未来行为 |
+已实现的是**判定与事件**，不是模式切换：
+
+| 状态迁移 | 条件 | 当前行为 | 未来行为 |
 |---|---|---|---|
-| `SystemView` → `SurfaceDetailPending` | `clearanceOverRadius <= 0.25` | 记录一次 debug 事件，包含天体名、`viewHeight`、半径和比例 | 预加载地表 LOD、植被和碰撞资源 |
-| `SurfaceDetailPending` → `SystemView` | `clearanceOverRadius >= 0.35` | 记录一次离开事件 | 卸载近地专属资源并恢复星系层预算 |
+| `SystemView` → `SurfaceMode` | `clearanceOverView <= 1.524%` 且 `viewHeight >= surfaceRadius` | 发 `SurfaceModeController.EnteredSurfaceMode` + `[SurfaceMode] ENTER` 日志 | 预加载地表 LOD、植被和碰撞资源 |
+| `SurfaceMode` → `SystemView` | `clearanceOverView >= 3.0%` | 发 `ExitedSurfaceMode` + `[SurfaceMode] EXIT` 日志 | 卸载近地专属资源并恢复星系层预算 |
 
-事件只表达「是否应加载星球表面细节」，不等于 mode 已经切换。事件名和字段先固定，
-实际资源加载由 `planet-definition` 后续实现；这样 interaction 可以先接入日志和测试，
-而不会把两套坐标系或场景生命周期提前耦合。
+事件**只表达「是否应加载星球表面细节」**，不等于 mode 已经切换，也不接管相机。
+行星内部与球心附近不触发（`ViewHeightRatios.IsOutsideSurface` 守住入口）。
 
 未来进入近地 mode 时，计划切换为以地表 down direction 为基准的玩家相对坐标，降低时间流速，
-并使用右键 + `QWEASD` 漫游。退出 mode 必须经过同一个滞回阈值，且由状态机统一发布，
-不能由滚轮、相机脚本和资源加载器各自判断。
+并使用右键 + `QWEASD` 漫游（**该漫游模式已明确取消本轮范围**）。退出 mode 必须经过同一个
+滞回阈值，且由状态机统一发布，不能由滚轮、相机脚本和资源加载器各自判断。
 
 ## 4. SolarSystem 数据规则
 
@@ -202,17 +238,60 @@ CelestialBody.RadiusUnits = sceneRadiusUnits × bodySizeExaggeration
 协议提交完成后产生的最终标签才是可供下一轮分叉的母点；之前的三个 `integration/pre-*` 标签
 只用于审计和回滚。
 
+### 6.1 2026-10-05 轮次的实际记录
+
+| 步骤 | 结果 |
+|---|---|
+| 母分叉点 | `integration/authority-2026-10-04`（`a1697b4`） |
+| 合并 solar | `4176e1a` ← `3a6f93a`，**零冲突**（44 文件 / +6035） |
+| 合并 interaction | `0f936ea` ← `eafe9ba`，**零冲突**（26 文件 / +1391） |
+| 合并 planet-definition | **未完成**，有 2 文件 / 3 块冲突，见 `REPORT-planet-definition-conflicts.md` |
+| 审计标签 | `integration/pre-2026-10-05-{solar,interaction,main}` |
+
+本轮暴露了三条流程经验，已并入上文：
+
+1. **合并前先关掉 Unity 里打开的待合并场景。** `git merge` 会在磁盘上重写
+   `SolarSystem.unity`，Unity 随即弹出「open scene(s) have been modified externally」
+   模态框；该模态框会**卡死 MCP 桥接**（表现为 `read_console` 超时、`refresh_unity` 后无响应），
+   让人误判成编译失败。点 Reload 即可恢复。
+2. **按哈希合并，不要按分支名。** 本轮 `mimo/interaction` 在调研途中从 `d2a4cdb` 前进到
+   `eafe9ba`；按分支名操作会合到未预期的提交上。
+3. **`.meta` 缺失会在合并时变成硬冲突。** `main` 曾漏提交 4 个 `.meta`；Unity 刷新时给这些
+   文件补了一份**新 GUID** 的自生成 `.meta`，导致 `git merge` 报
+   "untracked working tree files would be overwritten"。处理方式：比对两侧 GUID，
+   确认自生成的那份**没有任何引用**后删除，让工程提交版落地。
+
 ## 7. 合并验收清单
 
-- 三个程序集的依赖方向无环，`Planet.Solar` 不引用 `Assembly-CSharp`，也不引用 `Unity.Mathematics`；
+- 程序集依赖方向无环（清单见 §2），`Planet.Solar` 不引用 `Assembly-CSharp`，也不引用 `Unity.Mathematics`；
 - `PlanetAtmosphere`、`PlanetCloudLayer` 和 `CelestialBody` 都通过半径接口协作；
-- `viewHeight`、`surfaceClearanceRatio` 和 0.25/0.35 滞回阈值在 debug 日志中口径一致；
+- `viewHeight` / `clearanceOverView` 的口径与 §3 的常量来源一致，且阈值数字**只有 §3 那一处**；
 - 尺度层没有引入第二处降 float 点：`RenderOrigin.ToRender` 仍是从宇宙坐标到 `Vector3` 的**唯一**出口，
   且新框架与原浮动原点变换**逐位一致**（`Tools ▸ Planet ▸ Audit Space Scale` 报告
   「框架与原浮动原点的位置差」应为 0.000×10⁰ 场景单位）；
 - `Planet.Solar.asmdef` 的 `references` 列表没有被改动（仍是穷举的四项）；
-- 生成资产的 GUID、场景对象和 Build Settings 引用未丢失；
+- 生成资产的 GUID、场景对象和 Build Settings 引用未丢失；合并后跑一次
+  `Tools ▸ Planet ▸ Validate Body Scales` 与一次全量 `Audit Space Scale`；
 - 程序化 EditMode 回归测试存在且只覆盖可长期复用的确定性/接缝/形状/光学契约；
   `Planet.Solar.Tests` 覆盖数值预算、架树往返、分块接缝、LOD 方向、流式迟滞、原点重定基与碎带节奏；
+  `Planet.Interaction.Tests` 覆盖比例、阻尼、钳制与近地闸门；
 - `Assets/TutorialInfo` 等模板遗留物、临时测试脚本和中间截图不进入权威提交；
 - 每个工作树的分支指针与 `main` 的权威标签相同；除明确保留的本地验证截图外，工作区没有未提交的代码或源资源改动。
+
+## 8. 文档维护协议
+
+文档和代码一样有 ownership，同样会冲突。根目录文档的**分工与引用图**见 [DOCS.md](DOCS.md)，
+本节只定规则：
+
+1. **一件事只有一个地方写。** 契约、阈值、参数、清单类的信息只在其 owner 文档里出现，
+   其它文档一律用链接。发现第二份拷贝就是 bug，删掉拷贝而不是同步两份。
+2. **文件名的生命周期含义**：
+   - `PLANET-*.md` / `DEVLOG.md` / `DEVELOPMENT-WORKFLOW.md` / `PROJECT-OVERVIEW.md`：
+     长期文档，随代码一起演进；
+   - `REPORT-<branch>-<topic>.md`：**分支交接单**，内容是"这个分支还需要改什么"。
+     它随该分支的合并而**删除**，不留在权威提交里；
+   - `MERGE-*`：一次性合并记录，结论并入本文件 §6.1 后删除。
+3. **合并类操作不得把过程性文档带进仓库。** 工作树自己的 `MERGE-REPORT-*.md` 属于工作树产物，
+   合并时按第 2 条处理。
+4. 新增文档必须同时在 [DOCS.md](DOCS.md) 登记职责与入边/出边；否则视为孤儿文档。
+5. 文档里的**数字与路径必须可核对**。写不进代码位置的常量就不要写数字，改为指向符号名。

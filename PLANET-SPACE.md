@@ -294,6 +294,9 @@ interval = angularStalenessDegrees / (maxMeanMotion × daysPerSecond)
 | `Assets/Editor/SpaceScaleAuditor.cs` | 只读审计（见 §9） |
 | `Assets/Tests/EditMode/Solar/` | 59 项 EditMode 回归测试 |
 
+> `Space/` 目录共 **7 个 `.cs`**（上表六件 + `SolarSpaceContext`）。
+> 文档里但凡出现"六个文件"，指的都是 2026-10-04 那次新增的六件，不含场景组件。
+
 `ChunkLocalPoint` 把**块的地址**和**块内的 float 偏移**放在同一个值类型里，这不是风格问题：
 两者分开存，调用方迟早会留下 float 而丢掉原点——那正是"换个焦点后网格跑到 6,000 km 之外"
 的成因。
@@ -335,10 +338,10 @@ interval = angularStalenessDegrees / (maxMeanMotion × daysPerSecond)
 **本文档所属的代码不实现大气散射，也不实现地表采样。** 那些属于 `Planet.Procedural`
 领地（见 [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md)）。这一侧提供两样东西：
 
-1. **`viewHeight` 契约**：`surfaceClearance = max(viewHeight − surfaceRadius, 0)`，
-   `surfaceClearanceRatio = surfaceClearance / max(surfaceRadius, 1e-6)`，
-   `SystemView ↔ SurfaceDetailPending` 之间用 0.25（进）/ 0.35（出）迟滞。
-   大气介质的连续计算读这个值，因此**介质随相机高程连续变化**，不需要在某个高度切换场景。
+1. **`viewHeight` 的位置部分**，以及由它导出的两套比例。**契约定义、常量来源与阈值表在
+   [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §3**，那里是唯一权威版本。
+   本层只负责让相机高程在"地表 ↔ 太空"之间**连续**变化：介质随之连续计算，
+   因此不需要在某个高度切换场景。
 2. **去掉位置突变的那套原点栈**：地表架用 `Threshold` 模式（64 m），所以"地表 / 太空"
    之间不存在坐标系切换的断点——只有同一个原点体系里连续变化的相机高程。
 

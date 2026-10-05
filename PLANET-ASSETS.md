@@ -211,27 +211,32 @@ textureType = Default    alphaSource = None
 
 ### 显存占用
 
-按格式几何计算（**含完整 mipmap 链**，即 ×4/3）。这是真实的 GPU 占用：
+按格式几何计算（**含完整 mipmap 链**，即 ×4/3）。这是真实的 GPU 占用，也是工程里
+**唯一**一份逐张显存表——`PROJECT-OVERVIEW.md` 与 §9 只给合计，不复述本表。
 
-| 贴图 | 尺寸 | 格式 | GPU |
-|---|---|---|---|
-| `earth_color_8k` | 8192×4096 | BC7 | 42.7 MB |
-| `earth_height_16bit` | 8192×4096 | R16 | **85.3 MB** |
-| `moon_color_8k` | 8192×4096 | BC7 | 42.7 MB |
-| `moon_height_16bit` | 5760×2880 | R16 | **42.2 MB** |
-| `earth_color_2k` | 2048×1024 | BC7 | 2.7 MB |
-| `earth_height_2k_16bit` | 2048×1024 | R16 | 5.3 MB |
-| `moon_color_2k` | 2048×1024 | BC7 | 2.7 MB |
-| `moon_height_4ppd_16bit` | 1440×720 | R16 | 2.6 MB |
-| `earth_normal_2k` | 2048×1024 | DXT5 | 2.7 MB |
-| `moon_normal_2k` | 2048×1024 | DXT5 | 2.7 MB |
-| `earth_metallic_smoothness` | 2048×1024 | DXT5 | 2.7 MB |
-| `starmap_2020_4k` | 4096×2048 | RGBAHalf | 85.3 MB |
-| **合计（12 张全载）** | | | **319.5 MB** |
+| 贴图 | 尺寸 | 格式 | sRGB | GPU |
+|---|---|---|---|---|
+| `earth_color_8k` | 8192×4096 | BC7 | ✔ | 42.7 MB |
+| `earth_height_16bit` | 8192×4096 | R16 | ✘ | **85.3 MB** |
+| `moon_color_8k` | 8192×4096 | BC7 | ✔ | 42.7 MB |
+| `moon_height_16bit` | 5760×2880 | R16 | ✘ | **42.2 MB** |
+| `earth_color_2k` | 2048×1024 | BC7 | ✔ | 2.7 MB |
+| `earth_height_2k_16bit` | 2048×1024 | R16 | ✘ | 5.3 MB |
+| `moon_color_2k` | 2048×1024 | BC7 | ✔ | 2.7 MB |
+| `moon_height_4ppd_16bit` | 1440×720 | R16 | ✘ | 2.6 MB |
+| `earth_normal_2k` | 2048×1024 | DXT5 | ✘ | 2.7 MB |
+| `moon_normal_2k` | 2048×1024 | DXT5 | ✘ | 2.7 MB |
+| `earth_metallic_smoothness` | 2048×1024 | DXT5 | ✘ | 2.7 MB |
+| `starmap_2020_4k` | 4096×2048 | RGBAHalf | ✘ | 85.3 MB |
+| **合计（12 张全载）** | | | | **319.5 MB** |
 
 > ⚠️ **注意 API 口径**：`Profiler.GetRuntimeMemorySizeLong` 对这 12 张贴图报告 **639.0 MB**，
 > 恰好是上表的 **1.91 倍** —— 该 API 把 CPU 侧镜像也算进去了。
 > 做显存预算时用**上表的 319.5 MB**，不要用 Profiler 的数字。
+
+> ⚠️ **导入设置的两个静默降级**（详见 §4）：Unity 默认 `maxTextureSize = 2048` 会把 8K 静默压成 2K；
+> 默认 NPOT 策略会把月球的 5760×2880 向下取整到 4096×2048（损失 29% 横向分辨率）。
+> 所有 8K 贴图都已显式提到 8192，两张 NPOT 高度图已设 `npotScale = None`。
 
 **两张 8K 未压缩 R16 高度图 + 星空 EXR 是三大头**（合计 213 MB）。若目标平台受限：
 
@@ -368,7 +373,9 @@ QA 预览图（色彩/高程对照）位于 `_assets_src/qa/`：`earth_qa.png`�
 
 ---
 
-## 9. 显存预算小结
+## 9. 显存预算小结（按场景）
+
+逐张贴图的格式与占用在 **§5「显存占用」**，本节只回答"哪个场景总共吃多少"：
 
 | 场景 | 贴图显存 | 说明 |
 |---|---|---|

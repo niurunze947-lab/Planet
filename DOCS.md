@@ -54,7 +54,6 @@ graph TD
 | [PLANET-ASSETS.md](PLANET-ASSETS.md) | NASA 资产来源与授权、派生贴图、**高度图编码**、导入设置、**星空全包围修复**、**显存预算** | 场景怎么用这些资产 → [PLANET-DEMO.md](PLANET-DEMO.md) / [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) |
 | [PLANET-DEMO.md](PLANET-DEMO.md) | 参考场景 `PlanetDemo.unity`：构成、操作、光照、材质、可调参数、星空修复的**验证方式** | 资产来源与编码 → [PLANET-ASSETS.md](PLANET-ASSETS.md) |
 | [PLANET-STELLAR.md](PLANET-STELLAR.md) | 独立恒星定义、Planck/CIE 温度辐射、动态光球、较差自转与观测边界 | 行星表面采样与材质 → [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) / [PLANET-MATERIALS.md](PLANET-MATERIALS.md) |
-| [REPORT-planet-definition-conflicts.md](REPORT-planet-definition-conflicts.md) | `codex/planet-definition` 分支的**交接单**：并入前需要改什么 | 合并后即删除（见 WORKFLOW §8） |
 | [MCP-Setup/MCP-HANDSHAKE-REPORT.md](MCP-Setup/MCP-HANDSHAKE-REPORT.md) | 环境搭建：MCP 四方握手、包改动、端口表、备份回滚 | 与工程内容无关，独立子目录 |
 
 `Packages/com.coplaydev.unity-mcp/README.md` 是第三方包自带的说明，不属本工程文档体系。

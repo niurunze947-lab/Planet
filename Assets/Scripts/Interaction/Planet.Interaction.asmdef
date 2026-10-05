@@ -1,0 +1,9 @@
+{
+    "name": "Planet.Interaction",
+    "rootNamespace": "Planet.Interaction",
+    "references": [
+        "Planet.Solar",
+        "Unity.InputSystem"
+    ],
+    "autoReferenced": true
+}

@@ -1,0 +1,6 @@
+{
+    "name": "Planet.Interaction.Tests",
+    "references": ["Planet.Interaction"],
+    "includePlatforms": ["Editor"],
+    "optionalUnityReferences": ["TestAssemblies"]
+}

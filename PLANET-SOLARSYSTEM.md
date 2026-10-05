@@ -3,7 +3,9 @@
 `Assets/Scenes/SolarSystem.unity`：从**太阳**到**柯伊伯带**、按真实比例搭建的太阳系，
 每个天体的**自转**与**公转**全部由代码按开普勒轨道根数推算。
 21 个天体均挂载定义驱动的程序化 Cube Sphere 与独立材质；Earth 另有海洋、生态、云与大气。
-外观、环和未实现的天文特征见 [PLANET-MATERIALS.md](PLANET-MATERIALS.md)。更新：2026-10-04。
+外观、环和未实现的天文特征见 [PLANET-MATERIALS.md](PLANET-MATERIALS.md)；尺度坐标层见
+[PLANET-SPACE.md](PLANET-SPACE.md)；程序集边界与契约的权威版本见
+[DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §2–§3。更新：2026-10-05。
 Earth 纹理分级见 [PLANET-TEXTURE-LOD.md](PLANET-TEXTURE-LOD.md)；Sun 独立光球框架及其他焦点下的
 纯色发光回退见 [PLANET-STELLAR.md](PLANET-STELLAR.md)。两者只读取公开的观察契约，不修改输入／轨道。
 行星几何使用 [离线 Mesh LOD](PLANET-PROCEDURAL.md)：非焦点天体只保留 16 段参考网格，焦点按
@@ -442,10 +444,12 @@ Assembly-CSharp / Assembly-CSharp-Editor   （胶水层：PlanetLightingControll
 
 ### 与星球框架的接口只有两处
 
-`CelestialBody` 是星系程序集与程序化星球框架之间**唯一**的接触点，它只用到：
+完整的跨程序集接口清单在 [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §2，本节只讲
+**为什么**是这两处、以及它们为什么必须保持这么窄。
 
-- `Planet.Procedural.IPlanetRadiusProvider` —— 由 `CelestialBody` **实现**，供壳层反查半径；
-- `PlanetSurfaceView` 的 `definition` / `BuildSurface(float)` / `SetRadius(float)` / `SurfaceTransform`。
+`CelestialBody` 是星系程序集与程序化星球框架之间**唯一**的接触点，它只用到
+`IPlanetRadiusProvider`（由 `CelestialBody` **实现**，供壳层反查半径）与 `PlanetSurfaceView`
+的四个成员（`definition` / `BuildSurface(float)` / `SetRadius(float)` / `SurfaceTransform`）。
 
 半径**只朝一个方向流动**：`CelestialBody` 发布 `RadiusUnits`，大气壳与云壳各自在
 `ApplyProperties()` 里自取。`CelestialBody.ApplyState` **不再**反向推送

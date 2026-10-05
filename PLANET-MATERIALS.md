@@ -1,6 +1,6 @@
 # Planet — SolarSystem 天体材质
 
-> 正式场景：`Assets/Scenes/SolarSystem.unity`。更新：2026-10-04。
+> 正式场景：`Assets/Scenes/SolarSystem.unity`。更新：2026-10-05。
 > 本轮将 21 个天体接入 `PLANET-PROCEDURAL.md` 的定义、纯函数采样和派生缓存链。
 > 天体大小、扁率、自转和极点沿用 `SolarSystemCatalog`；可见光外观是程序化近似，不能作为探测地图。
 

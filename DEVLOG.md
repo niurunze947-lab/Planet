@@ -1,7 +1,8 @@
 # 开发日志
 
-> 工程创建于 2026-10-02，本篇截止 **2026-10-04**。
-> 极简骨架，供删改扩充；细节以各文档为准。
+> 工程创建于 2026-10-02，本篇截止 **2026-10-05**。
+> 本文档只记"哪一天发生了什么、为什么这么定"，是**唯一**的历史线。
+> 当前状态、契约、参数与踩坑的权威版本在各专题文档，本文档一律用链接指过去，不复述。
 
 ---
 
@@ -119,45 +120,63 @@
 
 ---
 
+## 2026-10-05
+
+### 合并周期：solar + interaction 并入 main
+
+- 母分叉点 `integration/authority-2026-10-04`（`a1697b4`）起，三支并行：
+  `dsh/SolarSystem`（尺度层）、`mimo/interaction`（交互层）、`codex/planet-definition`（LOD / 恒星）
+- `main` 先独立落了 C1/C2 契约（`feat(contracts)`）。**该提交与 interaction 分支中的同名文件逐字节相同**，
+  是"先定契约再分工实现"的正常产物；合并后自然消解
+- 合并顺序按协议：**solar → interaction → planet-definition**
+- 结果：`4176e1a`（solar，零冲突，44 文件 / +6035）→ `0f936ea`（interaction，零冲突，26 文件 / +1391）
+- interaction 全程与另外两支**零冲突**；它与 solar 对 `SolarSystemCamera` 的接触面已被
+  §2 ownership 表预先划清（interaction 只加查询/设置接口）
+- 审计标签：`integration/pre-2026-10-05-{solar,interaction,main}`
+- 顺带修掉一个协议缺口：`main` 的 C1/C2 提交**漏了 4 个 `.meta`**（3 个 `.cs.meta` + `Terrain.meta`），
+  磁盘上不存在。Unity 在刷新时会自己补一份**新 GUID**（实测 `4d5ad096…` ≠ 提交版 `81cb6b83…`），
+  必须删掉自生成的那份、让 interaction 提交版落地，否则 GUID 分歧会留在工程里
+- `codex/planet-definition` 已完成合并：`CelestialBody` 保留尺度缓存与恒星表面接线，场景同时保留
+  `SolarSpaceContext` 与 `SolarSystemVisualCoordinator`，后者使用独立 YAML fileID。
+
+### 文档重整
+
+- 根目录 9 篇文档按功能分工重划，新增 [DOCS.md](DOCS.md) 作为索引与引用图
+- 合并类报告（`MERGE-PLAN-*` / `MERGE-REPORT-*`）不是长期文档：已处理完的删除，
+  仍需执行的降级为 `REPORT-*`（分支交接单）
+- 重复内容收敛：踩坑表、视场高度契约、显存预算、程序集边界各归一处，其余文档只留链接
+
+---
+
 ## 踩坑备忘
 
-新增开发：Earth 四档纹理 LOD 由公开中心距／离地比例驱动，近景配法线与更精细云密度，
-Resources 异步按档加载；Sun 迁移至 CelestialDefinition 派生 StellarDefinition 与独立光球 renderer，
-Planck/CIE 温度 LUT、T⁴ 辐射、临边昏暗、动态米粒／黑子和较差自转，非太阳焦点使用纯色发光体。
-曝光、镜头星芒、外层等的设计边界见 `PLANET-STELLAR.md`；工作流依据 `DEVELOPMENT-WORKFLOW.md`。
-- 聚焦太阳观测优化：天空盒专用 EV 固定压到 -8，光球独立使用 -0.45 EV；暖红窄带响应、
-  中频米粒增强和紧凑黑子遮罩参考用户提供的高动态范围太阳图，标准 4.5x 取景保持黑背景。
-- 修复 Earth 双云层：关闭地表云影的可见叠加，只保留一个跟随 Earth 局部姿态的 CloudVolume，并禁用同名重复壳。
-- 行星网格改为离线 Mesh LOD：20 个行星各生成 16／32／64／96 四档资产，运行时仅按焦点和视场高度切换，
-  正式场景禁用 runtime CubeSphere fallback。
-- 离线网格验证：20 个行星均指向 `MeshLod/*.asset`，运行时 `allowRuntimeMeshGeneration=0`；
-  Earth 一活动云壳、地表云影关闭，Mesh LOD 和云层唯一性 Play 检查通过；42 项 EditMode 测试全部通过。
+只留**目前没有其它文档承载**的条目。程序化 / 尺度层的完整清单见
+ [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) 与 [PLANET-SPACE.md](PLANET-SPACE.md) §11，
+ 不要在这里再抄一份。
 
 | 现象 | 结论 |
 |---|---|
 | 高程图在 Inspector 显示为红色 | R16 单通道正常，勿改 RGBA32 |
-| 浮动原点用指数平滑 | 高倍时间流速下误差爆炸，改为刚性跟随 + 衰减残差 |
 | Earth_Surface 光滑度丢失 | 属性被静默重置，需修材质与记录 |
 | 编辑器后台不跑 | Run In Background 需手动开启 |
 | 改云壳 `_InnerRadius` 没反应 | 着色器未使用该属性 |
 | 改大气材质的 `_Density` / `_RimPower` 没反应 | 组件用 MaterialPropertyBlock 覆盖 |
-| 改了采样公式但地形没变 | 需提升 `GeneratorVersion` 让内容指纹失效 |
+| 改采样公式但地形没变 | 需提升 `GeneratorVersion` 让内容指纹失效 |
 | 重烘贴图后场景引用丢失 | 用 `CopySerialized` 覆盖旧资产，勿删除重建 |
 | MCP 调用改的其实是另一个工作树 | 多实例各有端口，先查 `Application.dataPath` 再 `set_active_instance` |
 | MCP 客户端会中途**换**实例 | 端口表只在启动时可靠；`execute_code` 里加一道 `Application.dataPath` 断言，并核对程序集 `asm.Location` 落在哪个工作树 |
 | 星球半径与启动耗时无关 | 慢的是程序化网格生成（`HideFlags.DontSave`，每次 Play 重算），不是半径换算 |
 | 新建 asmdef 后 Unity 说找不到 | 窗口失焦时资源库不自动刷新，显式 `AssetDatabase.Refresh` |
 | asmdef 程序集不应直接驱动壳层 | `Planet.Solar` 只发布 `IPlanetRadiusProvider`；大气 / 云在 `Planet.Procedural` 中自行读取半径 |
-| 同一目录放两个 asmdef | 直接报 `contains multiple assembly definition files`，测试程序集必须有自己的子目录 |
-| LOD 取"满足容差的最细一层" | 几何误差随层数变小，判据单调，`break` 立刻触发 → 全距离都返回 L0；必须取**最粗**的合格层 |
-| 接缝检验按索引配对两块的边 | 跨面时共享边反向遍历，会误报 ULP 级"裂缝"；必须比**点集** |
-| Play 模式下改不了场景 | `MarkSceneDirty` / `SaveScene` 抛 "This cannot be used during play mode"；先 `manage_editor stop` |
-| 审计报告里出现 1.0×10¹⁶ px | 相机与天体位置重合时 `2r/d` 爆炸；测不准的量要打印成"测不准"，不要放进表里 |
+| **`git merge` 改了 Unity 正开着的场景** | Unity 弹「open scene(s) have been modified externally」**模态框**，会卡住 MCP 桥接（表现为 `read_console` 超时、`refresh_unity` 后无响应）。点 Reload 即可；合并前先关场景更稳 |
+| **删了 `.meta` 后 Unity 会补一份新的** | 自生成 GUID 与工程提交的 GUID **不同**。合并带入 `.meta` 前，要先删掉工作区里 Unity 自生成的那份 |
+| MCP 的 `execute_code` 是 C# 6 | 走 CodeDom：`Enum.GetValues<T>()`、表达式体成员、插值字符串都不可用。测试代码走正常编译，不受限 |
 
 ---
 
 ## 待补
 
+- [x] `codex/planet-definition` 并入 `main`：源码、场景双组件和文档索引冲突已处理
 - [ ] `ChunkStreamer` 接入帧循环：需要在 `Planet.Procedural` 侧实现一个按
       `SurfaceChunkKey` 生产 `ChunkGeometryBuffers` 的 `IChunkContentProvider`
 - [ ] 用分块网格替换 `PlanetSurfaceView` 的单位球网格，并接上大气散射的高程连续过渡

@@ -1,10 +1,11 @@
 # Planet — 项目概览
 
-> 更新：2026-10-04 ｜ 数据来源：Unity Editor 实时查询、工程文件与运行时验证。
-> 本版包含真实比例太阳系与 Earth 的程序化星球尺度示例：场景与轨道见
+> 更新：2026-10-05 ｜ 数据来源：Unity Editor 实时查询、工程文件与运行时验证。
+> 本版包含真实比例太阳系、Earth 的程序化星球尺度示例与交互层：场景与轨道见
 > [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md)，宇宙尺度坐标阶梯与地表流式 LOD 见
 > [PLANET-SPACE.md](PLANET-SPACE.md)，程序化星球表面生成框架见
 > [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md)，贴图来源见 [PLANET-ASSETS.md](PLANET-ASSETS.md)。
+> **文档分工与引用图见 [DOCS.md](DOCS.md)** —— 本文档是入口，不重复各专题的细节。
 
 ---
 
@@ -56,6 +57,17 @@
 - 验证：审计菜单 **Tools ▸ Planet ▸ Audit Space Scale**；`Planet.Solar.Tests` **59/59 通过**；
   新框架与原浮动原点变换**逐位一致**（21 天体，最大差 0.000×10⁰ 场景单位）
 
+**E. 交互层：视距边界与近地模式**（独立程序集 `Planet.Interaction`，见 [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §3）
+
+- `ViewDistanceBoundary` 是**纯函数**集合：地表距、两套比例、对数缩放速率、距离钳制、近地闸门判定
+- `ViewDistanceController` 接管滚轮/键位缩放：靠近地表时速率按 smoothstep 从 `1.0` 降到 `0.08`，
+  距离**硬钳制**在 `viewHeight >= surfaceRadius`，永不允许进入实体地表
+- `SurfaceModeController` 只做**判定与事件**：`clearanceOverView` 降到闸门阈值以下时发
+  `EnteredSurfaceMode`，升过退出阈值时发 `ExitedSurfaceMode`，两阈值带滞回防抖；行星内部不触发。
+  **阈值常量与推导只在 [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §3**，本节不复制数字
+- `BodyFixedCameraAnchor`（C5）进入近地带后把轨道 yaw 表达在焦点天体的旋转系里，地面不再从脚下滑走
+- 这一层**不接管相机模式切换、不加载地表资源**；`Planet.Interaction.Tests` 覆盖比例、阻尼、钳制与闸门
+
 ---
 
 ## 2. 基本信息
@@ -74,7 +86,7 @@
 | 默认分辨率 | 1024 × 768（窗口模式） |
 | 场景数 | **3**（`PlanetDemo`、`SampleScene`、`SolarSystem`） |
 | Run In Background | **开启**（编辑器默认关闭，见 §12.7 —— 这是本工程最容易踩的坑） |
-| 版本控制 | ✅ **git + Git LFS**，分支 `main` |
+| 版本控制 | ✅ **git + Git LFS**，整合分支 `main`（2026-10-05：solar 与 interaction 已并入，planet-definition 待合并） |
 
 ---
 
@@ -84,12 +96,12 @@
 D:\UnityProjects\Planet\
 ├── Assets/                     281.6 MB   ← 入库
 │   ├── Scenes/                 3 个场景（含 SolarSystem.unity，707 KB）+ 1 个 Volume Profile
-│   ├── Scripts/                Solar/ 轨道系统（含 Space/ 坐标阶梯）、Procedural/ 星球框架、相机与天空控制
+│   ├── Scripts/                Solar/ 轨道系统（含 Space/ 坐标阶梯）、Procedural/ 星球框架（含 Terrain/ 契约）、Interaction/ 视距与近地模式、相机与天空控制
 │   ├── Editor/                 菜单 Tools ▸ Planet：构建、全部天体材质、缩放烘焙/审计、尺度审计、视觉刷新、截图
 │   ├── Shaders/                行星表面、大气、云、星空、白模和轨道
 │   ├── Settings/               URP 配置、3 个材质、后处理 Profile
 │   ├── Resources/Solar/        Terra、BodyMaterials/ 独立定义／派生缓存与回退白模材质
-│   ├── Tests/EditMode/         程序化材质采样、形状与缓存回归测试；Solar/ 子目录为 `Planet.Solar.Tests`（59 项）
+│   ├── Tests/EditMode/         程序化材质采样、形状与缓存回归测试；Solar/（59 项）与 Interaction/ 子目录各为独立测试程序集
 │   ├── Textures/               182.9 MB，12 张贴图
 │   ├── Screenshots/            93.6 MB，46 张验证截图（其中 solar_* 15 张）
 ├── Packages/                   3.4 MB     ← 入库
@@ -99,13 +111,15 @@ D:\UnityProjects\Planet\
 ├── _mcp_setup_backup_20261002/ 配置备份    ← 入库
 ├── .git/                       225.7 MB（含 LFS 对象池）
 ├── DEVLOG.md                   开发日志（日期线，细节以各文档为准）
+├── DOCS.md                     文档索引与引用结构 ← 从这里进文档体系
 ├── PLANET-ASSETS.md            资产来源与授权
 ├── PLANET-DEMO.md              贴图版地球/月球参考场景说明
 ├── PLANET-PROCEDURAL.md        程序化星球表面生成框架（实现、参数、限制）
 ├── PLANET-MATERIALS.md         21 个天体的外观、资产、框架缺口与对策
 ├── PLANET-SOLARSYSTEM.md       真实比例太阳系场景说明（正式工程场景）
 ├── PLANET-SPACE.md             宇宙尺度坐标阶梯与行星表面流式 LOD
-├── DEVELOPMENT-WORKFLOW.md     隔离开发、视场高度契约与合并流程
+├── DEVELOPMENT-WORKFLOW.md     隔离开发、程序集边界、视场高度契约与合并流程
+├── PLANET-STELLAR.md         独立程序化恒星框架与观测边界
 ├── PROJECT-OVERVIEW.md         本文档
 └── .gitignore / .gitattributes
 ```
@@ -234,30 +248,17 @@ Renderer Feature: ScreenSpaceAmbientOcclusion
 
 ## 7. 纹理资产与显存
 
-`Assets/Textures/` 共 **12 张贴图，磁盘 182.9 MB**。
+`Assets/Textures/` 共 **12 张贴图，磁盘 182.9 MB**，按格式几何计算（含 mip 链）合计
+**319.5 MB GPU 占用**。
 
-| 贴图 | 尺寸 | 格式 | sRGB | GPU |
-|---|---|---|---|---|
-| `earth_color_8k` | 8192×4096 | BC7 | ✔ | 42.7 MB |
-| `earth_color_2k` | 2048×1024 | BC7 | ✔ | 2.7 MB |
-| `earth_height_16bit` | 8192×4096 | **R16** | ✘ | 85.3 MB |
-| `earth_height_2k_16bit` | 2048×1024 | **R16** | ✘ | 5.3 MB |
-| `earth_normal_2k` | 2048×1024 | DXT5 | ✘ | 2.7 MB |
-| `earth_metallic_smoothness` | 2048×1024 | DXT5 | ✘ | 2.7 MB |
-| `moon_color_8k` | 8192×4096 | BC7 | ✔ | 42.7 MB |
-| `moon_color_2k` | 2048×1024 | BC7 | ✔ | 2.7 MB |
-| `moon_height_16bit` | 5760×2880 | **R16** | ✘ | 42.2 MB |
-| `moon_height_4ppd_16bit` | 1440×720 | **R16** | ✘ | 2.6 MB |
-| `moon_normal_2k` | 2048×1024 | DXT5 | ✘ | 2.7 MB |
-| `starmap_2020_4k` | 4096×2048 | RGBAHalf | ✘ | 85.3 MB |
-| | | | **合计** | **319.5 MB** |
+**完整的逐张格式／sRGB／显存表、以及「为什么不用 `Profiler.GetRuntimeMemorySizeLong` 的数字」
+的口径说明，见 [PLANET-ASSETS.md](PLANET-ASSETS.md) §5。** 这里只留两条最容易踩的：
 
-> **关于显存数字的口径**：上表按格式几何计算（含 mip 链，即 ×4/3），是真实的 GPU 占用。
-> Unity 的 `Profiler.GetRuntimeMemorySizeLong` 对这 12 张贴图报告 **639.0 MB**，恰好是上表的 1.91 倍——
-> 该 API 把 CPU 侧镜像也算进去了。**做显存预算时用 319.5 MB。**
+- 做显存预算用 **319.5 MB**（几何计算）；Profiler 的 639.0 MB 把 CPU 侧镜像也算进去了。
+- 所有 8K 贴图都必须显式把 `maxTextureSize` 提到 8192 —— Unity 默认 2048 会**静默**压成 2K；
+  月球的 5760×2880 与 1440×720 是 NPOT，另需 `npotScale = None`。
 
-**所有 8K 贴图都已把 `maxTextureSize` 提到 8192** —— Unity 默认值 2048 会静默把所有 8K 图压成 2K。
-月球的 5760×2880 与 1440×720 是 NPOT，另需 `npotScale = None`，否则会被降到 4096/1024。
+显存吃紧时优先降星空图（换 2K EXR：85.3 MB → 约 21 MB），它对两个场景都只是背景。
 
 ---
 
@@ -266,21 +267,16 @@ Renderer Feature: ScreenSpaceAmbientOcclusion
 太阳系逻辑使用 UnityEngine 与新输入系统；独立 `Planet.Procedural` 程序集使用已安装的
 Unity.Mathematics。地形与纹素缓冲按面并行计算，Unity Mesh / Texture 上传仍在主线程。
 
-**程序集划分**（2026-10-04 起）：
+**程序集清单、依赖方向与完整的跨程序集接口列表见
+[DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §2**（那里是唯一权威版本）。
+一句话概括：`Assembly-CSharp` → `Planet.Solar` → `Planet.Procedural`，
+外加平级的 `Planet.Interaction`；编辑器工具**故意不另立 asmdef**，因为多一个 asmdef
+就多一个合并冲突点。
 
-| 程序集 | 内容 | 显式引用 |
-|---|---|---|
-| **`Planet.Solar`** | `Assets/Scripts/Solar/` 的星系运行时 | `Planet.Procedural`、`Unity.InputSystem`、URP Core / Universal Runtime |
-| **`Planet.Procedural`** | `Assets/Scripts/Procedural/`，程序化星球框架 | `Unity.Mathematics`、`Unity.Burst` |
-| `Assembly-CSharp` | `Assets/Scripts/` 根目录：`PlanetLightingController` 与 PlanetDemo 参考脚本 | 自动引用上面两个程序集 |
-| `Assembly-CSharp-Editor` | `Assets/Editor/` 的四个编辑器工具 | 自动引用上面两个程序集 |
-
-依赖是**单向**的：`Planet.Solar → Planet.Procedural`，反向没有任何引用。星系与星球框架之间
-只有两处接口（`IPlanetRadiusProvider`，以及 `PlanetSurfaceView` 的四个成员），完整边界、
-对外契约与"哪些类型可以动"见 **[PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) §9**。
-
-这样划分的直接目的：**不同工作树合并时，不会因为新增的引用或被引用而互相绊住。** 星系程序集
-的引用列表是穷举的，任何新增依赖都必须显式写进 `Planet.Solar.asmdef`，无法偷偷长出来。
+依赖是**单向**的，反向没有任何引用。星系与星球框架之间只有两处接口
+（`IPlanetRadiusProvider`，以及 `PlanetSurfaceView` 的四个成员）。这样划分的直接目的：
+**不同工作树合并时，不会因为新增的引用或被引用而互相绊住。** 星系程序集的引用列表是穷举的，
+任何新增依赖都必须显式写进 `Planet.Solar.asmdef`，无法偷偷长出来。
 
 ### 8.1 太阳系（`Assets/Scripts/Solar/`）
 
@@ -303,7 +299,7 @@ Unity.Mathematics。地形与纹素缓冲按面并行计算，Unity Mesh / Textu
 | `SolarMaterials.cs` | 材质缓存与经纬网开关 |
 | `SolarSystemAppearanceCatalog.cs` | 21 个天体首次外观预设、Catalog 物理形状同步；已有定义保留手工调整 |
 | `CircleLine.cs` | 柯伊伯带边界参考圆 |
-| `Space/`（6 文件） | 宇宙尺度坐标阶梯：`SpacePrecision` 数值预算、`SpaceFrame` 四级架树、`SurfaceChunkGrid` Cube-Sphere 分块与 LOD、`ChunkLocalGeometry` 分块本地坐标、`ChunkStreamer` 流式加载、`FloatingOrigin` 原点重定基；场景组件 `SolarSpaceContext`。见 [PLANET-SPACE.md](PLANET-SPACE.md) |
+| `Space/`（7 文件） | 宇宙尺度坐标阶梯：`SpacePrecision` 数值预算、`SpaceFrame` 四级架树、`SurfaceChunkGrid` Cube-Sphere 分块与 LOD、`ChunkLocalGeometry` 分块本地坐标、`ChunkStreamer` 流式加载、`FloatingOrigin` 原点重定基，以及把它接到场景上的 `SolarSpaceContext`。见 [PLANET-SPACE.md](PLANET-SPACE.md) |
 
 ### 8.2 编辑器工具（`Assets/Editor/`）
 
@@ -320,10 +316,20 @@ Unity.Mathematics。地形与纹素缓冲按面并行计算，Unity Mesh / Textu
 
 | 目录 | 文件数 | 职责 |
 |---|---|---|
-| `Assets/Scripts/`（根） | 4 | 高程球、相机、自转和表面测光 |
+| `Assets/Scripts/`（根） | 4 | `PlanetMeshGenerator` 高程球、`OrbitCamera`、`PlanetSpin`、`PlanetLightingController` 表面测光 |
 | `Assets/Scripts/Procedural/` | 13 | 统一定义、坐标、采样、外观参数／采样器、Cube Sphere、云、大气、半径接口与共享壳层 Mesh |
-| `Assets/Scripts/Solar/Space/` | 6 | 坐标阶梯、分块网格、LOD、流式加载与浮动原点（见 [PLANET-SPACE.md](PLANET-SPACE.md)） |
-| `Assets/Tests/EditMode/Solar/` | 6 + 1 asmdef | `Planet.Solar.Tests`：**59 项** EditMode 回归（必须放子目录，Unity 不允许同目录两个 asmdef） |
+| `Assets/Scripts/Procedural/Terrain/` | 3 | **跨程序集契约**：C1 `PlanetViewState`、C2 `IPlanetSurfaceQuery`、C-ratio `ViewHeightRatios`（见 [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §2–§3） |
+| `Assets/Scripts/Solar/` | 14 | 目录、开普勒解算、模拟、场景工厂、相机、HUD、环、碎带、外观预设等 |
+| `Assets/Scripts/Solar/Space/` | 7 | 坐标阶梯、分块网格、LOD、流式加载、浮动原点与场景组件（见 [PLANET-SPACE.md](PLANET-SPACE.md)） |
+| `Assets/Scripts/Interaction/` | 4 | 视距边界纯函数、缩放输入控制、近地模式状态机、body-fixed 相机锚（见 [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §3） |
+
+测试程序集各自独占子目录（Unity 不允许同目录两个 asmdef）：
+
+| 目录 | 测试数 | 程序集 |
+|---|---|---|
+| `Assets/Tests/EditMode/` | — | `Planet.Procedural.Tests`（采样、形状、指纹与缝隙回归） |
+| `Assets/Tests/EditMode/Solar/` | **59** | `Planet.Solar.Tests`（数值预算、架树往返、分块接缝、LOD 方向、流式迟滞、原点重定基、碎带节奏） |
+| `Assets/Tests/EditMode/Interaction/` | **3 文件** | `Planet.Interaction.Tests`（比例、阻尼、钳制、近地闸门与 C1/C2 契约） |
 
 ### 8.4 着色器
 
@@ -505,21 +511,23 @@ set_active_instance "<projectName>@<hash>"                  # 切到自己的实
 
 ## 13. 文档索引
 
-| 文档 | 内容 |
+**完整的分工、引用图与"每件事归哪篇文档"的对照表在 [DOCS.md](DOCS.md)。**
+本节只留最短的一份导读，新增文档请登记到 `DOCS.md`，不要在这里加第二张表。
+
+| 文档 | 一句话 |
 |---|---|
-| `PROJECT-OVERVIEW.md` | 本文档：工程结构与配置总览 |
-| `DEVLOG.md` | 开发日志：按日期的简要记录与踩坑备忘 |
-| `PLANET-ASSETS.md` | 贴图来源、授权、编码公式、复现步骤 |
-| `PLANET-DEMO.md` | 贴图版地球/月球**参考场景**：构成、参数、操作方法、"高度图为何是红色" |
-| `PLANET-PROCEDURAL.md` | **程序化星球表面生成框架**：数据链、坐标与单位、地形 / 水体 / 云算法、网格与烘焙缓存、着色器取舍、已知限制 |
-| `PLANET-MATERIALS.md` | 21 个天体材质、观测解释、独立资产、框架扩展、缺口与验证 |
-| `PLANET-TEXTURE-LOD.md` | Earth 四档派生纹理、视场高度与滞回、异步加载和预算 |
-| `PLANET-STELLAR.md` | 独立恒星定义、Planck/CIE 温度辐射、动态光球和较差自转；曝光／镜头设计 |
-| `PLANET-SOLARSYSTEM.md` | 真实比例太阳系场景（正式工程场景）：轨道力学、数值验证、坐标系、操作键位、光照取舍、**§9 程序集边界与对外接口** |
-| `PLANET-SPACE.md` | **宇宙尺度坐标阶梯与行星表面流式 LOD**：数值预算实测、四级架树、Cube-Sphere 分块接缝、屏幕空间误差 LOD、流式加载预算、远场策略、碎带节奏、验证与已知限制 |
-| `DEVELOPMENT-WORKFLOW.md` | 三工作树 ownership、程序集边界、当前视场高度契约、近地 debug 阈值与合并刷新流程 |
-| `MCP-Setup/MCP-HANDSHAKE-REPORT.md` | 四客户端握手验证记录 |
-| `MCP-Setup/mcp-tool-list.json` | 47 个工具的完整清单 |
+| [DOCS.md](DOCS.md) | **文档地图**：分层、职责、唯一真相表、引用图、按任务找文档 |
+| `PROJECT-OVERVIEW.md` | 本文档：工程结构与配置总览（入口） |
+| [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) | **协议**：分支与轮次、程序集边界与接口清单、视场高度契约、目录数据规则、合并与验收、文档维护协议 |
+| [DEVLOG.md](DEVLOG.md) | 逐日历史线与通用踩坑表 |
+| [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) | 正式场景：比例、轨道力学与数值验证、操作、§9 程序集边界 |
+| [PLANET-SPACE.md](PLANET-SPACE.md) | 尺度坐标层：精度预算、架树、分块接缝、流式 LOD、远场与碎带节奏 |
+| [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) | 程序化框架：数据链、坐标与单位、地形 / 水体 / 云算法、烘焙缓存、已知限制 |
+| [PLANET-MATERIALS.md](PLANET-MATERIALS.md) | 21 个天体的外观解释、派生资产、框架缺口与对策 |
+| [PLANET-ASSETS.md](PLANET-ASSETS.md) | 贴图来源与授权、高度图编码、导入设置、§5 显存表、§8 程序化资源 |
+| [PLANET-DEMO.md](PLANET-DEMO.md) | 参考场景 `PlanetDemo.unity`：构成、参数、操作、星空修复的验证方式 |
+| [PLANET-STELLAR.md](PLANET-STELLAR.md) | 独立恒星定义、Planck/CIE 温度辐射、动态光球和较差自转；曝光／镜头设计 |
+| `MCP-Setup/MCP-HANDSHAKE-REPORT.md` | 四客户端握手验证记录（环境搭建，独立子目录） |
 
 > **长期规划刻意不在根目录留档。** 这是为了避免过长的文档挤占注意力；路线图与后续目标另行保存，
 > 根目录只放"当前工程状态"类文档，请勿在此补充规划性内容。
@@ -527,13 +535,16 @@ set_active_instance "<projectName>@<hash>"                  # 切到自己的实
 ### 上手顺序建议
 
 1. 打开 `Assets/Scenes/SolarSystem.unity` → Play。按 `1`–`0` 在太阳与行星间飞行，`空格` 暂停，
-   `-` / `=` 调时间流速看公转快慢，`L` 开关经纬网看自转。
+   `-` / `=` 调时间流速看公转快慢，`L` 开关经纬网看自转；用滚轮贴近一颗行星，
+   控制台会在跨过地表模式闸门时打出 `[SurfaceMode] ENTER` / `EXIT`
+   （闸门阈值见 [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §3）。
 2. 想看贴图版地球（精度参考），打开 `Assets/Scenes/PlanetDemo.unity` → Play。
 3. 场景是**代码生成**的：改了 `SolarSystemCatalog` / `SolarSystemFactory` 里的数字后，
    跑一次 **Tools ▸ Planet ▸ Rebuild Solar System Scene**，不要手工在 Hierarchy 里挪物体。
 4. 改程序化星球的外观：先读 [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) 与
    [PLANET-MATERIALS.md](PLANET-MATERIALS.md)，修改 `ProceduralTerra.asset` 或 `BodyMaterials/<Name>.asset`，
    再跑 **Tools ▸ Planet ▸ Build Solar System Materials**（改到噪声 / 公式时提升 `GeneratorVersion`）。
+5. 准备开分支或合并前，必读 [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §1 与 §5–§6。
 
 ---
 

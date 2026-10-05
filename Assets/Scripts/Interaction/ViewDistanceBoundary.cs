@@ -1,4 +1,5 @@
 using UnityEngine;
+using Planet.Procedural.Terrain;
 
 namespace Planet.Interaction
 {
@@ -93,6 +94,108 @@ namespace Planet.Interaction
             float applied = logDelta < 0f ? logDelta * rate : logDelta;
             float next = viewHeight * Mathf.Exp(applied);
             return ClampToSurface(next, surfaceRadius, minDistance, maxDistance);
+        }
+
+        /// <summary>
+        /// C4 — log-altitude zoom in scene units: <c>h' = h · exp(δ · rate)</c>.
+        /// Prefer <see cref="ApplyLogAltitudeZoomMetres"/> near the surface: at true Earth scale
+        /// the float centre-distance has ~0.47 m ULP (PLANET-SPACE.md §1) and cannot resolve cm.
+        /// This path is exact while altitude is representable in float.
+        /// </summary>
+        public static float ApplyLogAltitudeZoom(
+            float viewHeight,
+            float surfaceRadius,
+            float logDelta,
+            float minAltitude,
+            float maxViewHeight,
+            float nearRate = DefaultNearRate,
+            float farRate = DefaultFarRate)
+        {
+            float radius = Mathf.Max(surfaceRadius, 0f);
+            float floorAlt = Mathf.Max(minAltitude, 0f);
+            float altitude = Mathf.Max(viewHeight - radius, floorAlt);
+            float rate = ZoomRateMultiplier(viewHeight, radius, nearRate, farRate);
+            // Outward steps stay full rate; inward steps use the damper, then the log-altitude map.
+            float applied = logDelta < 0f ? logDelta * rate : logDelta;
+            float nextAlt = Mathf.Max(altitude * Mathf.Exp(applied), floorAlt);
+            float next = radius + nextAlt;
+            // Guard against float cancellation pinning next on radius when nextAlt << radius.
+            if (next <= radius && nextAlt > 0f) next = radius + floorAlt;
+            return Mathf.Min(next, Mathf.Max(maxViewHeight, radius + floorAlt));
+        }
+
+        /// <summary>
+        /// C4 — log-altitude zoom in <b>double metres</b> (PLANET-SPACE rule: subtract and
+        /// integrate in the owning frame, drop to float only at the end). This is the path that
+        /// can honour a centimetre clearance floor.
+        /// </summary>
+        public static double ApplyLogAltitudeZoomMetres(
+            double altitudeMetres,
+            double logDelta,
+            double minAltitudeMetres,
+            double clearanceOverViewHeight,
+            double nearRate = DefaultNearRate,
+            double farRate = DefaultFarRate)
+        {
+            double floor = System.Math.Max(minAltitudeMetres, 0.0);
+            double altitude = System.Math.Max(altitudeMetres, floor);
+            double t = System.Math.Max(0.0, System.Math.Min(1.0, clearanceOverViewHeight));
+            double s = t * t * (3.0 - 2.0 * t);
+            double rate = nearRate + (farRate - nearRate) * s;
+            double applied = logDelta < 0.0 ? logDelta * rate : logDelta;
+            return System.Math.Max(altitude * System.Math.Exp(applied), floor);
+        }
+
+        /// <summary>Convert metres to scene units for the given km-per-unit scale.</summary>
+        public static float MetresToSceneUnits(float metres, float kmPerUnit)
+        {
+            return metres / (Mathf.Max(kmPerUnit, 1e-3f) * 1000f);
+        }
+
+        /// <summary>C4 — centimetre-level minimum clearance floor in scene units.</summary>
+        public static float MinClearanceUnits(float kmPerUnit, float minClearanceMetres = 0.01f)
+        {
+            return MetresToSceneUnits(minClearanceMetres, kmPerUnit);
+        }
+
+        /// <summary>
+        /// C4 — terrain-aware floor in metres: ground along the view direction plus a safety
+        /// margin. Falls back to mean radius + min clearance when no query is bound.
+        /// </summary>
+        public static double TerrainAwareFloorMetres(
+            double meanRadiusMetres,
+            Unity.Mathematics.double3 directionBf,
+            IPlanetSurfaceQuery query,
+            double safetyMarginMetres = 2.0,
+            double minClearanceMetres = 0.01)
+        {
+            double sphereFloor = meanRadiusMetres + System.Math.Max(minClearanceMetres, 0.0);
+            if (query == null) return sphereFloor;
+            double ground = query.SampleSurfaceRadiusMetres(directionBf, 1.0);
+            double floor = ground + System.Math.Max(safetyMarginMetres, minClearanceMetres);
+            return System.Math.Max(floor, sphereFloor);
+        }
+
+        /// <summary>
+        /// C4 — terrain-aware distance floor: ground radius along the current view direction
+        /// plus a safety margin. Falls back to the sphere radius when no query is bound.
+        /// </summary>
+        public static float TerrainAwareFloor(
+            float viewHeight,
+            float surfaceRadius,
+            Unity.Mathematics.double3 directionBf,
+            IPlanetSurfaceQuery query,
+            float kmPerUnit,
+            float safetyMarginMetres = 2f)
+        {
+            float sphereFloor = surfaceRadius + MinClearanceUnits(kmPerUnit);
+            if (query == null) return sphereFloor;
+
+            double ground = query.SampleSurfaceRadiusMetres(directionBf, sampleSpacingMetres: 1.0);
+            float groundUnits = (float)(ground / (double)Mathf.Max(kmPerUnit, 1e-3f) / 1000.0);
+            float floor = groundUnits + MetresToSceneUnits(Mathf.Max(safetyMarginMetres, 0.01f), kmPerUnit);
+            // Never below the solid sphere + cm margin; never force the camera underground.
+            return Mathf.Max(floor, sphereFloor, Mathf.Min(viewHeight, sphereFloor));
         }
 
         /// <summary>

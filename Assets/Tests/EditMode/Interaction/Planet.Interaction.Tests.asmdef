@@ -1,6 +1,10 @@
 {
     "name": "Planet.Interaction.Tests",
-    "references": ["Planet.Interaction"],
+    "references": [
+        "Planet.Interaction",
+        "Planet.Procedural",
+        "Unity.Mathematics"
+    ],
     "includePlatforms": ["Editor"],
     "optionalUnityReferences": ["TestAssemblies"]
 }

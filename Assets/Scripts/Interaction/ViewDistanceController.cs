@@ -25,6 +25,23 @@ namespace Planet.Interaction
         [Tooltip("Zoom-in rate multiplier far from the surface.")]
         [Range(0.01f, 1f)] public float farRate = ViewDistanceBoundary.DefaultFarRate;
 
+        [Header("C4 near-surface")]
+        [Tooltip("Minimum surface clearance in metres (centimetre class).")]
+        public float minClearanceMetres = 0.01f;
+        [Tooltip("Safety margin above the terrain-aware floor, in metres.")]
+        public float terrainSafetyMetres = 2f;
+        [Tooltip("Use log-altitude zoom once clearanceOverViewHeight falls below this.")]
+        [Range(0.001f, 1f)] public float altitudeZoomRatio = 0.10f;
+
+        /// <summary>Optional full-frequency surface query (C2) for the terrain-aware floor and back-pressure.</summary>
+        public Planet.Procedural.Terrain.IPlanetSurfaceQuery SurfaceQuery
+        {
+            get { return _surfaceQuery ?? ResolveQuery(); }
+            set { _surfaceQuery = value; }
+        }
+
+        private Planet.Procedural.Terrain.IPlanetSurfaceQuery _surfaceQuery;
+
         /// <summary>
         /// Camera-to-surface distance as a fraction of camera-to-center view height (0..1).
         /// </summary>
@@ -62,6 +79,8 @@ namespace Planet.Interaction
                 cam.gameObject.AddComponent<ViewDistanceController>();
             if (Object.FindObjectOfType<SurfaceModeController>() == null)
                 cam.gameObject.AddComponent<SurfaceModeController>();
+            if (Object.FindObjectOfType<BodyFixedCameraAnchor>() == null)
+                cam.gameObject.AddComponent<BodyFixedCameraAnchor>();
         }
 
         private void OnEnable()
@@ -119,23 +138,45 @@ namespace Planet.Interaction
         }
 
         /// <summary>
-        /// Applies one log-scale zoom step with the near-surface damper, then publishes the
-        /// clamped target to the camera. Order: read radius → input → clamp target → smooth.
+        /// Applies one zoom step. Near the surface this switches to log-altitude zoom (C4).
+        /// When a C2 surface query is bound, altitude is integrated in <b>double metres</b>
+        /// (PLANET-SPACE rule) so a centimetre floor is meaningful; otherwise the float
+        /// scene-unit path is used (limited by ULP at true scale). PendingDetailWork throttles.
         /// </summary>
         public void ApplyZoomLogDelta(float logDelta)
         {
             if (_camera == null) return;
 
+            var query = SurfaceQuery;
+            // C4 back-pressure: slow down while detail jobs are queued.
+            if (query != null && query.PendingDetailWork > 0)
+                logDelta *= 0.25f;
+
             float radius = _camera.FocusSurfaceRadiusUnits;
-            float next = ViewDistanceBoundary.ApplyLogZoom(
-                _camera.TargetDistance,
-                logDelta,
-                radius,
-                _camera.minDistance,
-                _camera.maxDistance,
-                nearRate,
-                farRate);
-            _camera.SetDistance(next);
+            float view = _camera.TargetDistance;
+            float clearanceOverView = ViewDistanceBoundary.ClearanceOverViewHeight(view, radius);
+            float kmPerUnit = KmPerUnit();
+
+            if (query != null && clearanceOverView <= altitudeZoomRatio)
+            {
+                // Double metres: h' = h · exp(δ · rate), then drop back to scene units.
+                double radiusMetres = query.RadiusMetres;
+                double altitudeMetres = System.Math.Max((double)view * kmPerUnit * 1000.0 - radiusMetres, minClearanceMetres);
+                double nextAlt = ViewDistanceBoundary.ApplyLogAltitudeZoomMetres(
+                    altitudeMetres, logDelta, minClearanceMetres, clearanceOverView, nearRate, farRate);
+                float next = (float)((radiusMetres + nextAlt) / 1000.0 / kmPerUnit);
+                _camera.SetDistance(Mathf.Max(next, FloorUnits(radius)));
+                return;
+            }
+
+            float minAlt = ViewDistanceBoundary.MinClearanceUnits(kmPerUnit, minClearanceMetres);
+            float nextScene = clearanceOverView <= altitudeZoomRatio
+                ? ViewDistanceBoundary.ApplyLogAltitudeZoom(
+                    view, radius, logDelta, minAlt, _camera.maxDistance, nearRate, farRate)
+                : ViewDistanceBoundary.ApplyLogZoom(
+                    view, logDelta, radius, _camera.minDistance, _camera.maxDistance, nearRate, farRate);
+
+            _camera.SetDistance(Mathf.Max(nextScene, FloorUnits(radius)));
         }
 
         /// <summary>
@@ -147,11 +188,44 @@ namespace Planet.Interaction
             if (_camera == null) return;
 
             float radius = _camera.FocusSurfaceRadiusUnits;
-            float clamped = ViewDistanceBoundary.ClampToSurface(
-                _camera.TargetDistance, radius, _camera.minDistance, _camera.maxDistance);
+            float floor = FloorUnits(radius);
+            float clamped = Mathf.Clamp(_camera.TargetDistance, floor, _camera.maxDistance);
             if (clamped != _camera.TargetDistance)
                 _camera.SetDistance(clamped);
+            if (_camera.distance < floor)
+                _camera.distance = floor;
             _camera.ClampCurrentDistanceToSurface();
+        }
+
+        /// <summary>C4 — terrain-aware floor (ground + safety), else sphere radius + cm margin.</summary>
+        private float FloorUnits(float surfaceRadius)
+        {
+            float kmPerUnit = KmPerUnit();
+            var query = SurfaceQuery;
+            if (query == null)
+            {
+                return surfaceRadius + ViewDistanceBoundary.MinClearanceUnits(kmPerUnit, minClearanceMetres);
+            }
+
+            Vector3 pos = _camera.transform.position;
+            Vector3 n = pos.sqrMagnitude > 1e-16f ? pos.normalized : Vector3.up;
+            var dir = new Unity.Mathematics.double3(n.x, n.y, n.z);
+            return ViewDistanceBoundary.TerrainAwareFloor(
+                _camera.TargetDistance, surfaceRadius, dir, query, kmPerUnit, terrainSafetyMetres);
+        }
+
+        private Planet.Procedural.Terrain.IPlanetSurfaceQuery ResolveQuery()
+        {
+            var sim = SolarSystemSimulation.Instance;
+            if (sim != null && sim.FocusView != null)
+                _surfaceQuery = sim.FocusView.GetComponent<Planet.Procedural.Terrain.IPlanetSurfaceQuery>();
+            return _surfaceQuery;
+        }
+
+        private float KmPerUnit()
+        {
+            var sim = SolarSystemSimulation.Instance;
+            return sim != null ? sim.KmPerUnit : 1000000f;
         }
     }
 }

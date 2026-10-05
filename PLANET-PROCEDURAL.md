@@ -11,6 +11,9 @@
 
 当前 `SolarSystem.unity` 的 **21 个天体均已接入框架**。Earth 保留原 Terra 地形与云层；其余天体使用
 独立的岩壳、冰壳、气层、雾霾或发光光球定义，具体特征与近似范围见 [PLANET-MATERIALS.md](PLANET-MATERIALS.md)。
+太阳现已迁移到独立 [恒星框架](PLANET-STELLAR.md)：`CelestialDefinition → StellarDefinition → StellarSurfaceView`。
+行星仍使用本文件的采样链，基础质量／半径由 `CelestialDefinition` 共享。
+Earth 按公开视场高度契约使用 [四档纹理 LOD](PLANET-TEXTURE-LOD.md)，近景另有 body-space 法线 Cubemap。
 太阳系（星系视角）是本工程的正式场景与工程文件；`PlanetDemo.unity` 的贴图地球 / 月球只作为
 **星球渲染精度的参考基准**，不参与这套框架。
 
@@ -399,6 +402,16 @@ RadiusUnits = (float)(Definition.RadiusKm / KmPerUnit * bodySizeExaggeration);
 
 Earth 保留 `ProceduralTerra_*` 路径及 GUID；其他天体使用各自的路径，不会覆盖 Earth 或彼此的资源。
 框架扩展、材质资产布局和环的限制见 [PLANET-MATERIALS.md](PLANET-MATERIALS.md)。
+
+Planet Surface Mesh 现在也是离线派生缓存。`PlanetMeshLodSet` 为每个行星保存 System／Orbit／Near／Surface
+四档 `16/32/64/96` Cube Sphere Mesh；`PlanetMeshLodController` 只按公开视场高度契约切换已导入的 Mesh。
+正式 SolarSystem 的 `allowRuntimeMeshGeneration=false`，Play 初始化不会调用 `CubeSphere.Generate`。
+修改定义、采样数学或地形参数后执行 **Tools → Planet → Build Planet Mesh LODs**，生成器按
+`ContentFingerprint + resolution` 写入 Mesh importer 元数据，更新时用 `CopySerialized` 保留 GUID。
+当前正式场景资产清单为 20 个行星 × 4 档 = 80 个 Mesh，加上 20 个 LOD Set 资产；
+Sun 不属于 PlanetSurfaceView 网格管线。
+`Rebuild Solar System Scene` 也会在场景生成后接入离线 Mesh Set；单独原型若没有缓存，必须显式打开
+`allowRuntimeMeshGeneration`，否则缺少缓存会报错而不会把长时间生成隐藏在 Play 初始化中。
 
 ---
 

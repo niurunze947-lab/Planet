@@ -76,6 +76,7 @@ namespace Planet.EditorTools
             CelestialBody view = FindBody(scene, bodyName);
             if (view == null) throw new InvalidOperationException("Scene is missing " + bodyName);
             if (!AssetDatabase.IsValidFolder(Folder)) AssetDatabase.CreateFolder("Assets/Resources/Solar", "BodyMaterials");
+            if (bodyName == "Sun") { StellarFrameworkBuilder.ConfigureSun(); return; }
 
             if (bodyName == "Earth")
             {
@@ -84,6 +85,14 @@ namespace Planet.EditorTools
                 PlanetSurfaceView earth = view.GetComponent<PlanetSurfaceView>();
                 ConfigureSurfaceMaterial(earth.surfaceMaterial, earth.definition);
                 EditorUtility.SetDirty(earth.surfaceMaterial);
+                PlanetTextureLodSet lodSet = AssetDatabase.LoadAssetAtPath<PlanetTextureLodSet>(EarthTextureLodBuilder.SetPath);
+                if (lodSet != null)
+                {
+                    PlanetTextureLodController lod = view.GetComponent<PlanetTextureLodController>();
+                    if (lod == null) lod = view.gameObject.AddComponent<PlanetTextureLodController>();
+                    lod.lodSet = lodSet; EditorUtility.SetDirty(lod);
+                    SolarSystemVisualCoordinator.EnsureInScene();
+                }
                 AssetDatabase.SaveAssets();
                 return;
             }
@@ -172,6 +181,11 @@ namespace Planet.EditorTools
         public static void ConfigureSolarSystem(GameObject root)
         {
             foreach (Body body in SolarSystemCatalog.Bodies) BuildBody(body.Name);
+            if (root != null)
+            {
+                PlanetMeshLodBuilder.ConfigureSceneMeshes(root.scene);
+                SolarSystemVisualCoordinator.EnsureInScene();
+            }
         }
 
         private static void ConfigureSurfaceMaterial(Material material, PlanetDefinition d)

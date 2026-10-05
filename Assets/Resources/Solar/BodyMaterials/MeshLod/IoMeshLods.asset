@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ca76c72531c0bc24384526bfbd0d6e8f, type: 3}
+  m_Name: IoMeshLods
+  m_EditorClassIdentifier: 
+  definition: {fileID: 11400000, guid: 1a9f6215c88a9d64aa2cc8243921de11, type: 2}
+  tiers:
+  - label: System
+    resolution: 16
+    mesh: {fileID: 4300000, guid: 89af6c280e16daa4bab56de6c105b6ce, type: 2}
+  - label: Orbit
+    resolution: 32
+    mesh: {fileID: 4300000, guid: 79262fc18bf885b4392f123aa2e6b80a, type: 2}
+  - label: Near
+    resolution: 64
+    mesh: {fileID: 4300000, guid: 9d1e9b29520d4db4e8febb26867040d6, type: 2}
+  - label: Surface
+    resolution: 96
+    mesh: {fileID: 4300000, guid: 1943b6339a9b6ea44ac834c9ce043815, type: 2}
+  orbitEnter: 4
+  orbitExit: 4.8
+  nearEnter: 1
+  nearExit: 1.2
+  surfaceEnter: 0.25
+  surfaceExit: 0.35

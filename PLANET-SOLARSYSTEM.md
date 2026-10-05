@@ -4,6 +4,10 @@
 每个天体的**自转**与**公转**全部由代码按开普勒轨道根数推算。
 21 个天体均挂载定义驱动的程序化 Cube Sphere 与独立材质；Earth 另有海洋、生态、云与大气。
 外观、环和未实现的天文特征见 [PLANET-MATERIALS.md](PLANET-MATERIALS.md)。更新：2026-10-04。
+Earth 纹理分级见 [PLANET-TEXTURE-LOD.md](PLANET-TEXTURE-LOD.md)；Sun 独立光球框架及其他焦点下的
+纯色发光回退见 [PLANET-STELLAR.md](PLANET-STELLAR.md)。两者只读取公开的观察契约，不修改输入／轨道。
+行星几何使用 [离线 Mesh LOD](PLANET-PROCEDURAL.md)：非焦点天体只保留 16 段参考网格，焦点按
+离地比例切换 32／64／96 段；网格在编辑器中烘焙，Play 不重建几何。
 
 - 场景文件：`Assets/Scenes/SolarSystem.unity`（已加入 Build Settings）
 - 代码目录：`Assets/Scripts/Solar/`（独立程序集 **`Planet.Solar`**，见 §9）、`Assets/Scripts/Procedural/`

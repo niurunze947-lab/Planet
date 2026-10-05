@@ -30,6 +30,7 @@ namespace Planet.Solar
         private MeshFilter _surfaceFilter;
         private MeshFilter _ringFilter;
         private PlanetSurfaceView _proceduralSurface;
+        private StellarSurfaceView _stellarSurface;
 
         /// <summary>Unit vector (Unity world axes) of the body's north pole.</summary>
         public Vector3 PoleUnity { get; private set; } = Vector3.up;
@@ -110,7 +111,13 @@ namespace Planet.Solar
             else if (RadiusUnits <= 0f) RadiusUnits = 1f;
 
             _proceduralSurface = GetComponent<PlanetSurfaceView>();
-            if (_proceduralSurface != null && _proceduralSurface.definition != null)
+            _stellarSurface = GetComponent<StellarSurfaceView>();
+            if (_stellarSurface != null && _stellarSurface.definition != null)
+            {
+                _stellarSurface.BuildSurface(RadiusUnits);
+                _surface = _stellarSurface.SurfaceTransform;
+            }
+            else if (_proceduralSurface != null && _proceduralSurface.definition != null)
             {
                 _proceduralSurface.BuildSurface(RadiusUnits);
                 _surface = _proceduralSurface.SurfaceTransform;
@@ -199,7 +206,12 @@ namespace Planet.Solar
             float angle = (float)(spinDegrees - System.Math.Floor(spinDegrees / 360.0) * 360.0);
             transform.rotation = tilt * Quaternion.AngleAxis(angle, Vector3.up);
 
-            if (_proceduralSurface != null && _proceduralSurface.definition != null)
+            if (_stellarSurface != null && _stellarSurface.definition != null)
+            {
+                _stellarSurface.SetRadius(radiusUnits);
+                _stellarSurface.SetRigidSpin(angle);
+            }
+            else if (_proceduralSurface != null && _proceduralSurface.definition != null)
                 _proceduralSurface.SetRadius(radiusUnits);
             else if (_surface != null) _surface.localScale = Vector3.one * radiusUnits;
 

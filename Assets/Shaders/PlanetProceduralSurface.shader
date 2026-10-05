@@ -3,6 +3,8 @@ Shader "Planet/ProceduralSurface"
     Properties
     {
         _AlbedoCube ("Procedural Albedo", Cube) = "white" {}
+        _NormalCube ("Body-space Detail Normal", Cube) = "white" {}
+        _NormalEnabled ("Detail Normal Enabled", Float) = 0
         _CloudDensityCube ("Cloud Density", Cube) = "black" {}
         _SeaLevel ("Sea Level (m)", Float) = 0
         _OceanEnabled ("Ocean Enabled", Float) = 1
@@ -40,6 +42,7 @@ Shader "Planet/ProceduralSurface"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
             TEXTURECUBE(_AlbedoCube); SAMPLER(sampler_AlbedoCube);
+            TEXTURECUBE(_NormalCube); SAMPLER(sampler_NormalCube);
             TEXTURECUBE(_CloudDensityCube); SAMPLER(sampler_CloudDensityCube);
             TEXTURE2D(_RingProfile); SAMPLER(sampler_RingProfile);
             float _PlanetGridStrength;
@@ -58,6 +61,7 @@ Shader "Planet/ProceduralSurface"
                 half _NightAmbient;
                 half _RimStrength;
                 half _RimPower;
+                half _NormalEnabled;
                 float4 _ReferenceAxes;
                 half _EmissionStrength;
                 half _LimbDarkening;
@@ -104,6 +108,11 @@ Shader "Planet/ProceduralSurface"
                 half3 directionOS = normalize(input.directionOS);
                 half3 radialNormal = normalize(input.sphereNormalWS);
                 half3 terrainNormal = normalize(input.normalWS);
+                if (_NormalEnabled > 0.5h)
+                {
+                    float3 detailOS = normalize(SAMPLE_TEXTURECUBE(_NormalCube, sampler_NormalCube, directionOS).rgb * 2.0 - 1.0);
+                    terrainNormal = normalize(TransformObjectToWorldNormal(detailOS));
+                }
                 half height = input.surfaceData.x;
                 half slope = saturate(input.surfaceData.y / 42.0h);
                 // The mesh carries the smooth, derived liquid coverage in TEXCOORD2.z. It is

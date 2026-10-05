@@ -77,6 +77,18 @@
 
 ## 踩坑备忘
 
+新增开发：Earth 四档纹理 LOD 由公开中心距／离地比例驱动，近景配法线与更精细云密度，
+Resources 异步按档加载；Sun 迁移至 CelestialDefinition 派生 StellarDefinition 与独立光球 renderer，
+Planck/CIE 温度 LUT、T⁴ 辐射、临边昏暗、动态米粒／黑子和较差自转，非太阳焦点使用纯色发光体。
+曝光、镜头星芒、外层等的设计边界见 `PLANET-STELLAR.md`；工作流依据 `DEVELOPMENT-WORKFLOW.md`。
+- 聚焦太阳观测优化：天空盒专用 EV 固定压到 -8，光球独立使用 -0.45 EV；暖红窄带响应、
+  中频米粒增强和紧凑黑子遮罩参考用户提供的高动态范围太阳图，标准 4.5x 取景保持黑背景。
+- 修复 Earth 双云层：关闭地表云影的可见叠加，只保留一个跟随 Earth 局部姿态的 CloudVolume，并禁用同名重复壳。
+- 行星网格改为离线 Mesh LOD：20 个行星各生成 16／32／64／96 四档资产，运行时仅按焦点和视场高度切换，
+  正式场景禁用 runtime CubeSphere fallback。
+- 离线网格验证：20 个行星均指向 `MeshLod/*.asset`，运行时 `allowRuntimeMeshGeneration=0`；
+  Earth 一活动云壳、地表云影关闭，Mesh LOD 和云层唯一性 Play 检查通过；42 项 EditMode 测试全部通过。
+
 | 现象 | 结论 |
 |---|---|
 | 高程图在 Inspector 显示为红色 | R16 单通道正常，勿改 RGBA32 |

@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ca76c72531c0bc24384526bfbd0d6e8f, type: 3}
+  m_Name: CharonMeshLods
+  m_EditorClassIdentifier: 
+  definition: {fileID: 11400000, guid: f4f4d368f07ca91429324f744a01b365, type: 2}
+  tiers:
+  - label: System
+    resolution: 16
+    mesh: {fileID: 4300000, guid: ad46014bd884e5748927b84190f8871a, type: 2}
+  - label: Orbit
+    resolution: 32
+    mesh: {fileID: 4300000, guid: 855af019bef385a4ca809ec21ea8f6d5, type: 2}
+  - label: Near
+    resolution: 64
+    mesh: {fileID: 4300000, guid: 4597b06f81605084b8890a3dd086ceb8, type: 2}
+  - label: Surface
+    resolution: 96
+    mesh: {fileID: 4300000, guid: 018efec7b09943d4fb8c2a9faf864a06, type: 2}
+  orbitEnter: 4
+  orbitExit: 4.8
+  nearEnter: 1
+  nearExit: 1.2
+  surfaceEnter: 0.25
+  surfaceExit: 0.35

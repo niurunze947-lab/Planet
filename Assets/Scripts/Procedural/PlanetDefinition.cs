@@ -96,11 +96,9 @@ namespace Planet.Procedural
 
     /// <summary>Authoritative physical and procedural input. Meshes and textures are derived caches.</summary>
     [CreateAssetMenu(menuName = "Planet/Planet Definition", fileName = "PlanetDefinition")]
-    public sealed class PlanetDefinition : ScriptableObject
+    public sealed class PlanetDefinition : CelestialDefinition
     {
         public const int GeneratorVersion = 4;
-        public string displayName = "Procedural Terra";
-        public PlanetPhysicalParameters physical = new PlanetPhysicalParameters();
         public PlanetGenerationParameters generation = new PlanetGenerationParameters();
         public PlanetPalette palette = new PlanetPalette();
         public PlanetFeatureOptions features = new PlanetFeatureOptions();
@@ -112,7 +110,7 @@ namespace Planet.Procedural
             return new PlanetSurfaceSampler(this);
         }
 
-        public string ContentFingerprint()
+        public override string ContentFingerprint()
         {
             ValidateParameters();
             return Hash128.Compute(GeneratorVersion + ":" + JsonUtility.ToJson(physical) + ":" +

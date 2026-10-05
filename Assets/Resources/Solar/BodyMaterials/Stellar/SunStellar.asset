@@ -1,0 +1,57 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bb6e8b6dc2b693549ba1de7c0f9bd1b7, type: 3}
+  m_Name: SunStellar
+  m_EditorClassIdentifier: 
+  displayName: Sun Photosphere
+  physical:
+    radiusMetres: 696340000
+    massKilograms: 1.9884700000000003e+30
+    rotationPeriodSeconds: 2192832
+    flattening: 0
+    shapeScale: {x: 1, y: 1, z: 1}
+    northPoleRightAscensionDegrees: 286.13
+    northPoleDeclinationDegrees: 63.87
+    seaLevelMetres: 0
+    atmosphereHeightMetres: 0
+  effectiveTemperatureKelvin: 5778
+  granuleTemperatureContrastKelvin: 260
+  limbCoolingKelvin: 380
+  limbLinear: 0.48
+  limbQuadratic: 0.18
+  displayRadianceScale: 0.95
+  focusedExposureEV: -0.45
+  focusedSpectralResponse: {r: 1, g: 0.18, b: 0.025, a: 1}
+  focusedSpectralMix: 0.5
+  focusedGranulationBoost: 1.35
+  focusedLimbGlow: 0.5
+  seed: 314159
+  granuleDiameterKilometres: 900
+  supergranuleDiameterKilometres: 30000
+  granuleLifetimeSeconds: 600
+  supergranuleLifetimeSeconds: 86400
+  normalReliefMetres: 100
+  equatorialRotationDays: 27
+  polarRotationDays: 37
+  spotCount: 4
+  spotLifetimeDays: 12
+  spotAngularRadiusDegrees: 1.25
+  umbraTemperatureKelvin: 3800
+  penumbraTemperatureKelvin: 4800
+  outerLayers:
+    chromosphere: 0
+    corona: 0
+    flares: 0
+    prominences: 0
+    chromosphereHeightMetres: 2000000
+    coronaOuterRadiusRatio: 3
+    observerAtmosphereEnabled: 0

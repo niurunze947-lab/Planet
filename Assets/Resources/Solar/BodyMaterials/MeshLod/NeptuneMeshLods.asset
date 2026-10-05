@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ca76c72531c0bc24384526bfbd0d6e8f, type: 3}
+  m_Name: NeptuneMeshLods
+  m_EditorClassIdentifier: 
+  definition: {fileID: 11400000, guid: 1c4509bd19519c84784b6cd6e20dc230, type: 2}
+  tiers:
+  - label: System
+    resolution: 16
+    mesh: {fileID: 4300000, guid: 1e67f1f42e9af60479249f459b7a9dd3, type: 2}
+  - label: Orbit
+    resolution: 32
+    mesh: {fileID: 4300000, guid: 88fc42f9b1c4807479f502d8d87d1c05, type: 2}
+  - label: Near
+    resolution: 64
+    mesh: {fileID: 4300000, guid: 7fe547a62650956479a9fcab916aa788, type: 2}
+  - label: Surface
+    resolution: 96
+    mesh: {fileID: 4300000, guid: be6b76055a3d1d14199d3cade9ef57d4, type: 2}
+  orbitEnter: 4
+  orbitExit: 4.8
+  nearEnter: 1
+  nearExit: 1.2
+  surfaceEnter: 0.25
+  surfaceExit: 0.35

@@ -26,6 +26,7 @@ namespace Planet.Procedural
         private Material _fallbackMaterial;
         private MaterialPropertyBlock _properties;
         private Vector3 _sunDirection = new Vector3(0.45f, -0.3f, 0.84f);
+        private bool _duplicateDisabled;
 
         public void SetSunDirection(Vector3 direction)
         {
@@ -76,6 +77,7 @@ namespace Planet.Procedural
 
         private void EnsureShell()
         {
+            DisableDuplicateCloudVolumes();
             if (_shell != null && _renderer != null)
             {
                 if (cloudMaterial != null && _renderer.sharedMaterial != cloudMaterial)
@@ -129,6 +131,20 @@ namespace Planet.Procedural
                 _fallbackMaterial = new Material(shader) { hideFlags = HideFlags.DontSave };
                 _renderer.sharedMaterial = _fallbackMaterial;
             }
+        }
+
+        private void DisableDuplicateCloudVolumes()
+        {
+            if (_duplicateDisabled) return;
+            Transform first = null;
+            for (int i = 0; i < transform.childCount; i++)
+            {
+                Transform child = transform.GetChild(i);
+                if (child.name != "CloudVolume") continue;
+                if (first == null) first = child;
+                else child.gameObject.SetActive(false);
+            }
+            _duplicateDisabled = true;
         }
 
         private void ApplyProperties()

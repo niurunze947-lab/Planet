@@ -1,0 +1,50 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28a72ab9c26b308479a05e4812855381, type: 3}
+  m_Name: EarthTextureLods
+  m_EditorClassIdentifier: 
+  definition: {fileID: 11400000, guid: bb8551ff13c348d44a014ae7c6fdf3b4, type: 2}
+  tiers:
+  - label: System
+    albedoSize: 128
+    cloudSize: 64
+    normalSize: 0
+    albedoResource: Solar/BodyMaterials/EarthLod/Earth_Albedo_128
+    cloudResource: Solar/BodyMaterials/EarthLod/Earth_Cloud_64
+    normalResource: 
+  - label: Orbit
+    albedoSize: 256
+    cloudSize: 128
+    normalSize: 0
+    albedoResource: Solar/ProceduralTerra_Albedo
+    cloudResource: Solar/ProceduralTerra_CloudDensity
+    normalResource: 
+  - label: Near
+    albedoSize: 512
+    cloudSize: 256
+    normalSize: 256
+    albedoResource: Solar/BodyMaterials/EarthLod/Earth_Albedo_512
+    cloudResource: Solar/BodyMaterials/EarthLod/Earth_Cloud_256
+    normalResource: Solar/BodyMaterials/EarthLod/Earth_Normal_256
+  - label: Surface
+    albedoSize: 1024
+    cloudSize: 512
+    normalSize: 512
+    albedoResource: Solar/BodyMaterials/EarthLod/Earth_Albedo_1024
+    cloudResource: Solar/BodyMaterials/EarthLod/Earth_Cloud_512
+    normalResource: Solar/BodyMaterials/EarthLod/Earth_Normal_512
+  orbitEnter: 4
+  orbitExit: 4.8
+  nearEnter: 1
+  nearExit: 1.2
+  surfaceEnter: 0.25
+  surfaceExit: 0.35

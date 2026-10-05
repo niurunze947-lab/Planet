@@ -19,6 +19,10 @@ public sealed class PlanetLightingController : MonoBehaviour
     [Range(0.02f, 4f)] public float minimumSurfaceExposure = 0.055f;
     [Range(0.02f, 16f)] public float maximumSurfaceExposure = 16f;
     [Range(0f, 1f)] public float exposureResponse = 0.18f;
+    [Header("Focused Sun presentation")]
+    [Tooltip("Skybox EV while the Sun fills the view. This is deliberately separate from photosphere EV.")]
+    [Range(-12f, 0f)] public float sunFocusSkyExposureEV = -8f;
+    [Range(0.05f, 1f)] public float sunFocusSkyCoverageThreshold = 0.35f;
 
     private float _nextUpdate;
     private float _lastUpdate;
@@ -55,9 +59,23 @@ public sealed class PlanetLightingController : MonoBehaviour
         SolarSystemSimulation sim = SolarSystemSimulation.Instance;
         float coverage;
         MeteredSurfaceBrightness = EstimateSurfaceBrightness(sim, direction, out coverage);
-        float ratio = Mathf.Clamp(MeteredSurfaceBrightness / 0.02f,
-            Mathf.Max(minimumSurfaceExposure, 0.02f), Mathf.Max(maximumSurfaceExposure, 0.02f));
-        float targetEV = Mathf.Clamp(Mathf.Log(Mathf.Max(referenceSurfaceExposure, 0.02f) / ratio, 2f), -4f, 1.5f) * coverage;
+        bool sunFocused = sim != null && sim.FocusDefinition != null && sim.FocusDefinition.IsSun;
+        float targetEV;
+        if (sunFocused && coverage >= sunFocusSkyCoverageThreshold)
+        {
+            // A close solar disc should be judged like a bright-field observation: the HDR
+            // photosphere remains visible while the starfield falls almost to black.
+            // Once the Sun is a meaningful focused subject, keep this dark-field exposure
+            // stable across the normal 2x-5x framing range instead of letting stars reappear
+            // as the user backs the camera away by a small amount.
+            targetEV = sunFocusSkyExposureEV;
+        }
+        else
+        {
+            float ratio = Mathf.Clamp(MeteredSurfaceBrightness / 0.02f,
+                Mathf.Max(minimumSurfaceExposure, 0.02f), Mathf.Max(maximumSurfaceExposure, 0.02f));
+            targetEV = Mathf.Clamp(Mathf.Log(Mathf.Max(referenceSurfaceExposure, 0.02f) / ratio, 2f), -4f, 1.5f) * coverage;
+        }
         float now = Time.realtimeSinceStartup;
         float elapsed = Mathf.Max(0f, now - _lastUpdate);
         float response = 1f - Mathf.Pow(1f - Mathf.Clamp01(exposureResponse), elapsed / 0.12f);
@@ -103,9 +121,10 @@ public sealed class PlanetLightingController : MonoBehaviour
 
         PlanetSurfaceView surface = body.GetComponent<PlanetSurfaceView>();
         if (sim.FocusDefinition.IsSun)
-            return surface != null && surface.definition != null
-                ? surface.definition.appearance.emissionStrength * Luminance(surface.definition.appearance.baseColor.linear)
-                : 0.95f;
+        {
+            StellarSurfaceView star = body.GetComponent<StellarSurfaceView>();
+            return star != null && star.definition != null ? star.definition.displayRadianceScale : 0.95f;
+        }
         Vector3 viewLocal = body.InverseTransformDirection(offset.normalized);
         Vector3 sunLocal = body.InverseTransformDirection(lightDirection);
         float lightLuminance = sun != null ? Luminance(sun.color.linear) * sun.intensity : 1.35f;

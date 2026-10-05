@@ -1443,6 +1443,7 @@ GameObject:
   - component: {fileID: 217054745}
   - component: {fileID: 217054746}
   - component: {fileID: 217054747}
+  - component: {fileID: 217054748}
   m_Layer: 0
   m_Name: Ceres
   m_TagString: Untagged
@@ -1499,8 +1500,23 @@ MonoBehaviour:
   albedoCubemap: {fileID: 8900000, guid: 7b4c7c0ab2e7a334dbdaa0be5715e163, type: 2}
   cloudDensityCubemap: {fileID: 0}
   surfaceMaterial: {fileID: 2100000, guid: bb50ba340edfb314fbca4d4dd36e8daf, type: 2}
+  meshLodSet: {fileID: 11400000, guid: 350e59f310602644cb0ffaec175be727, type: 2}
+  allowRuntimeMeshGeneration: 0
   meshResolution: 64
   generateOnEnable: 1
+--- !u!114 &217054748
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 217054744}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31f7d817f6e00e247a7bc1eb2484260c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lodSet: {fileID: 11400000, guid: 350e59f310602644cb0ffaec175be727, type: 2}
 --- !u!1 &231903757
 GameObject:
   m_ObjectHideFlags: 0
@@ -1527,7 +1543,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 231903757}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 0.69634, y: 0.69634, z: 0.69634}
   m_ConstrainProportionsScale: 0
@@ -1548,13 +1564,13 @@ MeshRenderer:
   m_StaticShadowCaster: 0
   m_MotionVectors: 2
   m_LightProbeUsage: 0
-  m_ReflectionProbeUsage: 1
+  m_ReflectionProbeUsage: 0
   m_RayTracingMode: 2
   m_RayTraceProcedural: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: b0c7e0ba0a885124d9268ca693679fda, type: 2}
+  - {fileID: 2100000, guid: 64757d9ddf3a2d94bb062eebfcedc4fb, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -1596,6 +1612,7 @@ GameObject:
   - component: {fileID: 234872389}
   - component: {fileID: 234872391}
   - component: {fileID: 234872390}
+  - component: {fileID: 234872392}
   m_Layer: 0
   m_Name: Mars
   m_TagString: Untagged
@@ -1677,8 +1694,23 @@ MonoBehaviour:
   albedoCubemap: {fileID: 8900000, guid: 92e0ba32f401bc545bee984a0950a38a, type: 2}
   cloudDensityCubemap: {fileID: 0}
   surfaceMaterial: {fileID: 2100000, guid: 0b887a8b69b2c6d4294c6f0c97e994f7, type: 2}
+  meshLodSet: {fileID: 11400000, guid: 441e49cff2c84f84998d35477fb6ce37, type: 2}
+  allowRuntimeMeshGeneration: 0
   meshResolution: 64
   generateOnEnable: 1
+--- !u!114 &234872392
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 234872387}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31f7d817f6e00e247a7bc1eb2484260c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lodSet: {fileID: 11400000, guid: 441e49cff2c84f84998d35477fb6ce37, type: 2}
 --- !u!1 &253167458
 GameObject:
   m_ObjectHideFlags: 0
@@ -1761,7 +1793,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 253167458}
-  m_Mesh: {fileID: 0}
+  m_Mesh: {fileID: 4300000, guid: 9883e43022e372a4dbe849e329592fe9, type: 2}
 --- !u!1 &266126297
 GameObject:
   m_ObjectHideFlags: 0
@@ -2728,6 +2760,7 @@ GameObject:
   - component: {fileID: 320205194}
   - component: {fileID: 320205196}
   - component: {fileID: 320205195}
+  - component: {fileID: 320205197}
   m_Layer: 0
   m_Name: Venus
   m_TagString: Untagged
@@ -2809,8 +2842,23 @@ MonoBehaviour:
   albedoCubemap: {fileID: 8900000, guid: 3a59421f0541e3c48b18388ed77e2636, type: 2}
   cloudDensityCubemap: {fileID: 0}
   surfaceMaterial: {fileID: 2100000, guid: 78bd7275a120c394aa331a9138b005df, type: 2}
+  meshLodSet: {fileID: 11400000, guid: 8e5ccbe0f5378d745a1234a4217b13b4, type: 2}
+  allowRuntimeMeshGeneration: 0
   meshResolution: 64
   generateOnEnable: 1
+--- !u!114 &320205197
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 320205192}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31f7d817f6e00e247a7bc1eb2484260c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lodSet: {fileID: 11400000, guid: 8e5ccbe0f5378d745a1234a4217b13b4, type: 2}
 --- !u!1 &339664996
 GameObject:
   m_ObjectHideFlags: 0
@@ -4356,6 +4404,7 @@ GameObject:
   - component: {fileID: 370554825}
   - component: {fileID: 370554826}
   - component: {fileID: 370554827}
+  - component: {fileID: 370554828}
   m_Layer: 0
   m_Name: Mercury
   m_TagString: Untagged
@@ -4412,8 +4461,23 @@ MonoBehaviour:
   albedoCubemap: {fileID: 8900000, guid: e3e332c129e2ecf48b47658003aef3dd, type: 2}
   cloudDensityCubemap: {fileID: 0}
   surfaceMaterial: {fileID: 2100000, guid: 07871ed47b212244598bc2b516d5a59f, type: 2}
+  meshLodSet: {fileID: 11400000, guid: 71568b8e9cafc144abd30de7fcff56b5, type: 2}
+  allowRuntimeMeshGeneration: 0
   meshResolution: 64
   generateOnEnable: 1
+--- !u!114 &370554828
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 370554824}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31f7d817f6e00e247a7bc1eb2484260c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lodSet: {fileID: 11400000, guid: 71568b8e9cafc144abd30de7fcff56b5, type: 2}
 --- !u!1 &398422855
 GameObject:
   m_ObjectHideFlags: 0
@@ -4425,6 +4489,7 @@ GameObject:
   - component: {fileID: 398422856}
   - component: {fileID: 398422857}
   - component: {fileID: 398422858}
+  - component: {fileID: 398422859}
   m_Layer: 0
   m_Name: Moon
   m_TagString: Untagged
@@ -4481,8 +4546,23 @@ MonoBehaviour:
   albedoCubemap: {fileID: 8900000, guid: 0d46986ea1597fb4baa4c69cb404aeaf, type: 2}
   cloudDensityCubemap: {fileID: 0}
   surfaceMaterial: {fileID: 2100000, guid: 405d9165ea26903489b13c2616932c13, type: 2}
+  meshLodSet: {fileID: 11400000, guid: fd532833ce0501846abd7adf83c490ff, type: 2}
+  allowRuntimeMeshGeneration: 0
   meshResolution: 64
   generateOnEnable: 1
+--- !u!114 &398422859
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 398422855}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31f7d817f6e00e247a7bc1eb2484260c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lodSet: {fileID: 11400000, guid: fd532833ce0501846abd7adf83c490ff, type: 2}
 --- !u!1 &529167431
 GameObject:
   m_ObjectHideFlags: 0
@@ -5158,6 +5238,7 @@ GameObject:
   - component: {fileID: 533661589}
   - component: {fileID: 533661591}
   - component: {fileID: 533661590}
+  - component: {fileID: 533661592}
   m_Layer: 0
   m_Name: Jupiter
   m_TagString: Untagged
@@ -5240,8 +5321,23 @@ MonoBehaviour:
   albedoCubemap: {fileID: 8900000, guid: f00ee68d648bc5248b1c355c6b689a83, type: 2}
   cloudDensityCubemap: {fileID: 0}
   surfaceMaterial: {fileID: 2100000, guid: c9ee4ec3dc564574e93b0b91c397fba6, type: 2}
+  meshLodSet: {fileID: 11400000, guid: 3a00aae054d423347872944e959b0b23, type: 2}
+  allowRuntimeMeshGeneration: 0
   meshResolution: 64
   generateOnEnable: 1
+--- !u!114 &533661592
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 533661587}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31f7d817f6e00e247a7bc1eb2484260c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lodSet: {fileID: 11400000, guid: 3a00aae054d423347872944e959b0b23, type: 2}
 --- !u!1 &544906945
 GameObject:
   m_ObjectHideFlags: 0
@@ -5407,7 +5503,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 585952966}
-  m_Mesh: {fileID: 0}
+  m_Mesh: {fileID: 4300000, guid: ffc4096f53062944985016d7935a67a3, type: 2}
 --- !u!1 &597274051
 GameObject:
   m_ObjectHideFlags: 0
@@ -5420,6 +5516,7 @@ GameObject:
   - component: {fileID: 597274053}
   - component: {fileID: 597274055}
   - component: {fileID: 597274054}
+  - component: {fileID: 597274056}
   m_Layer: 0
   m_Name: Titan
   m_TagString: Untagged
@@ -5501,8 +5598,23 @@ MonoBehaviour:
   albedoCubemap: {fileID: 8900000, guid: f04ac431efd6ad4499634d6c74db4257, type: 2}
   cloudDensityCubemap: {fileID: 0}
   surfaceMaterial: {fileID: 2100000, guid: ed55bdc6630979d40938e73846303d31, type: 2}
+  meshLodSet: {fileID: 11400000, guid: c71fd7cbde210d14f98610df83302afe, type: 2}
+  allowRuntimeMeshGeneration: 0
   meshResolution: 64
   generateOnEnable: 1
+--- !u!114 &597274056
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 597274051}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31f7d817f6e00e247a7bc1eb2484260c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lodSet: {fileID: 11400000, guid: c71fd7cbde210d14f98610df83302afe, type: 2}
 --- !u!1 &606799146
 GameObject:
   m_ObjectHideFlags: 0
@@ -5585,7 +5697,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 606799146}
-  m_Mesh: {fileID: 0}
+  m_Mesh: {fileID: 4300000, guid: 786cabbf1520df54e9fae09f2da26a0a, type: 2}
 --- !u!1 &612741607
 GameObject:
   m_ObjectHideFlags: 0
@@ -8160,7 +8272,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 767110526}
-  m_Mesh: {fileID: 0}
+  m_Mesh: {fileID: 4300000, guid: 89af6c280e16daa4bab56de6c105b6ce, type: 2}
 --- !u!1 &778762671
 GameObject:
   m_ObjectHideFlags: 0
@@ -8292,7 +8404,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 798040460}
-  m_Mesh: {fileID: 0}
+  m_Mesh: {fileID: 4300000, guid: 98440adf53dbad74eabd85efa4bfed07, type: 2}
 --- !u!1 &838318990
 GameObject:
   m_ObjectHideFlags: 0
@@ -8353,15 +8465,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 838318990}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d205446c522e69e43a993940fb5530e5, type: 3}
+  m_Script: {fileID: 11500000, guid: 0e727bc5f23ccd445947a932811f79a8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  definition: {fileID: 11400000, guid: a2e3589aa813a0b4bbd2cad3622f9fc0, type: 2}
-  albedoCubemap: {fileID: 8900000, guid: 2e6b7e11a156e1d49b7333a557adc180, type: 2}
-  cloudDensityCubemap: {fileID: 0}
-  surfaceMaterial: {fileID: 2100000, guid: b0c7e0ba0a885124d9268ca693679fda, type: 2}
-  meshResolution: 64
-  generateOnEnable: 1
+  definition: {fileID: 11400000, guid: 73a3de5c364e0924ba3a1dee8c298abd, type: 2}
+  blackbodyLut: {fileID: 2800000, guid: 9a79b3cb41abaa946aa19b64f6656344, type: 2}
+  photosphereMaterial: {fileID: 2100000, guid: 95bde9e10f63da74b9d7f78465f7792d, type: 2}
+  distantMaterial: {fileID: 2100000, guid: 64757d9ddf3a2d94bb062eebfcedc4fb, type: 2}
 --- !u!1 &940779323
 GameObject:
   m_ObjectHideFlags: 0
@@ -8373,6 +8483,7 @@ GameObject:
   - component: {fileID: 940779324}
   - component: {fileID: 940779325}
   - component: {fileID: 940779326}
+  - component: {fileID: 940779327}
   m_Layer: 0
   m_Name: Callisto
   m_TagString: Untagged
@@ -8429,8 +8540,23 @@ MonoBehaviour:
   albedoCubemap: {fileID: 8900000, guid: 7f1fb3c4352fc154abcd58dcbe368f50, type: 2}
   cloudDensityCubemap: {fileID: 0}
   surfaceMaterial: {fileID: 2100000, guid: a3e30fe7e312fed4bba3f89e18fd8e46, type: 2}
+  meshLodSet: {fileID: 11400000, guid: df8de11690c2bf348a1192b1d0084d93, type: 2}
+  allowRuntimeMeshGeneration: 0
   meshResolution: 64
   generateOnEnable: 1
+--- !u!114 &940779327
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 940779323}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31f7d817f6e00e247a7bc1eb2484260c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lodSet: {fileID: 11400000, guid: df8de11690c2bf348a1192b1d0084d93, type: 2}
 --- !u!1 &1019639356
 GameObject:
   m_ObjectHideFlags: 0
@@ -8513,7 +8639,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1019639356}
-  m_Mesh: {fileID: 0}
+  m_Mesh: {fileID: 4300000, guid: 80631870425256a4bb6950fb8ddb151e, type: 2}
 --- !u!1 &1029578112
 GameObject:
   m_ObjectHideFlags: 0
@@ -8629,6 +8755,7 @@ GameObject:
   - component: {fileID: 1089580283}
   - component: {fileID: 1089580284}
   - component: {fileID: 1089580285}
+  - component: {fileID: 1089580286}
   m_Layer: 0
   m_Name: Ganymede
   m_TagString: Untagged
@@ -8685,8 +8812,23 @@ MonoBehaviour:
   albedoCubemap: {fileID: 8900000, guid: ab18d55345b6fc2489ca7b4db4a00613, type: 2}
   cloudDensityCubemap: {fileID: 0}
   surfaceMaterial: {fileID: 2100000, guid: f560805d5aef4314ca9f2aa3628ebcf0, type: 2}
+  meshLodSet: {fileID: 11400000, guid: 13e715ae71fd177439933d887cadfbc8, type: 2}
+  allowRuntimeMeshGeneration: 0
   meshResolution: 64
   generateOnEnable: 1
+--- !u!114 &1089580286
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1089580282}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31f7d817f6e00e247a7bc1eb2484260c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lodSet: {fileID: 11400000, guid: 13e715ae71fd177439933d887cadfbc8, type: 2}
 --- !u!1 &1112695272
 GameObject:
   m_ObjectHideFlags: 0
@@ -9944,7 +10086,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1129832405}
-  m_Mesh: {fileID: 0}
+  m_Mesh: {fileID: 4300000, guid: 503f76930578a9e40b549febc378cb05, type: 2}
 --- !u!1 &1142530714
 GameObject:
   m_ObjectHideFlags: 0
@@ -12002,6 +12144,7 @@ GameObject:
   - component: {fileID: 1170795388}
   - component: {fileID: 1170795389}
   - component: {fileID: 1170795390}
+  - component: {fileID: 1170795391}
   m_Layer: 0
   m_Name: Makemake
   m_TagString: Untagged
@@ -12058,8 +12201,23 @@ MonoBehaviour:
   albedoCubemap: {fileID: 8900000, guid: 6b8190c4f537baa468d6693cebf0c121, type: 2}
   cloudDensityCubemap: {fileID: 0}
   surfaceMaterial: {fileID: 2100000, guid: 1859c958de153614b86cc04b340dca12, type: 2}
+  meshLodSet: {fileID: 11400000, guid: 2a74b363b3f74d64fb8ff8d9e6e35e7c, type: 2}
+  allowRuntimeMeshGeneration: 0
   meshResolution: 64
   generateOnEnable: 1
+--- !u!114 &1170795391
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1170795387}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31f7d817f6e00e247a7bc1eb2484260c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lodSet: {fileID: 11400000, guid: 2a74b363b3f74d64fb8ff8d9e6e35e7c, type: 2}
 --- !u!1 &1194695950
 GameObject:
   m_ObjectHideFlags: 0
@@ -12142,7 +12300,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1194695950}
-  m_Mesh: {fileID: 0}
+  m_Mesh: {fileID: 4300000, guid: c7b36ea260b8bd44db4ecc263d8c8c9f, type: 2}
 --- !u!1 &1263928906
 GameObject:
   m_ObjectHideFlags: 0
@@ -14504,6 +14662,7 @@ GameObject:
   - component: {fileID: 1359006654}
   - component: {fileID: 1359006655}
   - component: {fileID: 1359006656}
+  - component: {fileID: 1359006657}
   m_Layer: 0
   m_Name: Haumea
   m_TagString: Untagged
@@ -14561,8 +14720,23 @@ MonoBehaviour:
   albedoCubemap: {fileID: 8900000, guid: 48ec15b0d00a2d84c80a17920d523c0f, type: 2}
   cloudDensityCubemap: {fileID: 0}
   surfaceMaterial: {fileID: 2100000, guid: 9745b0eacd4d4cd4abd17c820220bdba, type: 2}
+  meshLodSet: {fileID: 11400000, guid: 505c14cf7933f6c47af28975e2528d51, type: 2}
+  allowRuntimeMeshGeneration: 0
   meshResolution: 64
   generateOnEnable: 1
+--- !u!114 &1359006657
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1359006653}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31f7d817f6e00e247a7bc1eb2484260c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lodSet: {fileID: 11400000, guid: 505c14cf7933f6c47af28975e2528d51, type: 2}
 --- !u!1 &1365860515
 GameObject:
   m_ObjectHideFlags: 0
@@ -14573,6 +14747,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1365860517}
   - component: {fileID: 1365860516}
+  - component: {fileID: 1365860518}
   m_Layer: 0
   m_Name: Solar System
   m_TagString: Untagged
@@ -14627,6 +14802,43 @@ Transform:
   - {fileID: 1716801190}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1365860518
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1365860515}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6c981512a15ff8940ac1b67ff9c05caa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  simulation: {fileID: 1365860516}
+  cameraRig: {fileID: 1546309660}
+  earthTextures: {fileID: 1473632816}
+  star: {fileID: 838318993}
+  planetMeshes:
+  - {fileID: 217054748}
+  - {fileID: 234872392}
+  - {fileID: 320205197}
+  - {fileID: 370554828}
+  - {fileID: 398422859}
+  - {fileID: 533661592}
+  - {fileID: 597274056}
+  - {fileID: 940779327}
+  - {fileID: 1089580286}
+  - {fileID: 1170795391}
+  - {fileID: 1359006657}
+  - {fileID: 1457607868}
+  - {fileID: 1473632817}
+  - {fileID: 1533230674}
+  - {fileID: 1617085011}
+  - {fileID: 1626184997}
+  - {fileID: 1636714794}
+  - {fileID: 1688934277}
+  - {fileID: 1800150847}
+  - {fileID: 2031693067}
 --- !u!1 &1394938074
 GameObject:
   m_ObjectHideFlags: 0
@@ -14709,7 +14921,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1394938074}
-  m_Mesh: {fileID: 0}
+  m_Mesh: {fileID: 4300000, guid: d41f6fef41f948045b64ff654b6523b6, type: 2}
 --- !u!1 &1424648463
 GameObject:
   m_ObjectHideFlags: 0
@@ -14792,7 +15004,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1424648463}
-  m_Mesh: {fileID: 0}
+  m_Mesh: {fileID: 4300000, guid: 16bb6d1170cf11349959c902de20e861, type: 2}
 --- !u!1 &1457607864
 GameObject:
   m_ObjectHideFlags: 0
@@ -14804,6 +15016,7 @@ GameObject:
   - component: {fileID: 1457607865}
   - component: {fileID: 1457607866}
   - component: {fileID: 1457607867}
+  - component: {fileID: 1457607868}
   m_Layer: 0
   m_Name: Europa
   m_TagString: Untagged
@@ -14860,8 +15073,23 @@ MonoBehaviour:
   albedoCubemap: {fileID: 8900000, guid: ab5222463da1237409f10e1ad72dfc39, type: 2}
   cloudDensityCubemap: {fileID: 0}
   surfaceMaterial: {fileID: 2100000, guid: 636ce01e2716ab849a9dc77bda562a7e, type: 2}
+  meshLodSet: {fileID: 11400000, guid: 7326e8f7cb7c12e478bd95498f7df5ae, type: 2}
+  allowRuntimeMeshGeneration: 0
   meshResolution: 64
   generateOnEnable: 1
+--- !u!114 &1457607868
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1457607864}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31f7d817f6e00e247a7bc1eb2484260c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lodSet: {fileID: 11400000, guid: 7326e8f7cb7c12e478bd95498f7df5ae, type: 2}
 --- !u!1 &1473632810
 GameObject:
   m_ObjectHideFlags: 0
@@ -14875,6 +15103,8 @@ GameObject:
   - component: {fileID: 1473632813}
   - component: {fileID: 1473632815}
   - component: {fileID: 1473632814}
+  - component: {fileID: 1473632816}
+  - component: {fileID: 1473632817}
   m_Layer: 0
   m_Name: Earth
   m_TagString: Untagged
@@ -14931,6 +15161,8 @@ MonoBehaviour:
   albedoCubemap: {fileID: 8900000, guid: d7cceae300e318b4f9da8b0d3cca9576, type: 2}
   cloudDensityCubemap: {fileID: 8900000, guid: 83b7397c18dca344995b972eef1ecb59, type: 2}
   surfaceMaterial: {fileID: 2100000, guid: 1928dc59f03f69c4995032df0589cae6, type: 2}
+  meshLodSet: {fileID: 11400000, guid: ae2189da44ca0f448bf62ec49fd515d2, type: 2}
+  allowRuntimeMeshGeneration: 0
   meshResolution: 96
   generateOnEnable: 1
 --- !u!114 &1473632814
@@ -14979,6 +15211,32 @@ MonoBehaviour:
   sunScatterColor: {r: 0.55, g: 0.78, b: 1, a: 1}
   twilightColor: {r: 1, g: 0.65, b: 0.4, a: 1}
   twilightStrength: 0.08
+--- !u!114 &1473632816
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1473632810}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 74acf4b4b70f3b04abe99d34acdb44e5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lodSet: {fileID: 11400000, guid: 7879e2a692239b548aa5c4b07b80b865, type: 2}
+--- !u!114 &1473632817
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1473632810}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31f7d817f6e00e247a7bc1eb2484260c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lodSet: {fileID: 11400000, guid: ae2189da44ca0f448bf62ec49fd515d2, type: 2}
 --- !u!1 &1533230669
 GameObject:
   m_ObjectHideFlags: 0
@@ -14991,6 +15249,7 @@ GameObject:
   - component: {fileID: 1533230671}
   - component: {fileID: 1533230673}
   - component: {fileID: 1533230672}
+  - component: {fileID: 1533230674}
   m_Layer: 0
   m_Name: Uranus
   m_TagString: Untagged
@@ -15073,8 +15332,23 @@ MonoBehaviour:
   albedoCubemap: {fileID: 8900000, guid: 7dd6b6513c0a9874aa1b1c39a5144dd9, type: 2}
   cloudDensityCubemap: {fileID: 0}
   surfaceMaterial: {fileID: 2100000, guid: 8d5a06bf13d164c40a843ea0f57b2326, type: 2}
+  meshLodSet: {fileID: 11400000, guid: 5347fd2e913aa094ba329ca12350fdcb, type: 2}
+  allowRuntimeMeshGeneration: 0
   meshResolution: 64
   generateOnEnable: 1
+--- !u!114 &1533230674
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1533230669}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31f7d817f6e00e247a7bc1eb2484260c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lodSet: {fileID: 11400000, guid: 5347fd2e913aa094ba329ca12350fdcb, type: 2}
 --- !u!1 &1546309657
 GameObject:
   m_ObjectHideFlags: 0
@@ -15264,6 +15538,7 @@ GameObject:
   - component: {fileID: 1617085008}
   - component: {fileID: 1617085009}
   - component: {fileID: 1617085010}
+  - component: {fileID: 1617085011}
   m_Layer: 0
   m_Name: Io
   m_TagString: Untagged
@@ -15320,8 +15595,23 @@ MonoBehaviour:
   albedoCubemap: {fileID: 8900000, guid: bd6977d3dd45e484e962a8424ba2c71d, type: 2}
   cloudDensityCubemap: {fileID: 0}
   surfaceMaterial: {fileID: 2100000, guid: 6a3104b15a1cad2408dc61cbe33c189b, type: 2}
+  meshLodSet: {fileID: 11400000, guid: 0ede12778208c734f9540cce3533bb3d, type: 2}
+  allowRuntimeMeshGeneration: 0
   meshResolution: 64
   generateOnEnable: 1
+--- !u!114 &1617085011
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1617085007}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31f7d817f6e00e247a7bc1eb2484260c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lodSet: {fileID: 11400000, guid: 0ede12778208c734f9540cce3533bb3d, type: 2}
 --- !u!1 &1626184992
 GameObject:
   m_ObjectHideFlags: 0
@@ -15334,6 +15624,7 @@ GameObject:
   - component: {fileID: 1626184994}
   - component: {fileID: 1626184996}
   - component: {fileID: 1626184995}
+  - component: {fileID: 1626184997}
   m_Layer: 0
   m_Name: Neptune
   m_TagString: Untagged
@@ -15416,8 +15707,23 @@ MonoBehaviour:
   albedoCubemap: {fileID: 8900000, guid: 511c11549e7a60d41ab4747471aaa1c6, type: 2}
   cloudDensityCubemap: {fileID: 0}
   surfaceMaterial: {fileID: 2100000, guid: df7710c15f633f44ba14f109c74e4efe, type: 2}
+  meshLodSet: {fileID: 11400000, guid: 8e330aa54ee63004f8868c695b2ddc24, type: 2}
+  allowRuntimeMeshGeneration: 0
   meshResolution: 64
   generateOnEnable: 1
+--- !u!114 &1626184997
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1626184992}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31f7d817f6e00e247a7bc1eb2484260c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lodSet: {fileID: 11400000, guid: 8e330aa54ee63004f8868c695b2ddc24, type: 2}
 --- !u!1 &1636714789
 GameObject:
   m_ObjectHideFlags: 0
@@ -15430,6 +15736,7 @@ GameObject:
   - component: {fileID: 1636714791}
   - component: {fileID: 1636714793}
   - component: {fileID: 1636714792}
+  - component: {fileID: 1636714794}
   m_Layer: 0
   m_Name: Saturn
   m_TagString: Untagged
@@ -15512,8 +15819,23 @@ MonoBehaviour:
   albedoCubemap: {fileID: 8900000, guid: 151520d33c66c92499cc97c30b977dc9, type: 2}
   cloudDensityCubemap: {fileID: 0}
   surfaceMaterial: {fileID: 2100000, guid: 284e85abd615c034ab30cc8cc1c7d4e5, type: 2}
+  meshLodSet: {fileID: 11400000, guid: 787c3e18264c58043865a772c18dad03, type: 2}
+  allowRuntimeMeshGeneration: 0
   meshResolution: 64
   generateOnEnable: 1
+--- !u!114 &1636714794
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1636714789}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31f7d817f6e00e247a7bc1eb2484260c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lodSet: {fileID: 11400000, guid: 787c3e18264c58043865a772c18dad03, type: 2}
 --- !u!1 &1688934272
 GameObject:
   m_ObjectHideFlags: 0
@@ -15526,6 +15848,7 @@ GameObject:
   - component: {fileID: 1688934274}
   - component: {fileID: 1688934276}
   - component: {fileID: 1688934275}
+  - component: {fileID: 1688934277}
   m_Layer: 0
   m_Name: Triton
   m_TagString: Untagged
@@ -15607,8 +15930,23 @@ MonoBehaviour:
   albedoCubemap: {fileID: 8900000, guid: 99e4bcdc21ec3af41bbb930df839237f, type: 2}
   cloudDensityCubemap: {fileID: 0}
   surfaceMaterial: {fileID: 2100000, guid: 9b25c839e1e5ddc4a83f84decb6e1fff, type: 2}
+  meshLodSet: {fileID: 11400000, guid: fa3244e50d5c6a748a5f44788c984e4f, type: 2}
+  allowRuntimeMeshGeneration: 0
   meshResolution: 64
   generateOnEnable: 1
+--- !u!114 &1688934277
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1688934272}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31f7d817f6e00e247a7bc1eb2484260c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lodSet: {fileID: 11400000, guid: fa3244e50d5c6a748a5f44788c984e4f, type: 2}
 --- !u!1 &1716801187
 GameObject:
   m_ObjectHideFlags: 0
@@ -15747,6 +16085,8 @@ MonoBehaviour:
   minimumSurfaceExposure: 0.055
   maximumSurfaceExposure: 16
   exposureResponse: 0.18
+  sunFocusSkyExposureEV: -8
+  sunFocusSkyCoverageThreshold: 0.35
 --- !u!1 &1741169187
 GameObject:
   m_ObjectHideFlags: 0
@@ -15829,7 +16169,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1741169187}
-  m_Mesh: {fileID: 0}
+  m_Mesh: {fileID: 4300000, guid: 25b4cfcff7c0ae7498b02fdda5df9077, type: 2}
 --- !u!1 &1800150842
 GameObject:
   m_ObjectHideFlags: 0
@@ -15842,6 +16182,7 @@ GameObject:
   - component: {fileID: 1800150844}
   - component: {fileID: 1800150846}
   - component: {fileID: 1800150845}
+  - component: {fileID: 1800150847}
   m_Layer: 0
   m_Name: Pluto
   m_TagString: Untagged
@@ -15923,8 +16264,23 @@ MonoBehaviour:
   albedoCubemap: {fileID: 8900000, guid: ba130ff4965d1fe4aaee87dd461c6762, type: 2}
   cloudDensityCubemap: {fileID: 0}
   surfaceMaterial: {fileID: 2100000, guid: 2d90809b7fad79d4c9737ef2183a5f52, type: 2}
+  meshLodSet: {fileID: 11400000, guid: 4a7e4c947de9fef46ab86892a5811ed9, type: 2}
+  allowRuntimeMeshGeneration: 0
   meshResolution: 64
   generateOnEnable: 1
+--- !u!114 &1800150847
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1800150842}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31f7d817f6e00e247a7bc1eb2484260c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lodSet: {fileID: 11400000, guid: 4a7e4c947de9fef46ab86892a5811ed9, type: 2}
 --- !u!1 &1800661695
 GameObject:
   m_ObjectHideFlags: 0
@@ -16007,7 +16363,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1800661695}
-  m_Mesh: {fileID: 0}
+  m_Mesh: {fileID: 4300000, guid: 1e67f1f42e9af60479249f459b7a9dd3, type: 2}
 --- !u!1 &1831399746
 GameObject:
   m_ObjectHideFlags: 0
@@ -16090,7 +16446,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1831399746}
-  m_Mesh: {fileID: 0}
+  m_Mesh: {fileID: 4300000, guid: dc260872292546d40a0a565ff93954a1, type: 2}
 --- !u!1 &1864483071
 GameObject:
   m_ObjectHideFlags: 0
@@ -17044,7 +17400,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1873878602}
-  m_Mesh: {fileID: 0}
+  m_Mesh: {fileID: 4300000, guid: ad2b58757e495094e88978e166a7b223, type: 2}
 --- !u!1 &1877714069
 GameObject:
   m_ObjectHideFlags: 0
@@ -17127,7 +17483,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1877714069}
-  m_Mesh: {fileID: 0}
+  m_Mesh: {fileID: 4300000, guid: b3b70e5cd20f3ea4782319c52b946c15, type: 2}
 --- !u!1 &1890255198
 GameObject:
   m_ObjectHideFlags: 0
@@ -17210,7 +17566,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1890255198}
-  m_Mesh: {fileID: 0}
+  m_Mesh: {fileID: 4300000, guid: 3546aa5aa1f754640a1b26bd14dca761, type: 2}
 --- !u!1 &1967429824
 GameObject:
   m_ObjectHideFlags: 0
@@ -18164,7 +18520,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2003472273}
-  m_Mesh: {fileID: 0}
+  m_Mesh: {fileID: 4300000, guid: 4bc4a01afc01fb94c882ca0888de0bdf, type: 2}
 --- !u!1 &2019496553
 GameObject:
   m_ObjectHideFlags: 0
@@ -18259,6 +18615,7 @@ GameObject:
   - component: {fileID: 2031693064}
   - component: {fileID: 2031693065}
   - component: {fileID: 2031693066}
+  - component: {fileID: 2031693067}
   m_Layer: 0
   m_Name: Charon
   m_TagString: Untagged
@@ -18315,8 +18672,23 @@ MonoBehaviour:
   albedoCubemap: {fileID: 8900000, guid: 1264bc007dd88624181a217213a92da6, type: 2}
   cloudDensityCubemap: {fileID: 0}
   surfaceMaterial: {fileID: 2100000, guid: 6fd41ed57488803468b3cb1a4e243d72, type: 2}
+  meshLodSet: {fileID: 11400000, guid: 1fddd148a8265634cabf52c05832f65a, type: 2}
+  allowRuntimeMeshGeneration: 0
   meshResolution: 64
   generateOnEnable: 1
+--- !u!114 &2031693067
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2031693063}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31f7d817f6e00e247a7bc1eb2484260c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lodSet: {fileID: 11400000, guid: 1fddd148a8265634cabf52c05832f65a, type: 2}
 --- !u!1 &2072547902
 GameObject:
   m_ObjectHideFlags: 0
@@ -18399,7 +18771,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2072547902}
-  m_Mesh: {fileID: 0}
+  m_Mesh: {fileID: 4300000, guid: ad46014bd884e5748927b84190f8871a, type: 2}
 --- !u!1 &2079923145
 GameObject:
   m_ObjectHideFlags: 0
@@ -18482,7 +18854,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2079923145}
-  m_Mesh: {fileID: 0}
+  m_Mesh: {fileID: 4300000, guid: a78dc9e8e4247124eac1f51dcf503670, type: 2}
 --- !u!1 &2145157247
 GameObject:
   m_ObjectHideFlags: 0
@@ -18565,7 +18937,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2145157247}
-  m_Mesh: {fileID: 0}
+  m_Mesh: {fileID: 4300000, guid: 4e35fde48f68fb842943cb8d46316f00, type: 2}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

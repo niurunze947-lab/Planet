@@ -8,6 +8,37 @@ namespace Planet.EditorTools
 {
     public static class PlanetSurfaceBaker
     {
+        public enum MapKind { Albedo, CloudDensity, Normal }
+
+        /// <summary>Worker buffers only. Texture creation and asset upload stay on the editor thread.</summary>
+        public static System.Threading.Tasks.Task<Color[][]> BakeFacesAsync(PlanetDefinition definition, int size, MapKind kind)
+        {
+            PlanetSurfaceSampler sampler = definition.CreateSampler();
+            return System.Threading.Tasks.Task.Run(() =>
+            {
+                Color[][] faces = new Color[6][];
+                Parallel.For(0, 6, ParallelOptions(), face =>
+                {
+                    if (kind == MapKind.Albedo) faces[face] = BakeAlbedoFace(sampler, (PlanetCubeFace)face, size);
+                    else if (kind == MapKind.CloudDensity) faces[face] = BakeCloudFace(sampler, (PlanetCubeFace)face, size);
+                    else
+                    {
+                        Color[] pixels = new Color[size * size];
+                        for (int y = 0; y < size; y++)
+                        for (int x = 0; x < size; x++)
+                        {
+                            Unity.Mathematics.float3 d = CubeSphere.Direction((PlanetCubeFace)face,
+                                new Unity.Mathematics.float2((x + 0.5f) * 2f / size - 1f, (y + 0.5f) * 2f / size - 1f));
+                            Unity.Mathematics.float3 normal = sampler.Evaluate(d).normal * 0.5f + 0.5f;
+                            pixels[y * size + x] = new Color(normal.x, normal.y, normal.z, 1f);
+                        }
+                        faces[face] = pixels;
+                    }
+                });
+                return faces;
+            });
+        }
+
         public static Cubemap BakeAlbedo(PlanetDefinition definition, int size)
         {
             size = Mathf.Clamp(size, 16, 512);

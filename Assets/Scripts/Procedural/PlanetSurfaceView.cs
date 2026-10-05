@@ -19,6 +19,11 @@ namespace Planet.Procedural
         public Cubemap cloudDensityCubemap;
         public Material surfaceMaterial;
 
+        [Header("Offline mesh cache")]
+        public PlanetMeshLodSet meshLodSet;
+        [Tooltip("Fallback for isolated prototypes only. Formal SolarSystem assets must have meshLodSet assigned.")]
+        public bool allowRuntimeMeshGeneration;
+
         [Header("Globe mesh")]
         [Range(8, 192)] public int meshResolution = 96;
         public bool generateOnEnable = true;
@@ -29,6 +34,7 @@ namespace Planet.Procedural
         private int _builtResolution;
         private float _radiusUnits = 1f;
         private Material _runtimeMaterial;
+        private MaterialPropertyBlock _visualTextures;
 
         public Transform SurfaceTransform { get { return _surface; } }
         public Mesh Mesh { get { return _mesh; } }
@@ -57,7 +63,11 @@ namespace Planet.Procedural
 
             string fingerprint = definition.ContentFingerprint();
             int resolution = Mathf.Clamp(meshResolution, 8, 192);
-            if (_mesh == null || _fingerprint != fingerprint || _builtResolution != resolution)
+            if (meshLodSet != null && meshLodSet.MeshAt(0) != null)
+            {
+                SetMeshAsset(meshLodSet.MeshAt(0), 0);
+            }
+            else if (allowRuntimeMeshGeneration && (_mesh == null || _fingerprint != fingerprint || _builtResolution != resolution))
             {
                 PlanetSurfaceSampler sampler = definition.CreateSampler();
                 PlanetMeshData data = CubeSphere.Generate(sampler, resolution);
@@ -72,10 +82,16 @@ namespace Planet.Procedural
                 _fingerprint = fingerprint;
                 _builtResolution = resolution;
             }
+            else if (_mesh == null)
+            {
+                Debug.LogError("[Planet] Offline mesh LOD set is missing for " + definition.displayName + ". Run Tools/Planet/Build Planet Mesh LODs.", this);
+                return;
+            }
 
             _surface.GetComponent<MeshFilter>().sharedMesh = _mesh;
             MeshRenderer renderer = _surface.GetComponent<MeshRenderer>();
             renderer.sharedMaterial = ResolveMaterial();
+            if (_visualTextures != null) renderer.SetPropertyBlock(_visualTextures);
             // The solar-system directional shadow atlas is not useful at astronomical scale and
             // introduces unstable cascades across the planet disc. Surface form is lit by the
             // shader's direct term plus the deterministic cloud-shadow field.
@@ -95,11 +111,57 @@ namespace Planet.Procedural
             if (_surface != null) _surface.localScale = Vector3.one * _radiusUnits;
         }
 
+        /// <summary>
+        /// Binds an offline mesh LOD without making the runtime mesh generator own or destroy the
+        /// imported asset. This is the compatibility boundary used by PlanetMeshLodController.
+        /// </summary>
+        public void SetMeshAsset(Mesh mesh, int tier)
+        {
+            if (mesh == null) return;
+            EnsureSurfaceObject();
+            if (_mesh != null && _mesh != mesh && (_mesh.hideFlags & HideFlags.DontSave) != 0)
+            {
+                if (Application.isPlaying) Destroy(_mesh); else DestroyImmediate(_mesh);
+            }
+            _mesh = mesh;
+            _fingerprint = definition != null ? definition.ContentFingerprint() : string.Empty;
+            _builtResolution = -Mathf.Abs(tier + 1);
+            _surface.GetComponent<MeshFilter>().sharedMesh = mesh;
+            MeshRenderer renderer = _surface.GetComponent<MeshRenderer>();
+            renderer.sharedMaterial = ResolveMaterial();
+            if (_visualTextures != null) renderer.SetPropertyBlock(_visualTextures);
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            renderer.lightProbeUsage = LightProbeUsage.Off;
+            renderer.reflectionProbeUsage = ReflectionProbeUsage.BlendProbes;
+            _surface.localScale = Vector3.one * _radiusUnits;
+        }
+
         public void RefreshMaterial()
         {
             if (_surface == null) return;
             MeshRenderer renderer = _surface.GetComponent<MeshRenderer>();
             if (renderer != null) renderer.sharedMaterial = ResolveMaterial();
+        }
+
+        /// <summary>Per-view LOD binding. Never writes selected textures into shared material assets.</summary>
+        public void SetVisualTextures(Cubemap albedo, Cubemap normal, Cubemap clouds)
+        {
+            if (_surface == null) return;
+            if (_visualTextures == null) _visualTextures = new MaterialPropertyBlock();
+            _visualTextures.Clear();
+            _visualTextures.SetTexture("_AlbedoCube", albedo != null ? albedo : albedoCubemap);
+            _visualTextures.SetFloat("_NormalEnabled", normal != null ? 1f : 0f);
+            _visualTextures.SetFloat("_CloudShadowEnabled", 0f);
+            if (normal != null) _visualTextures.SetTexture("_NormalCube", normal);
+            if (clouds != null) _visualTextures.SetTexture("_CloudDensityCube", clouds);
+            _surface.GetComponent<MeshRenderer>().SetPropertyBlock(_visualTextures);
+        }
+
+        public void ClearVisualTextures()
+        {
+            _visualTextures = null;
+            if (_surface != null) _surface.GetComponent<MeshRenderer>().SetPropertyBlock(null);
         }
 
         private void EnsureSurfaceObject()
@@ -126,7 +188,7 @@ namespace Planet.Procedural
                 if (surfaceMaterial.HasProperty("_SeaLevel")) surfaceMaterial.SetFloat("_SeaLevel", definition.physical.seaLevelMetres);
                 if (surfaceMaterial.HasProperty("_OceanEnabled")) surfaceMaterial.SetFloat("_OceanEnabled", definition.features.hasOcean ? 1f : 0f);
                 if (surfaceMaterial.HasProperty("_WaterCoverage")) surfaceMaterial.SetFloat("_WaterCoverage", definition.generation.waterCoverage);
-                if (surfaceMaterial.HasProperty("_CloudShadowEnabled")) surfaceMaterial.SetFloat("_CloudShadowEnabled", definition.features.hasClouds && cloudDensityCubemap != null ? 1f : 0f);
+                if (surfaceMaterial.HasProperty("_CloudShadowEnabled")) surfaceMaterial.SetFloat("_CloudShadowEnabled", 0f);
                 ApplyAppearance(surfaceMaterial);
                 return surfaceMaterial;
             }
@@ -146,7 +208,7 @@ namespace Planet.Procedural
             _runtimeMaterial.SetFloat("_SeaLevel", definition.physical.seaLevelMetres);
             _runtimeMaterial.SetFloat("_OceanEnabled", definition.features.hasOcean ? 1f : 0f);
             _runtimeMaterial.SetFloat("_WaterCoverage", definition.generation.waterCoverage);
-            _runtimeMaterial.SetFloat("_CloudShadowEnabled", definition.features.hasClouds && cloudDensityCubemap != null ? 1f : 0f);
+            _runtimeMaterial.SetFloat("_CloudShadowEnabled", 0f);
             ApplyAppearance(_runtimeMaterial);
             return _runtimeMaterial;
         }

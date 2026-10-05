@@ -98,7 +98,7 @@ Material:
     - _GlossMapScale: 0
     - _Glossiness: 0
     - _GlossyReflections: 0
-    - _GridStrength: 0.3
+    - _GridStrength: 0
     - _LatitudeLines: 18
     - _LongitudeLines: 36
     - _Metallic: 0

@@ -33,6 +33,11 @@
   定义是唯一真相，网格与 Cubemap 都是可重建的派生缓存
 - 一套米制采样函数同时供几何、颜色、云密度、星空测光使用，因此贴图与几何不可能对不上
 - **21 个天体均接入**；`appearance` 定义可见表面类型与特征，`shapeScale` 保留 Haumea 三轴形状。近似与对策见 [PLANET-MATERIALS.md](PLANET-MATERIALS.md)
+- Earth 使用按中心距／离地比例选择的四档纹理 LOD（128／256／512／1024），近景配套云密度和法线，
+  见 [PLANET-TEXTURE-LOD.md](PLANET-TEXTURE-LOD.md)。Sun 迁移到 [PLANET-STELLAR.md](PLANET-STELLAR.md)
+  的独立 Icosphere／动态温度辐射框架；其他焦点下为纯色发光体。自动曝光和镜头光学本轮仅设计。
+- 行星几何同样使用离线 `PlanetMeshLodSet`；正式场景不在 Play 初始化调用 Cube Sphere 生成器。
+  使用 **Tools ▸ Planet ▸ Build Planet Mesh LODs** 重新生成 20 个行星的 100 个 Mesh／LOD 派生资产。
 
 ---
 
@@ -470,6 +475,8 @@ set_active_instance "<projectName>@<hash>"                  # 切到自己的实
 | `PLANET-DEMO.md` | 贴图版地球/月球**参考场景**：构成、参数、操作方法、"高度图为何是红色" |
 | `PLANET-PROCEDURAL.md` | **程序化星球表面生成框架**：数据链、坐标与单位、地形 / 水体 / 云算法、网格与烘焙缓存、着色器取舍、已知限制 |
 | `PLANET-MATERIALS.md` | 21 个天体材质、观测解释、独立资产、框架扩展、缺口与验证 |
+| `PLANET-TEXTURE-LOD.md` | Earth 四档派生纹理、视场高度与滞回、异步加载和预算 |
+| `PLANET-STELLAR.md` | 独立恒星定义、Planck/CIE 温度辐射、动态光球和较差自转；曝光／镜头设计 |
 | `PLANET-SOLARSYSTEM.md` | 真实比例太阳系场景（正式工程场景）：轨道力学、数值验证、坐标系、操作键位、光照取舍、**§9 程序集边界与对外接口** |
 | `DEVELOPMENT-WORKFLOW.md` | 三工作树 ownership、程序集边界、当前视场高度契约、近地 debug 阈值与合并刷新流程 |
 | `MCP-Setup/MCP-HANDSHAKE-REPORT.md` | 四客户端握手验证记录 |

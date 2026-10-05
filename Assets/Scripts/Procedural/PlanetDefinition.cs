@@ -40,8 +40,8 @@ namespace Planet.Procedural
         public float terrainMinimumMetres = -7200f;
         public float terrainMaximumMetres = 8000f;
         [Range(0f, 1f)] public float waterCoverage;
-        [Tooltip("Visual globe relief multiplier. Physical height queries remain in metres.")]
-        [Range(1f, 12f)] public float visualReliefScale = 4f;
+        [Tooltip("Display-only terrain exaggeration: 1 = physical relief, 20-50 = globe inspection. Runtime chunks refresh after changing; physical heights and water classification stay unchanged.")]
+        [Range(1f, 100f)] public float visualReliefScale = 4f;
 
         [Header("Relief")]
         [Min(0.1f)] public float mountainFrequency = 12f;
@@ -62,6 +62,19 @@ namespace Planet.Procedural
         [Range(0f, 1f)] public float cloudCoverage = 0.49f;
         [Range(0f, 1f)] public float cloudSoftness = 0.18f;
         [Min(0.1f)] public float cloudDetailFrequency = 23f;
+        [Tooltip("Blend terrain/climate coupling into terrestrial clouds. 0 restores the noise-only field.")]
+        [Range(0f, 1f)] public float cloudTerrainInfluence = 1f;
+        [Tooltip("Relative cloud density multiplier over ocean. 1 keeps the noise-only baseline.")]
+        [Range(0f, 2f)] public float cloudOceanDensity = 1.25f;
+        [Tooltip("Relative cloud density multiplier over land. 1 keeps the noise-only baseline.")]
+        [Range(0f, 2f)] public float cloudLandDensity = 0.78f;
+        [Tooltip("How strongly surface moisture modulates cloud density.")]
+        [Range(0f, 2f)] public float cloudMoistureInfluence = 0.85f;
+        [Tooltip("How strongly high terrain suppresses cloud density. 0 disables altitude coupling.")]
+        [Range(-1f, 1f)] public float cloudAltitudeBias = -0.22f;
+        [Tooltip("Windward cloud enhancement and lee-side drying from upwind terrain. Statistical, not a weather simulation.")]
+        [Range(0f, 1f)] public float cloudOrographicInfluence = 0.4f;
+        [Min(1000f)] public float cloudUpwindDistanceMetres = 120000f;
     }
 
     [Serializable]
@@ -98,7 +111,7 @@ namespace Planet.Procedural
     [CreateAssetMenu(menuName = "Planet/Planet Definition", fileName = "PlanetDefinition")]
     public sealed class PlanetDefinition : CelestialDefinition
     {
-        public const int GeneratorVersion = 4;
+        public const int GeneratorVersion = 5;
         public PlanetGenerationParameters generation = new PlanetGenerationParameters();
         public PlanetPalette palette = new PlanetPalette();
         public PlanetFeatureOptions features = new PlanetFeatureOptions();
@@ -117,6 +130,13 @@ namespace Planet.Procedural
             return Hash128.Compute(GeneratorVersion + ":" + JsonUtility.ToJson(physical) + ":" +
                 JsonUtility.ToJson(generation) + ":" + JsonUtility.ToJson(palette) + ":" +
                 JsonUtility.ToJson(features) + ":" + JsonUtility.ToJson(appearance)).ToString();
+        }
+
+        /// <summary>Chunk caches must include detail settings; globe texture caches do not sample fine relief.</summary>
+        public string TerrainContentFingerprint()
+        {
+            return Hash128.Compute(ContentFingerprint() + ":Detail:" + Terrain.PlanetDetailSampler.GeneratorVersion +
+                ":" + JsonUtility.ToJson(detail)).ToString();
         }
 
         public void ValidateParameters()
@@ -146,13 +166,21 @@ namespace Planet.Procedural
             generation.mountainHeightMetres = Mathf.Max(0f, generation.mountainHeightMetres);
             generation.detailHeightMetres = Mathf.Max(0f, generation.detailHeightMetres);
             generation.seaLevelFraction = Mathf.Clamp01(generation.seaLevelFraction);
-            generation.visualReliefScale = Mathf.Clamp(generation.visualReliefScale, 1f, 12f);
+            generation.visualReliefScale = Mathf.Clamp(generation.visualReliefScale, 1f, 100f);
             generation.cloudFrequency = Mathf.Max(0.1f, generation.cloudFrequency);
             generation.cloudDetailFrequency = Mathf.Max(0.1f, generation.cloudDetailFrequency);
             generation.cloudCoverage = Mathf.Clamp01(generation.cloudCoverage);
             generation.cloudSoftness = Mathf.Clamp01(generation.cloudSoftness);
             generation.slopeSampleDistanceMetres = Mathf.Clamp(generation.slopeSampleDistanceMetres,
                 10f, (float)physical.radiusMetres * 0.02f);
+            generation.cloudOceanDensity = Mathf.Clamp(generation.cloudOceanDensity, 0f, 2f);
+            generation.cloudLandDensity = Mathf.Clamp(generation.cloudLandDensity, 0f, 2f);
+            generation.cloudMoistureInfluence = Mathf.Clamp(generation.cloudMoistureInfluence, 0f, 2f);
+            generation.cloudAltitudeBias = Mathf.Clamp(generation.cloudAltitudeBias, -1f, 1f);
+            generation.cloudTerrainInfluence = Mathf.Clamp01(generation.cloudTerrainInfluence);
+            generation.cloudOrographicInfluence = Mathf.Clamp01(generation.cloudOrographicInfluence);
+            generation.cloudUpwindDistanceMetres = Mathf.Clamp(generation.cloudUpwindDistanceMetres,
+                1000f, Mathf.Max(1000f, (float)physical.radiusMetres * 0.1f));
         }
 
         /// <summary>

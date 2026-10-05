@@ -32,7 +32,9 @@ namespace Planet.Interaction
         {
             if (orbitCamera == null) return;
             // Surface free-roam (C6) owns the camera; orbit-yaw anchoring would fight it.
-            if (orbitCamera.freeRoam) return;
+            if (orbitCamera.freeRoam) { if (_anchored) Release(); return; }
+            // The precise camera stores its own body-fixed direction, including drag input.
+            if (orbitCamera.HasPreciseSurfaceDistance) { if (_anchored) Release(); return; }
 
             var sim = SolarSystemSimulation.Instance;
             CelestialBody body = sim != null ? sim.FocusView : null;

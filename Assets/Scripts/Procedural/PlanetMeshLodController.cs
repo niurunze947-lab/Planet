@@ -21,6 +21,7 @@ namespace Planet.Procedural
 
         public void UpdateView(float clearanceRatio, bool focused)
         {
+            if (view != null && view.useRuntimeChunks) return;
             if (lodSet == null || view == null) return;
             RequestedTier = lodSet.SelectTier(clearanceRatio, focused, RequestedTier);
             if (RequestedTier != ActiveTier) Apply(RequestedTier);
@@ -28,6 +29,7 @@ namespace Planet.Procedural
 
         private void Apply(int tier)
         {
+            if (view != null && view.useRuntimeChunks) return;
             if (lodSet == null || view == null) return;
             Mesh mesh = lodSet.MeshAt(tier);
             if (mesh == null)

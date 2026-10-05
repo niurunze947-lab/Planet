@@ -120,4 +120,27 @@ public sealed class ViewDistanceBoundaryTests
         // Same log step: near the surface the absolute move is smaller (marginal effect).
         Assert.Less(nearChange, farChange);
     }
+
+    [Test]
+    public void LocalZoomCanReachOneCentimetreWithoutCompoundingTheOldDamper()
+    {
+        double height = 100;
+        for (int i = 0; i < 42; i++)
+            height = ViewDistanceBoundary.ApplySurfaceClearanceZoomMetres(height, -0.24);
+        Assert.AreEqual(0.01, height);
+        double away = ViewDistanceBoundary.ApplySurfaceClearanceZoomMetres(height, 0.24, 0.01, true);
+        Assert.That(away, Is.GreaterThan(0.012));
+    }
+
+    [Test]
+    public void LoadingSlowdownRemainsBoundedAndDoesNotAffectZoomOut()
+    {
+        double height = 100;
+        for (int i = 0; i < 60; i++)
+            height = ViewDistanceBoundary.ApplySurfaceClearanceZoomMetres(height, -0.24, 0.01, true);
+        Assert.AreEqual(0.01, height);
+        Assert.AreEqual(ViewDistanceBoundary.ApplySurfaceClearanceZoomMetres(1, 0.24),
+            ViewDistanceBoundary.ApplySurfaceClearanceZoomMetres(1, 0.24, 0.01, true));
+        Assert.AreEqual(0.01, ViewDistanceBoundary.ApplySurfaceClearanceZoomMetres(1, -1000));
+    }
 }

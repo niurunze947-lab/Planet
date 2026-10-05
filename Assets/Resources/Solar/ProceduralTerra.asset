@@ -35,7 +35,7 @@ MonoBehaviour:
     terrainMinimumMetres: -7200
     terrainMaximumMetres: 5802.7915
     waterCoverage: 0.5638129
-    visualReliefScale: 4
+    visualReliefScale: 20
     mountainFrequency: 12
     mountainHeightMetres: 6200
     mountainOctaves: 6
@@ -49,6 +49,13 @@ MonoBehaviour:
     cloudCoverage: 0.49
     cloudSoftness: 0.18
     cloudDetailFrequency: 23
+    cloudTerrainInfluence: 1
+    cloudOceanDensity: 1.25
+    cloudLandDensity: 0.78
+    cloudMoistureInfluence: 0.85
+    cloudAltitudeBias: -0.22
+    cloudOrographicInfluence: 0.4
+    cloudUpwindDistanceMetres: 120000
   palette:
     deepOcean: {r: 0.025, g: 0.065, b: 0.24, a: 1}
     shallowOcean: {r: 0.035, g: 0.32, b: 0.39, a: 1}
@@ -96,3 +103,8 @@ MonoBehaviour:
     ringColor: {r: 0.85, g: 0.79, b: 0.66, a: 1}
     ringOpacity: 0.8
     interpretation: 
+  detail:
+    enabled: 1
+    amplitudeMetres: 40
+    gain: 0.55
+    minimumWavelengthMetres: 0.02

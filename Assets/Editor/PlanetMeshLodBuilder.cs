@@ -13,7 +13,7 @@ namespace Planet.EditorTools
     /// <summary>Builds and assigns persistent planet meshes. Formal SolarSystem play mode never calls CubeSphere.Generate.</summary>
     public static class PlanetMeshLodBuilder
     {
-        public const string Folder = "Assets/Resources/Solar/BodyMaterials/MeshLod";
+        public const string Folder = "Assets/Editor/LegacyPlanetMeshLod";
         private static readonly int[] Resolutions = { 16, 32, 64, 96 };
         private static readonly string[] Labels = { "System", "Orbit", "Near", "Surface" };
 
@@ -42,6 +42,7 @@ namespace Planet.EditorTools
             {
                 PlanetSurfaceView view = body.GetComponent<PlanetSurfaceView>();
                 if (view == null || view.definition == null) continue;
+                if (view.useRuntimeChunks) continue;
                 PlanetMeshLodSet set = BuildBody(body.bodyName, view.definition);
                 view.meshLodSet = set;
                 view.allowRuntimeMeshGeneration = false;

@@ -11,6 +11,7 @@ namespace Planet.Procedural.Terrain
     /// </summary>
     public readonly struct PlanetDetailSampler
     {
+        public const int GeneratorVersion = 2;
         public const double BaseWavelengthMetres = 4096.0;
         public const int MaxOctaves = 24;
         /// <summary>Normalises the 0.5-radius simplex kernel to about [-1, 1] (worst case 0.99).</summary>
@@ -30,7 +31,8 @@ namespace Planet.Procedural.Terrain
             seed = Mix(unchecked((ulong)(uint)generationSeed) ^ 0x5DEECE66DUL);
             this.amplitudeMetres = math.max(0.0, amplitudeMetres);
             this.gain = math.clamp(gain, 0.3, 0.75);
-            double octaves = math.ceil(math.log2(BaseWavelengthMetres / math.max(minimumWavelengthMetres, 1e-3))) + 1.0;
+            // Never include a wavelength shorter than the configured cutoff.
+            double octaves = math.floor(math.log2(BaseWavelengthMetres / math.max(minimumWavelengthMetres, 1e-3))) + 1.0;
             octaveCount = this.amplitudeMetres > 0.0 ? (int)math.clamp(octaves, 0.0, MaxOctaves) : 0;
         }
 
@@ -69,10 +71,14 @@ namespace Planet.Procedural.Terrain
         {
             own = 0.0;
             parent = 0.0;
+            if (!math.all(math.isfinite(p))) return;
+            ownSpacing = SafeSpacing(ownSpacing);
+            parentSpacing = SafeSpacing(parentSpacing);
+            double finestSpacing = math.min(ownSpacing, parentSpacing);
             double amplitude = amplitudeMetres, wavelength = BaseWavelengthMetres;
             for (int k = 0; k < octaveCount; k++)
             {
-                if (wavelength <= 2.0 * ownSpacing) break;
+                if (wavelength <= 2.0 * finestSpacing) break;
                 double wOwn = BandWeight(wavelength, ownSpacing);
                 double wParent = BandWeight(wavelength, parentSpacing);
                 double n = Noise(p / wavelength, OctaveSeed(k)) * amplitude;
@@ -86,6 +92,7 @@ namespace Planet.Procedural.Terrain
         /// <summary>1 when the octave is fully resolved by spacing s, 0 at or below the Nyquist limit.</summary>
         public static double BandWeight(double wavelength, double spacing)
         {
+            spacing = SafeSpacing(spacing);
             double t = math.saturate((wavelength - 2.0 * spacing) / (2.0 * spacing));
             return t * t * (3.0 - 2.0 * t);
         }
@@ -96,6 +103,7 @@ namespace Planet.Procedural.Terrain
         /// </summary>
         public double ResidualBound(double spacing)
         {
+            spacing = SafeSpacing(spacing);
             double sum = 0.0, amplitude = amplitudeMetres, wavelength = BaseWavelengthMetres;
             for (int k = 0; k < octaveCount; k++)
             {
@@ -106,6 +114,11 @@ namespace Planet.Procedural.Terrain
                 wavelength *= 0.5;
             }
             return NoiseBound * sum;
+        }
+
+        private static double SafeSpacing(double spacing)
+        {
+            return math.isfinite(spacing) ? math.max(spacing, 1e-6) : BaseWavelengthMetres;
         }
 
         private ulong OctaveSeed(int octave)

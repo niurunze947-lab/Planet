@@ -29,7 +29,7 @@ namespace Planet.Interaction
         [Tooltip("Minimum surface clearance in metres (centimetre class).")]
         public float minClearanceMetres = 0.01f;
         [Tooltip("Safety margin above the terrain-aware floor, in metres.")]
-        public float terrainSafetyMetres = 2f;
+        public float terrainSafetyMetres = 0.01f;
         [Tooltip("Use log-altitude zoom once clearanceOverViewHeight falls below this.")]
         [Range(0.001f, 1f)] public float altitudeZoomRatio = 0.10f;
 
@@ -40,7 +40,7 @@ namespace Planet.Interaction
         /// <summary>Optional full-frequency surface query (C2) for the terrain-aware floor and back-pressure.</summary>
         public Planet.Procedural.Terrain.IPlanetSurfaceQuery SurfaceQuery
         {
-            get { return _surfaceQuery ?? ResolveQuery(); }
+            get { return ResolveQuery(); }
             set { _surfaceQuery = value; }
         }
 
@@ -159,24 +159,20 @@ namespace Planet.Interaction
             if (_camera == null) return;
 
             var query = SurfaceQuery;
-            // C4 back-pressure: slow down while detail jobs are queued.
-            if (query != null && query.PendingDetailWork > 0)
-                logDelta *= 0.25f;
 
             float radius = _camera.FocusSurfaceRadiusUnits;
             float view = _camera.TargetDistance;
             float clearanceOverView = ViewDistanceBoundary.ClearanceOverViewHeight(view, radius);
             float kmPerUnit = KmPerUnit();
 
-            if (query != null && clearanceOverView <= altitudeZoomRatio)
+            if (query != null && (clearanceOverView <= altitudeZoomRatio || _camera.HasPreciseSurfaceDistance))
             {
-                // Double metres: h' = h · exp(δ · rate), then drop back to scene units.
-                double radiusMetres = query.RadiusMetres;
-                double altitudeMetres = System.Math.Max((double)view * kmPerUnit * 1000.0 - radiusMetres, minClearanceMetres);
-                double nextAlt = ViewDistanceBoundary.ApplyLogAltitudeZoomMetres(
-                    altitudeMetres, logDelta, minClearanceMetres, clearanceOverView, nearRate, farRate);
-                float next = (float)((radiusMetres + nextAlt) / 1000.0 / kmPerUnit);
-                _camera.SetDistance(Mathf.Max(next, FloorUnits(radius)));
+                double altitude = _camera.HasPreciseSurfaceDistance ? _camera.TargetSurfaceClearanceMetres : _camera.CurrentSurfaceClearanceMetres();
+                double nextAlt = ViewDistanceBoundary.ApplySurfaceClearanceZoomMetres(altitude, logDelta,
+                    System.Math.Max(minClearanceMetres, terrainSafetyMetres), query.PendingDetailWork > 0);
+                if (_camera.HasPreciseSurfaceDistance && nextAlt > query.RadiusMetres * 0.2)
+                    _camera.SetDistance((float)((query.RadiusMetres + nextAlt) * radius / query.RadiusMetres));
+                else _camera.SetSurfaceClearanceMetres(nextAlt);
                 return;
             }
 
@@ -197,6 +193,7 @@ namespace Planet.Interaction
         public void ClampCameraDistances()
         {
             if (_camera == null) return;
+            if (_camera.HasPreciseSurfaceDistance) return;
 
             float radius = _camera.FocusSurfaceRadiusUnits;
             float floor = FloorUnits(radius);

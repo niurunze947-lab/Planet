@@ -76,6 +76,7 @@ namespace Planet.Solar
         {
             if (_renderersVisible == visible) return;
             _renderersVisible = visible;
+            if (_proceduralSurface != null) _proceduralSurface.SetRenderersVisible(visible);
 
             if (_surface != null)
             {
@@ -303,6 +304,7 @@ namespace Planet.Solar
 
         private void ApplyRendererVisibility()
         {
+            if (_proceduralSurface != null) _proceduralSurface.SetRenderersVisible(_renderersVisible);
             if (_surface != null)
             {
                 MeshRenderer r = _surface.GetComponent<MeshRenderer>();

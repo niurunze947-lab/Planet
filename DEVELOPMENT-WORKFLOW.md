@@ -245,7 +245,7 @@ CelestialBody.RadiusUnits = sceneRadiusUnits × bodySizeExaggeration
 | 母分叉点 | `integration/authority-2026-10-04`（`a1697b4`） |
 | 合并 solar | `4176e1a` ← `3a6f93a`，**零冲突**（44 文件 / +6035） |
 | 合并 interaction | `0f936ea` ← `eafe9ba`，**零冲突**（26 文件 / +1391） |
-| 合并 planet-definition | **已完成**：`CelestialBody` 与 `SolarSystem.unity` 冲突已按 ownership 合成，双组件均保留 |
+| 合并 planet-definition | main 已合入该工作树（`3949919`、`7dab4d3`），冲突已合成；该分支反向并入 main 尚未执行 |
 | 审计标签 | `integration/pre-2026-10-05-{solar,interaction,main}` |
 
 本轮暴露了三条流程经验，已并入上文：

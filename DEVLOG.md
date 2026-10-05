@@ -136,7 +136,7 @@
 - 顺带修掉一个协议缺口：`main` 的 C1/C2 提交**漏了 4 个 `.meta`**（3 个 `.cs.meta` + `Terrain.meta`），
   磁盘上不存在。Unity 在刷新时会自己补一份**新 GUID**（实测 `4d5ad096…` ≠ 提交版 `81cb6b83…`），
   必须删掉自生成的那份、让 interaction 提交版落地，否则 GUID 分歧会留在工程里
-- `codex/planet-definition` 已完成合并：`CelestialBody` 保留尺度缓存与恒星表面接线，场景同时保留
+- `main` 已合入 `codex/planet-definition`；反向并入主线仍待执行。`CelestialBody` 保留尺度缓存与恒星表面接线，场景同时保留
   `SolarSpaceContext` 与 `SolarSystemVisualCoordinator`，后者使用独立 YAML fileID。
 
 ### 文档重整
@@ -176,7 +176,7 @@
 
 ## 待补
 
-- [x] `codex/planet-definition` 并入 `main`：源码、场景双组件和文档索引冲突已处理
+- [ ] `codex/planet-definition` 并入 `main`：本分支已合入 main，源码、场景双组件和文档索引冲突已处理
 - [ ] `ChunkStreamer` 接入帧循环：需要在 `Planet.Procedural` 侧实现一个按
       `SurfaceChunkKey` 生产 `ChunkGeometryBuffers` 的 `IChunkContentProvider`
 - [ ] 用分块网格替换 `PlanetSurfaceView` 的单位球网格，并接上大气散射的高程连续过渡

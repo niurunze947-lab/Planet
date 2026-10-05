@@ -31,17 +31,17 @@ MonoBehaviour:
   - label: Near
     albedoSize: 512
     cloudSize: 256
-    normalSize: 256
+    normalSize: 0
     albedoResource: Solar/BodyMaterials/EarthLod/Earth_Albedo_512
     cloudResource: Solar/BodyMaterials/EarthLod/Earth_Cloud_256
-    normalResource: Solar/BodyMaterials/EarthLod/Earth_Normal_256
+    normalResource: 
   - label: Surface
     albedoSize: 1024
     cloudSize: 512
-    normalSize: 512
+    normalSize: 0
     albedoResource: Solar/BodyMaterials/EarthLod/Earth_Albedo_1024
     cloudResource: Solar/BodyMaterials/EarthLod/Earth_Cloud_512
-    normalResource: Solar/BodyMaterials/EarthLod/Earth_Normal_512
+    normalResource: 
   orbitEnter: 4
   orbitExit: 4.8
   nearEnter: 1

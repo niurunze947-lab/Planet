@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Rendering;
+using Planet.Procedural.Terrain;
 
 namespace Planet.Procedural
 {
@@ -19,7 +20,11 @@ namespace Planet.Procedural
         public Cubemap cloudDensityCubemap;
         public Material surfaceMaterial;
 
-        [Header("Offline mesh cache")]
+        [Header("Runtime terrain")]
+        [Tooltip("Generate bounded, view-dependent terrain chunks at runtime instead of loading whole-planet meshes.")]
+        public bool useRuntimeChunks = true;
+
+        [Header("Legacy offline mesh cache")]
         public PlanetMeshLodSet meshLodSet;
         [Tooltip("Fallback for isolated prototypes only. Formal SolarSystem assets must have meshLodSet assigned.")]
         public bool allowRuntimeMeshGeneration;
@@ -35,9 +40,14 @@ namespace Planet.Procedural
         private float _radiusUnits = 1f;
         private Material _runtimeMaterial;
         private MaterialPropertyBlock _visualTextures;
+        private RuntimeTerrainRenderer _terrain;
 
         public Transform SurfaceTransform { get { return _surface; } }
         public Mesh Mesh { get { return _mesh; } }
+        public RuntimeTerrainRenderer TerrainRenderer
+        {
+            get { if (_terrain == null) _terrain = GetComponent<RuntimeTerrainRenderer>(); return _terrain; }
+        }
 
         private void OnEnable()
         {
@@ -46,6 +56,7 @@ namespace Planet.Procedural
 
         private void OnDisable()
         {
+            if (_terrain != null) _terrain.enabled = false;
             if (_runtimeMaterial != null)
             {
                 if (Application.isPlaying) Destroy(_runtimeMaterial);
@@ -60,6 +71,21 @@ namespace Planet.Procedural
             definition.ValidateParameters();
             _radiusUnits = Mathf.Max(radiusUnits, 1e-6f);
             EnsureSurfaceObject();
+
+            if (useRuntimeChunks)
+            {
+                _surface.localScale = Vector3.one * _radiusUnits;
+                _surface.localPosition = Vector3.zero;
+                _surface.localRotation = Quaternion.identity;
+                _surface.GetComponent<MeshFilter>().sharedMesh = null;
+                _surface.GetComponent<MeshRenderer>().enabled = false;
+                if (_terrain == null) _terrain = GetComponent<RuntimeTerrainRenderer>();
+                if (_terrain == null) _terrain = gameObject.AddComponent<RuntimeTerrainRenderer>();
+                _terrain.enabled = true;
+                _terrain.Configure(this, _surface, _radiusUnits, ResolveMaterial());
+                return;
+            }
+            if (_terrain != null) _terrain.enabled = false;
 
             string fingerprint = definition.ContentFingerprint();
             int resolution = Mathf.Clamp(meshResolution, 8, 192);
@@ -109,6 +135,7 @@ namespace Planet.Procedural
         {
             _radiusUnits = Mathf.Max(radiusUnits, 1e-6f);
             if (_surface != null) _surface.localScale = Vector3.one * _radiusUnits;
+            if (_terrain != null) _terrain.SetRadius(_radiusUnits);
         }
 
         /// <summary>
@@ -117,6 +144,7 @@ namespace Planet.Procedural
         /// </summary>
         public void SetMeshAsset(Mesh mesh, int tier)
         {
+            if (useRuntimeChunks) return;
             if (mesh == null) return;
             EnsureSurfaceObject();
             if (_mesh != null && _mesh != mesh && (_mesh.hideFlags & HideFlags.DontSave) != 0)
@@ -162,6 +190,17 @@ namespace Planet.Procedural
         {
             _visualTextures = null;
             if (_surface != null) _surface.GetComponent<MeshRenderer>().SetPropertyBlock(null);
+        }
+
+        public void SetRenderersVisible(bool visible)
+        {
+            if (_terrain != null) _terrain.SetVisible(visible);
+        }
+
+        public void CopyVisualProperties(MaterialPropertyBlock target)
+        {
+            target.Clear();
+            if (_surface != null) _surface.GetComponent<MeshRenderer>().GetPropertyBlock(target);
         }
 
         private void EnsureSurfaceObject()

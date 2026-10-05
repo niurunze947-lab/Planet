@@ -34,7 +34,14 @@ namespace Planet.EditorTools
         [InitializeOnLoadMethod]
         private static void ResumeAfterReload()
         {
-            if (SessionState.GetBool(ResumeKey, false)) EditorApplication.delayCall += Build;
+            if (SessionState.GetBool(ResumeKey, false)) EditorApplication.update += ResumeWhenEditing;
+        }
+
+        private static void ResumeWhenEditing()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling) return;
+            EditorApplication.update -= ResumeWhenEditing;
+            if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().path == PlanetFrameworkBuilder.ScenePath) Build();
         }
 
         [MenuItem("Tools/Planet/Build Earth Texture LODs", false, 23)]
@@ -59,7 +66,8 @@ namespace Planet.EditorTools
             set.tiers = new PlanetTextureTier[4];
             int[] sizes = {128, 256, 512, 1024};
             int[] cloudSizes = {64, 128, 256, 512};
-            int[] normalSizes = {0, 0, 256, 512};
+            // Runtime chunks carry resolved geometric normals. A globe normal map would overwrite them.
+            int[] normalSizes = {0, 0, 0, 0};
             string[] labels = {"System", "Orbit", "Near", "Surface"};
             jobs.Clear();
             for (int i = 0; i < sizes.Length; i++)
@@ -105,6 +113,7 @@ namespace Planet.EditorTools
         }
         private static void Step()
         {
+            if (EditorApplication.isPlayingOrWillChangePlaymode) return;
             try
             {
                 if (definition.ContentFingerprint() != sourceFingerprint)

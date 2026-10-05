@@ -157,6 +157,15 @@ namespace Planet.Interaction
             return System.Math.Max(altitude * System.Math.Exp(applied), floor);
         }
 
+        /// <summary>Local altitude already supplies distance-proportional damping. Do not apply the centre-distance damper again.</summary>
+        public static double ApplySurfaceClearanceZoomMetres(double clearance, double logDelta, double floor = 0.01,
+            bool terrainLoading = false)
+        {
+            floor = System.Math.Max(0.001, floor);
+            double rate = logDelta < 0 && terrainLoading ? 0.7 : 1.0;
+            return System.Math.Max(floor, System.Math.Max(clearance, floor) * System.Math.Exp(logDelta * rate));
+        }
+
         /// <summary>Convert metres to scene units for the given km-per-unit scale.</summary>
         public static float MetresToSceneUnits(float metres, float kmPerUnit)
         {

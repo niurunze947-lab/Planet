@@ -47,6 +47,58 @@ namespace Planet.Solar
 
         /// <summary>Distance the rig is easing towards; also the exact position when scripted.</summary>
         public float TargetDistance { get { return _targetDistance; } }
+        public bool HasPreciseSurfaceDistance { get { return _precisionBody != null; } }
+        public double SurfaceClearanceMetres { get { return _preciseClearance; } }
+        public double TargetSurfaceClearanceMetres { get { return _targetClearance; } }
+        public Vec3d CameraBodyFixedMetres { get; private set; }
+        private CelestialBody _precisionBody;
+        private double _preciseClearance, _targetClearance;
+        private Vec3d _precisionDirection;
+        private float _precisionYaw, _precisionPitch;
+
+        /// <summary>Keeps local altitude in double. Never round-trips it through the float centre distance.</summary>
+        public void SetSurfaceClearanceMetres(double metres, bool snap = false)
+        {
+            if (_sim == null) _sim = SolarSystemSimulation.Instance;
+            if (_sim == null || _sim.FocusView == null) return;
+            if (_precisionBody != _sim.FocusView)
+            {
+                double initialClearance = CurrentSurfaceClearanceMetres();
+                _precisionBody = _sim.FocusView;
+                _precisionYaw = yaw; _precisionPitch = pitch;
+                Vector3 worldDirection = -(Quaternion.Euler(pitch, yaw, 0) * Vector3.forward);
+                _precisionDirection = RotateDouble(Quaternion.Inverse(_precisionBody.transform.rotation),
+                    new Vec3d(worldDirection.x, worldDirection.y, worldDirection.z));
+                double len = _precisionDirection.Length;
+                _precisionDirection = _precisionDirection * (1.0 / System.Math.Max(len, 1e-20));
+                _preciseClearance = initialClearance;
+            }
+            _targetClearance = System.Math.Max(0.01, metres);
+            if (snap) _preciseClearance = _targetClearance;
+            _lastFocusIndex = _sim.FocusIndex; _hasTarget = true;
+        }
+
+        public double CurrentSurfaceClearanceMetres()
+        {
+            if (_precisionBody != null) return _preciseClearance;
+            if (_sim == null) _sim = SolarSystemSimulation.Instance;
+            if (_sim == null || _sim.FocusView == null) return 0;
+            var body = _sim.FocusView;
+            double unitsPerMetre = body.RadiusUnits / (body.Definition.RadiusKm * 1000.0);
+            Vector3 dir = -(Quaternion.Euler(pitch, yaw, 0) * Vector3.forward);
+            var bf = RotateDouble(Quaternion.Inverse(body.transform.rotation), new Vec3d(dir.x, dir.y, dir.z));
+            var terrain = body.GetComponent<Planet.Procedural.Terrain.RuntimeTerrainRenderer>();
+            double ground = terrain != null && terrain.RadiusMetres > 0 ? terrain.DisplayRadiusMetres(bf.x, bf.y, bf.z) : body.Definition.RadiusKm * 1000;
+            return System.Math.Max(0.01, distance / unitsPerMetre - ground);
+        }
+
+        private static Vec3d RotateDouble(Quaternion rotation, Vec3d v)
+        {
+            Matrix4x4 m = Matrix4x4.Rotate(rotation);
+            return new Vec3d(m.m00 * v.x + m.m01 * v.y + m.m02 * v.z,
+                m.m10 * v.x + m.m11 * v.y + m.m12 * v.z,
+                m.m20 * v.x + m.m21 * v.y + m.m22 * v.z);
+        }
 
         /// <summary>Distance from the camera to the focused body's center in scene units.</summary>
         public float CurrentViewHeightUnits { get { return distance; } }
@@ -96,6 +148,7 @@ namespace Planet.Solar
         /// </summary>
         public void SnapToDistance(float units)
         {
+            _precisionBody = null;
             _targetDistance = ClampToSurfaceFloor(units);
             distance = _targetDistance;
             _hasTarget = true;
@@ -154,8 +207,20 @@ namespace Planet.Solar
 
             if (_lastFocusIndex != _sim.FocusIndex)
             {
+                _precisionBody = null;
                 _lastFocusIndex = _sim.FocusIndex;
                 _hasTarget = false;              // re-frame the newly selected body
+            }
+
+            if (_precisionBody != null)
+            {
+                if (_precisionBody != _sim.FocusView) { _precisionBody = null; }
+                else
+                {
+                    double kLocal = 1.0 - System.Math.Exp(-Time.deltaTime / System.Math.Max(frameSmoothSeconds, 0.01f));
+                    _preciseClearance += (_targetClearance - _preciseClearance) * kLocal;
+                    return;
+                }
             }
 
             float wanted = _hasTarget ? _targetDistance : FrameDistance();
@@ -190,6 +255,39 @@ namespace Planet.Solar
 
             if (_sim == null) _sim = SolarSystemSimulation.Instance;
             if (_sim == null) return;
+
+            if (_precisionBody != null && _precisionBody == _sim.FocusView)
+            {
+                float dy = Mathf.DeltaAngle(_precisionYaw, yaw), dp = Mathf.DeltaAngle(_precisionPitch, pitch);
+                if (dy != 0 || dp != 0)
+                {
+                    _precisionDirection = RotateDouble(Quaternion.Euler(dp, dy, 0), _precisionDirection);
+                    _precisionDirection = _precisionDirection * (1.0 / _precisionDirection.Length);
+                    _precisionYaw = yaw; _precisionPitch = pitch;
+                }
+                var terrain = _precisionBody.GetComponent<Planet.Procedural.Terrain.RuntimeTerrainRenderer>();
+                double radiusMetres = _precisionBody.Definition.RadiusKm * 1000;
+                double ground = terrain != null && terrain.RadiusMetres > 0
+                    ? terrain.DisplayRadiusMetres(_precisionDirection.x, _precisionDirection.y, _precisionDirection.z) : radiusMetres;
+                double unitsPerMetre = _precisionBody.RadiusUnits / radiusMetres;
+                CameraBodyFixedMetres = _precisionDirection * (ground + _preciseClearance);
+                Vec3d world = RotateDouble(_precisionBody.transform.rotation, CameraBodyFixedMetres);
+                transform.position = _precisionBody.transform.position + new Vector3((float)(world.x * unitsPerMetre), (float)(world.y * unitsPerMetre), (float)(world.z * unitsPerMetre));
+                transform.rotation = Quaternion.LookRotation(new Vector3((float)-world.x, (float)-world.y, (float)-world.z), _precisionBody.transform.up);
+                distance = (float)((ground + _preciseClearance) * unitsPerMetre);
+                _targetDistance = (float)((ground + _targetClearance) * unitsPerMetre);
+                // Projection still uses scene units, but centimetre terrain is rendered camera-relative.
+                // Same 1e5:1 frustum cap as the orbit path: an uncapped 4e10:1 near/far crashed IMGUI.
+                float pNear = (float)System.Math.Max(1e-13, System.Math.Min(50, _preciseClearance * unitsPerMetre * 0.1));
+                float pFar = 40000f;
+                if (float.IsNaN(pNear) || pNear <= 0f) pNear = 1e-6f;
+                if (pFar < pNear * 2f) pFar = pNear * 2f;
+                float pMaxFar = pNear * 1e5f;
+                if (pFar > pMaxFar) pFar = pMaxFar;
+                _cam.nearClipPlane = pNear;
+                _cam.farClipPlane = pFar;
+                return;
+            }
 
             Quaternion rot = Quaternion.Euler(pitch, yaw, 0f);
             Vector3 dir = rot * Vector3.forward;
@@ -243,12 +341,16 @@ namespace Planet.Solar
                 _sim.CycleFocus(kb.shiftKey.isPressed ? -1 : 1);
 
             if (kb.fKey.wasPressedThisFrame)
+            {
+                _precisionBody = null;
                 _targetDistance = FrameDistance();
+            }
 
             // G toggles a 400x size exaggeration so the planets can actually be seen from a
             // distance; it is off by default because it destroys the true proportions.
             if (kb.gKey.wasPressedThisFrame)
             {
+                _precisionBody = null;
                 _sim.bodySizeExaggeration = Mathf.Approximately(_sim.bodySizeExaggeration, 1f) ? 400f : 1f;
                 _targetDistance = FrameDistance();
             }
@@ -305,6 +407,7 @@ namespace Planet.Solar
         /// <summary>Sets the desired orbit distance in scene units (used by the HUD's "fit" button).</summary>
         public void SetDistance(float units)
         {
+            _precisionBody = null;
             _targetDistance = ClampToSurfaceFloor(units);
             _hasTarget = true;
         }

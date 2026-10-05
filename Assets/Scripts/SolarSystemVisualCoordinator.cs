@@ -12,6 +12,7 @@ public sealed class SolarSystemVisualCoordinator : MonoBehaviour
     public StellarSurfaceView star;
     public PlanetMeshLodController[] planetMeshes;
     private float nextMeshDiscovery;
+    private PlanetSurfaceView[] terrainViews;
 
     private void LateUpdate() { Refresh(); }
     public void Refresh()
@@ -29,6 +30,7 @@ public sealed class SolarSystemVisualCoordinator : MonoBehaviour
         if (planetMeshes == null || Time.realtimeSinceStartup >= nextMeshDiscovery)
         {
             planetMeshes = FindObjectsOfType<PlanetMeshLodController>();
+            terrainViews = FindObjectsOfType<PlanetSurfaceView>();
             nextMeshDiscovery = Time.realtimeSinceStartup + 1f;
         }
         if (cameraRig != null && planetMeshes != null)
@@ -42,6 +44,20 @@ public sealed class SolarSystemVisualCoordinator : MonoBehaviour
                     body != null && string.Equals(body.bodyName, simulation.focusBody, System.StringComparison.OrdinalIgnoreCase));
             }
         }
+        if (terrainViews != null)
+            foreach (PlanetSurfaceView view in terrainViews)
+            {
+                if (view == null || !view.useRuntimeChunks || view.TerrainRenderer == null) continue;
+                CelestialBody body = view.GetComponent<CelestialBody>();
+                var terrain = view.TerrainRenderer;
+                terrain.UpdateView(terrain.ViewFromCamera(simulation.ViewCamera), simulation.ViewCamera,
+                    body != null && body.bodyName == simulation.focusBody);
+                if (body == simulation.FocusView && cameraRig != null && cameraRig.HasPreciseSurfaceDistance)
+                {
+                    Vec3d p = cameraRig.CameraBodyFixedMetres;
+                    terrain.SetPreciseCameraPosition(simulation.ViewCamera, p.x, p.y, p.z);
+                }
+            }
     }
 
 #if UNITY_EDITOR

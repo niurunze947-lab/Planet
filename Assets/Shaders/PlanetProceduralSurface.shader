@@ -2,6 +2,9 @@ Shader "Planet/ProceduralSurface"
 {
     Properties
     {
+        _ChunkEnabled ("Runtime Chunk", Float) = 0
+        _ChunkOriginCR ("Camera Relative Chunk Origin", Vector) = (0, 0, 0, 0)
+        _UseVertexAlbedo ("Use Local Surface Color", Float) = 0
         _AlbedoCube ("Procedural Albedo", Cube) = "white" {}
         _NormalCube ("Body-space Detail Normal", Cube) = "white" {}
         _NormalEnabled ("Detail Normal Enabled", Float) = 0
@@ -47,26 +50,7 @@ Shader "Planet/ProceduralSurface"
             TEXTURE2D(_RingProfile); SAMPLER(sampler_RingProfile);
             float _PlanetGridStrength;
 
-            CBUFFER_START(UnityPerMaterial)
-                half4 _OceanTint;
-                half4 _RimColor;
-                half _SeaLevel;
-                half _OceanEnabled;
-                half _CloudShadowEnabled;
-                half _WaterCoverage;
-                half _CloudShadowStrength;
-                half _CloudShadowOffset;
-                half _OceanSmoothness;
-                half _LandSmoothness;
-                half _NightAmbient;
-                half _RimStrength;
-                half _RimPower;
-                half _NormalEnabled;
-                float4 _ReferenceAxes;
-                half _EmissionStrength;
-                half _LimbDarkening;
-                float _RingOuterRatio;
-            CBUFFER_END
+            #include "PlanetSurfaceCommon.hlsl"
 
             struct Attributes
             {
@@ -74,6 +58,7 @@ Shader "Planet/ProceduralSurface"
                 float3 normalOS : NORMAL;
                 float3 directionOS : TEXCOORD1;
                 float4 surfaceData : TEXCOORD2;
+                half4 color : COLOR;
             };
 
             struct Varyings
@@ -85,6 +70,8 @@ Shader "Planet/ProceduralSurface"
                 float4 surfaceData : TEXCOORD3;
                 float3 sphereNormalWS : TEXCOORD4;
                 float4 shadowCoord : TEXCOORD5;
+                float3 viewVectorWS : TEXCOORD6;
+                half3 color : COLOR;
             };
 
             Varyings Vert(Attributes input)
@@ -92,13 +79,15 @@ Shader "Planet/ProceduralSurface"
                 Varyings output;
                 VertexPositionInputs positionInputs = GetVertexPositionInputs(input.positionOS.xyz);
                 VertexNormalInputs normalInputs = GetVertexNormalInputs(input.normalOS);
-                output.positionCS = positionInputs.positionCS;
+                output.positionCS = PlanetClipPosition(input.positionOS.xyz);
+                output.viewVectorWS = _ChunkEnabled > 0.5 ? -PlanetRelativePosition(input.positionOS.xyz) : _WorldSpaceCameraPos.xyz - positionInputs.positionWS;
+                output.color = input.color.rgb;
                 output.positionWS = positionInputs.positionWS;
-                output.normalWS = normalInputs.normalWS;
+                output.normalWS = PlanetNormalToWorld(input.normalOS);
                 output.directionOS = normalize(input.directionOS);
                 output.surfaceData = input.surfaceData;
                 float3 shapeNormal = normalize(output.directionOS / (_ReferenceAxes.xyz * _ReferenceAxes.xyz));
-                output.sphereNormalWS = normalize(TransformObjectToWorldNormal(shapeNormal));
+                output.sphereNormalWS = PlanetNormalToWorld(shapeNormal);
                 output.shadowCoord = GetShadowCoord(positionInputs);
                 return output;
             }
@@ -111,7 +100,7 @@ Shader "Planet/ProceduralSurface"
                 if (_NormalEnabled > 0.5h)
                 {
                     float3 detailOS = normalize(SAMPLE_TEXTURECUBE(_NormalCube, sampler_NormalCube, directionOS).rgb * 2.0 - 1.0);
-                    terrainNormal = normalize(TransformObjectToWorldNormal(detailOS));
+                    terrainNormal = PlanetNormalToWorld(detailOS);
                 }
                 half height = input.surfaceData.x;
                 half slope = saturate(input.surfaceData.y / 42.0h);
@@ -121,7 +110,7 @@ Shader "Planet/ProceduralSurface"
                 half ocean = saturate(input.surfaceData.z);
                 ocean *= _OceanEnabled;
                 half3 normal = normalize(lerp(terrainNormal, radialNormal, ocean));
-                half3 viewDirection = normalize(_WorldSpaceCameraPos.xyz - input.positionWS);
+                half3 viewDirection = normalize(input.viewVectorWS);
                 // Planetary bodies are far outside the useful range of URP shadow cascades in
                 // this solar-system scene. Sampling that shadow map caused the visible flickering
                 // half-disc and a moving cascade seam. Use the stable directional light term and
@@ -137,7 +126,7 @@ Shader "Planet/ProceduralSurface"
                 half reliefDiffuse = saturate(ndotl);
                 half direct = twilight * (0.16h + 0.84h * reliefDiffuse);
                 half sunFacing = saturate(dot(radialNormal, lightDirection));
-                half3 albedo = SAMPLE_TEXTURECUBE(_AlbedoCube, sampler_AlbedoCube, directionOS).rgb;
+                half3 albedo = lerp(SAMPLE_TEXTURECUBE(_AlbedoCube, sampler_AlbedoCube, directionOS).rgb, input.color, _UseVertexAlbedo);
                 // Optional, antialiased angular reference grid, controlled by the existing L key.
                 float2 angles = float2(atan2(directionOS.z, directionOS.x), asin(clamp(directionOS.y, -1, 1)));
                 float2 gridCoord = angles * (12.0 / PI);
@@ -159,7 +148,7 @@ Shader "Planet/ProceduralSurface"
                 half cloudDensity = 0.0h;
                 if (_CloudShadowEnabled > 0.5h)
                 {
-                    float3 lightDirectionOS = normalize(TransformWorldToObjectDir(lightDirection));
+                    float3 lightDirectionOS = PlanetDirectionToBody(lightDirection);
                     float3 cloudDirection = normalize(directionOS + lightDirectionOS * _CloudShadowOffset);
                     cloudDensity = SAMPLE_TEXTURECUBE(_CloudDensityCube, sampler_CloudDensityCube, cloudDirection).r;
                 }
@@ -167,7 +156,7 @@ Shader "Planet/ProceduralSurface"
                 if (_RingOuterRatio > 1.0)
                 {
                     // Ray/plane intersection in radius-normalized body space; independent of floating origin.
-                    float3 localLight = normalize(TransformWorldToObjectDir(lightDirection));
+                    float3 localLight = PlanetDirectionToBody(lightDirection);
                     if (abs(localLight.y) > 0.0001)
                     {
                         float referenceRadius = rsqrt(dot(directionOS / _ReferenceAxes.xyz, directionOS / _ReferenceAxes.xyz));
@@ -200,6 +189,20 @@ Shader "Planet/ProceduralSurface"
         }
 
         UsePass "Universal Render Pipeline/Lit/ShadowCaster"
-        UsePass "Universal Render Pipeline/Lit/DepthOnly"
+        Pass
+        {
+            Name "DepthOnly"
+            Tags { "LightMode" = "DepthOnly" }
+            ZWrite On
+            ColorMask 0
+            HLSLPROGRAM
+            #pragma vertex DepthVert
+            #pragma fragment DepthFrag
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "PlanetSurfaceCommon.hlsl"
+            float4 DepthVert(float4 positionOS : POSITION) : SV_POSITION { return PlanetClipPosition(positionOS.xyz); }
+            half4 DepthFrag() : SV_Target { return 0; }
+            ENDHLSL
+        }
     }
 }

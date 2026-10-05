@@ -75,6 +75,7 @@ graph TD
 | 尺度层的精度数字、分块参数、LOD 与流式参数 | [PLANET-SPACE.md](PLANET-SPACE.md) | 只在需要时给结论，不复述数字 |
 | 轨道根数来源与数值验证表 | [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) §2 | 链接 |
 | `PlanetDefinition` 参数分组与采样数学 | [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) | 链接 |
+| 地形关联云场、显示起伏倍率、厘米尺度生成与侵蚀边界 | [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §4、§12、§21 | 链接 |
 | 21 个天体的外观与"解释边界" | [PLANET-MATERIALS.md](PLANET-MATERIALS.md) §1 | 链接 |
 | 恒星光球、黑体辐射、温度 LUT 与观测边界 | [PLANET-STELLAR.md](PLANET-STELLAR.md) | 链接 |
 | 实测数据来源、授权、高度图解码公式 | [PLANET-ASSETS.md](PLANET-ASSETS.md) | 链接 |
@@ -130,6 +131,7 @@ PROJECT-OVERVIEW ──┬─► PLANET-SOLARSYSTEM ──┬─► PLANET-SPACE
 | 第一次接触这个工程 | [PROJECT-OVERVIEW.md](PROJECT-OVERVIEW.md) §1 → §12（上手顺序） |
 | 改某个天体的外观 / 加减天体 | [PLANET-MATERIALS.md](PLANET-MATERIALS.md) §1–§2 → [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §4 |
 | 改采样公式 / 噪声 / 地形 | [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §5–§7 |
+| 调海陆相关云分布、夸张起伏或评估厘米地形 | [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §4、§12、§21 |
 | 改相机、输入、缩放边界 | [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §3 → `Assets/Scripts/Interaction/` |
 | 改精度、原点、分块、LOD | [PLANET-SPACE.md](PLANET-SPACE.md) |
 | 改轨道 / 比例 / 目录数据 | [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) §2 → [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §4 |

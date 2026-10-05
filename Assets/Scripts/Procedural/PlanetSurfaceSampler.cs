@@ -28,6 +28,8 @@ namespace Planet.Procedural
         private readonly float detailFrequency, detailHeight, slopeStep;
         private readonly float temperatureOffset, moistureOffset, altitudeCooling;
         private readonly float cloudFrequency, cloudCoverage, cloudSoftness, cloudDetailFrequency;
+        private readonly float cloudOceanDensity, cloudLandDensity, cloudMoistureInfluence, cloudAltitudeBias;
+        private readonly float cloudTerrainInfluence, cloudOrographicInfluence, cloudUpwindDistance;
         private readonly float visualReliefScale;
         private readonly float3 deepOcean, shallowOcean, beach, desert, grassland;
         private readonly float3 forest, rainforest, tundra, rock, snow;
@@ -75,6 +77,13 @@ namespace Planet.Procedural
             cloudCoverage = g.cloudCoverage;
             cloudSoftness = g.cloudSoftness;
             cloudDetailFrequency = g.cloudDetailFrequency;
+            cloudOceanDensity = g.cloudOceanDensity;
+            cloudLandDensity = g.cloudLandDensity;
+            cloudMoistureInfluence = g.cloudMoistureInfluence;
+            cloudAltitudeBias = g.cloudAltitudeBias;
+            cloudTerrainInfluence = g.cloudTerrainInfluence;
+            cloudOrographicInfluence = g.cloudOrographicInfluence;
+            cloudUpwindDistance = g.cloudUpwindDistanceMetres;
             visualReliefScale = g.visualReliefScale;
             deepOcean = Linear(c.deepOcean); shallowOcean = Linear(c.shallowOcean);
             beach = Linear(c.beach); desert = Linear(c.desert); grassland = Linear(c.grassland);
@@ -118,13 +127,7 @@ namespace Planet.Procedural
             float3 referenceNormal = ReferenceNormal(d);
             float3 normal = math.normalize(referenceNormal - tangent * dhT * visualReliefScale - bitangent * dhB * visualReliefScale);
             float slope = math.degrees(math.atan(math.sqrt(dhT * dhT + dhB * dhB)));
-            float elevation = math.max(0f, h - seaLevelMetres);
-            float latitude = math.abs(d.y);
-            float temperature = math.saturate(1.02f - math.pow(latitude, 1.35f) - elevation * altitudeCooling * 0.001f +
-                temperatureOffset + Fbm(d * 3.7f + seedOffset + 70f, 3, 0.5f) * 0.06f);
-            float dryBelt = math.exp(-math.pow((latitude - 0.43f) / 0.17f, 2f));
-            float moisture = math.saturate(0.63f + Fbm(d * 3.1f + seedOffset - 81f, 4, 0.55f) * 0.48f -
-                dryBelt * 0.36f + moistureOffset);
+            EvaluateClimate(d, h, out float temperature, out float moisture);
             float waterDepth = hasOcean ? math.max(0f, seaLevelMetres - h) : 0f;
             float waterContent = hasOcean ? math.saturate(waterDepth / waterDepthRangeMetres) : 0f;
             float ocean = hasOcean ? Smooth(0f, 120f, waterDepth) : 0f;
@@ -149,20 +152,25 @@ namespace Planet.Procedural
             float3 d = math.normalizesafe(direction, new float3(0f, 1f, 0f));
             if (appearance.kind != PlanetSurfaceKind.Terrestrial) return appearance.Albedo(d);
             float h = EvaluateHeight(d);
-            float elevation = math.max(0f, h - seaLevelMetres);
-            float latitude = math.abs(d.y);
-            float temperature = math.saturate(1.02f - math.pow(latitude, 1.35f) -
-                elevation * altitudeCooling * 0.001f + temperatureOffset +
-                Fbm(d * 3.7f + seedOffset + 70f, 3, 0.5f) * 0.06f);
-            float dryBelt = math.exp(-math.pow((latitude - 0.43f) / 0.17f, 2f));
-            float moisture = math.saturate(0.63f + Fbm(d * 3.1f + seedOffset - 81f, 4, 0.55f) * 0.48f -
-                dryBelt * 0.36f + moistureOffset);
+            EvaluateClimate(d, h, out float temperature, out float moisture);
             float waterDepth = hasOcean ? math.max(0f, seaLevelMetres - h) : 0f;
             float ocean = hasOcean ? Smooth(0f, 120f, waterDepth) : 0f;
             return Albedo(d, h, temperature, moisture, 0f, ocean);
         }
 
-        /// <summary>Cloud density is a planet-fixed field shared by the cloud shell and shadow term.</summary>
+        private void EvaluateClimate(float3 d, float h, out float temperature, out float moisture)
+        {
+            float elevation = math.max(0f, h - seaLevelMetres);
+            float latitude = math.abs(d.y);
+            temperature = math.saturate(1.02f - math.pow(latitude, 1.35f) -
+                elevation * altitudeCooling * 0.001f + temperatureOffset +
+                Fbm(d * 3.7f + seedOffset + 70f, 3, 0.5f) * 0.06f);
+            float dryBelt = math.exp(-math.pow((latitude - 0.43f) / 0.17f, 2f));
+            moisture = math.saturate(0.63f + Fbm(d * 3.1f + seedOffset - 81f, 4, 0.55f) * 0.48f -
+                dryBelt * 0.36f + moistureOffset);
+        }
+
+        /// <summary>Body-fixed statistical cloud field; terrestrial clouds share terrain and biome climate.</summary>
         public float EvaluateCloudDensity(float3 direction)
         {
             if (!hasClouds) return 0f;
@@ -171,7 +179,30 @@ namespace Planet.Procedural
             float detail = Fbm(d * cloudDetailFrequency + seedOffset - 33f, 3, 0.52f) * 0.5f + 0.5f;
             float shaped = baseNoise * 0.82f + detail * 0.18f;
             float edge = math.saturate((shaped - (1f - cloudCoverage)) / math.max(cloudSoftness, 0.001f));
-            return edge * edge * (3f - 2f * edge);
+            float baseDensity = edge * edge * (3f - 2f * edge);
+            if (appearance.kind != PlanetSurfaceKind.Terrestrial || cloudTerrainInfluence <= 0f)
+                return baseDensity;
+            float h = EvaluateHeight(d);
+            float elevation = math.saturate((h - seaLevelMetres) / math.max(maxHeightMetres - seaLevelMetres, 1f));
+            // Use the coastline, not seabed depth: shallow water still supplies moisture.
+            float water = hasOcean ? Smooth(-150f, 150f, seaLevelMetres - h) : 0f;
+            EvaluateClimate(d, h, out float temperature, out float moisture);
+            float surfaceFactor = math.lerp(cloudLandDensity, cloudOceanDensity, water);
+            surfaceFactor *= math.max(0f, 1f + cloudMoistureInfluence * (moisture - 0.5f) * 1.6f);
+            surfaceFactor *= math.max(0f, 1f + cloudAltitudeBias * elevation);
+            surfaceFactor *= math.lerp(0.9f, 1.08f, temperature);
+            if (cloudOrographicInfluence > 0f)
+            {
+                float latitude = math.abs(d.y);
+                float westerlies = Smooth(0.35f, 0.55f, latitude) * (1f - Smooth(0.8f, 0.95f, latitude));
+                // Unnormalised tangent tends to zero at the poles; there is no arbitrary polar seam.
+                float3 wind = new float3(d.z, 0f, -d.x) * math.lerp(-1f, 1f, westerlies);
+                float3 upwind = math.normalizesafe(d - wind * (cloudUpwindDistance / radiusMetres), d);
+                float upwindHeight = EvaluateHeight(upwind);
+                float delta = (math.max(h, seaLevelMetres) - math.max(upwindHeight, seaLevelMetres)) / 2000f;
+                surfaceFactor *= math.max(0f, 1f + cloudOrographicInfluence * math.clamp(delta, -1f, 1f));
+            }
+            return math.saturate(baseDensity * math.lerp(1f, surfaceFactor, cloudTerrainInfluence));
         }
 
         /// <summary>Normalized mesh position, with seabed clamped to the same physical sea level everywhere.</summary>
@@ -179,8 +210,16 @@ namespace Planet.Procedural
         {
             float3 d = math.normalizesafe(direction, new float3(0f, 1f, 0f));
             float reference = math.rsqrt(math.csum(d * d / (referenceAxes * referenceAxes)));
-            float displayedHeight = hasOcean ? math.max(heightMetres, seaLevelMetres) : heightMetres;
-            return d * (reference + (displayedHeight * visualReliefScale + appearance.opticalHeight) / radiusMetres);
+            return d * (reference + DisplacementMetres(heightMetres) / radiusMetres);
+        }
+
+        /// <summary>Display displacement from the reference shape. Water level stays fixed under exaggeration.</summary>
+        public float DisplacementMetres(float heightMetres)
+        {
+            float relief = hasOcean
+                ? seaLevelMetres + math.max(0f, heightMetres - seaLevelMetres) * visualReliefScale
+                : heightMetres * visualReliefScale;
+            return relief + appearance.opticalHeight;
         }
 
         public float3 ReferenceNormal(float3 direction)

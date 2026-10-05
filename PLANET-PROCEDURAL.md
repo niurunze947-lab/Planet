@@ -81,6 +81,7 @@ PlanetLightingController             (推太阳方向 + 全局星空曝光 EV)
 | `Scripts/PlanetAtmosphere.cs` | 大气壳层组件 |
 | `Scripts/PlanetLightingController.cs` | 太阳方向同步、壳层实例发现、星空曝光 EV |
 | `Editor/PlanetSurfaceBaker.cs` | 按面并行烘焙 Albedo / 云密度 Cubemap |
+| `Editor/PlanetDefinitionEditor.cs` | 定义 Inspector 与选中星球的分帧重烘入口；Earth 同步刷新各档纹理与网格 |
 | `Editor/PlanetFrameworkBuilder.cs` | 生成派生资产、给 Earth 接线、菜单入口、场景环境配置 |
 
 ---
@@ -100,11 +101,17 @@ PlanetLightingController             (推太阳方向 + 全局星空曝光 EV)
 
 ```text
 参考半径系数 r = 1 / sqrt(x² + z² + y²/(1−f)²)         // f = 扁率
-顶点 = 方向 × ( r + 显示高度 × visualReliefScale / radiusMetres )
+有海洋：显示位移 = seaLevel + max(height − seaLevel, 0) × visualReliefScale + opticalHeight
+无海洋：显示位移 = height × visualReliefScale + opticalHeight
+顶点 = 方向 × ( r + 显示位移 / radiusMetres )
 ```
 
 因此同一份网格可以同时用于 1× 与 400× 显示，只要改 `localScale`。查询接口返回的始终是**米制真值**，
-`visualReliefScale`（示例为 4×）只影响观感。
+`generation.visualReliefScale` 范围为 1–100：1× 为物理起伏，Earth 示例使用 20×。
+它只改变显示几何与法线；海平面、水深、海陆判定及物理高度保持不变。
+在定义 Inspector 中调整后按 **Rebuild Selected Planet Surface**；Earth 同步重烘各档云、法线与纹理。
+运行时使用离线资产，不会随 Inspector 参数改变而自动重新生成。极端倍率可能穿过现有云／大气壳，
+且相机目前仍按参考半径限位；显示夸张模式不能当作最终近地碰撞表面。
 
 > `PlanetCoordinates` 是给外部调用者准备的 API，**当前渲染路径没有用到它**：
 > `ToRenderPosition`、`NormalizeHeight` / `NormalEncodingScale`、`CubeSphere.DirectionToFace`
@@ -337,6 +344,12 @@ oceanMask    = Smooth(0, 120 m, waterDepth)
 - **ShadowCaster 关闭**：让 URP 阴影图去投云影，会在天体尺度下闪烁并切出半圆直线，云影改走共享密度场。
 - 云密度场本身（`EvaluateCloudDensity`）是"基础噪声 0.82 + 细节噪声 0.18"，
   再按 `cloudCoverage` / `cloudSoftness` 做平滑阶跃，因此改覆盖率是**平移阈值**而不是重画图案。
+- 类地表面的云场随后读取同源高度、海陆与生物群系使用的温湿度函数；近海岸平滑过渡，
+  浅水同样提供水汽，未把水深当作蒸发强度。`cloudOceanDensity` / `cloudLandDensity` 控制海陆密度，
+  `cloudMoistureInfluence` 控制湿度响应，`cloudAltitudeBias` 控制海拔响应。
+- `cloudOrographicInfluence` 通过 `cloudUpwindDistanceMetres` 范围内的迎风高程差近似抬升与雨影，
+  纬度决定平滑的盛行风方向，极点处切向风趋零。它是静态统计近似，未模拟水汽守恒、锋面或真实天气。
+- `cloudTerrainInfluence = 0` 恢复原纯噪声场；非类地外观不套用海陆水汽规则，`hasClouds = false` 始终输出零。
 
 ---
 
@@ -430,8 +443,8 @@ Sun 不属于 PlanetSurfaceView 网格管线。
 | Albedo Cubemap | 256²/面 → 每纹素 **0.35°**（约 39 km） | 高频配色（频率 670）被平均掉，靠 mip 抑制闪烁 |
 | 云密度 Cubemap | 128²/面 → 每纹素 **0.70°** | 云带（频率 5.4 / 23）能表达，细节偏软 |
 
-结论：**细节项与高频配色目前是"生成了但看不到"的部分**。想在近景看到它们，需要提高网格段数
-（`PlanetSurfaceView.meshResolution`，上限 192）或未来引入位移 / 视差方案，而不是继续调生成参数。
+当前离线网格使用 16／32／64／96 四档，最大档在面中心的实际顶点间距约 133 km（表中为平均角度估计）。
+增加显示倍率能看清已采样山体的轮廓，不能补回欠采样的山谷。厘米目标的采样与区块接入边界见 §21。
 
 ---
 
@@ -441,10 +454,10 @@ Sun 不属于 PlanetSurfaceView 网格管线。
 - **地表不投 / 不接收 URP 阴影**，也没有地形自遮挡（山体不会互相遮挡），因此没有日食、没有山影。
   环影和天体遮住环的太阳光已采用解析求交近似，详见材质文档。
 - **位移只发生在网格顶点上**，没有位移贴图 / 视差，镜头贴近地表会看到面片化。
-- **没有地形 LOD 与地表流式加载**：网格一次性生成，分辨率上限 192 段。
+- **本工作树仍使用全球离线 Mesh LOD**：SolarSystem 工作树正在开发按视距分块的 provider；尚未合入这里。
 - **没有植被实例、河流 / 湖泊、潮汐、海面波浪几何**；水体只有水位、水深与颜色。
-- **网格是静态缓存**：运行时不监听参数变化，改 `PlanetDefinition` 后需要重新触发一次构建
-  （`PlanetSurfaceView` 只在指纹或分辨率变化时重建）。
+- **网格是静态缓存**：改 `PlanetDefinition` 后使用 **Rebuild Selected Planet Surface**，
+  或分别运行对应纹理与网格构建菜单；不要通过启用 runtime fallback 绕过缓存。
 - `PlanetLightingController` 依赖 `SolarSystemSimulation`，不能直接搬到 `PlanetDemo` 之类的场景。
 - 新外观仍是统计场：不含观测地图、气带动力学、地下海洋、日冕、喷发、多层散射或环弧。
   `appearance.interpretation` 与 [PLANET-MATERIALS.md](PLANET-MATERIALS.md) 明确每颗天体的解释边界。
@@ -486,5 +499,74 @@ Sun 不属于 PlanetSurfaceView 网格管线。
 
 ---
 
-*本文档描述的是 `Assets/Scripts/Procedural/` 与相关编辑器工具的实际实现；数字取自资产文件、源码常量与
-运行时/编辑器实测，非推测。场景级的比例、轨道与操作说明见 [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md)。*
+## 21. 厘米尺度与区块接入评估（2026-10-05）
+
+**当前生成输出还不能保证任意地点的厘米级连续地形与海湖。**
+本节区分已经实现的能力、尚缺的语义与建议的接入策略；观察契约仍以
+[DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §2–§3 为准。
+
+### 21.1 现有采样能表达什么
+
+- 宏观高度已经有大陆 FBM、ridged 山系、domain warp、四层细节 Simplex，绝非单层随机贴图。
+  默认细节基频约为 `R/140 ≈ 45.5 km`，最后一层约为 `R/(140 × 2.03³) ≈ 5.44 km`。
+  增加网格只能更密地采到这个场，不会自动长出岩石、冲沟或湖泊。
+- `PlanetSurfaceSampler` 的方向和噪声输入仍为 float，且带较大种子偏移。
+  把 double 方向先降成 float 再调用它，会丢失厘米变化；事后把返回值转成 double 不能补回信息。
+- `Terrain/PlanetDetailSampler` 已用 double 的星体坐标米制域，频段从 4096 m 逐级减半，
+  按顶点间距淡入／截断未解析频段。最短波长配置 0.02 m 时实际最后一档是 0.03125 m；
+  参数是截止下限，不保证恰好有该波长，也不是高程精度证明。该场目前还没有运行时区块消费者。
+- `TerrainLattice` 的 32 格、25 层约能达到地球面中心 1.19 cm 间距；
+  只读检查 SolarSystem 工作树时，它的另一套 `SurfaceChunkGrid` / `PlanetChunkMeshGenerator`
+  仍为最大 20 层：16 格时约 0.76 m，64 格时约 0.19 m，而且采样点仍降成 float3。
+  两套层级需要统一，不能只打开一个“厘米级”开关。
+- 水体目前只有一个全局海平面。低洼区域被淹并不等于按流域、溢流口和水量形成了湖泊，
+  也没有独立水面网格与海底几何的分离。
+
+### 21.2 按画面误差分配面积与精度
+
+近似垂直俯视平坦地面、竖直 FOV 60°、1080 像素高时，
+一个像素约覆盖 `2 × 离地高度 × tan(30°) / 1080` 米：
+
+| 离地高度 | 地面米／像素（估算） | 合理的处理方向 |
+|---|---|---|
+| 10 km | 10.7 m | 大面积宏观地形，区域侵蚀缓存；无需厘米网格 |
+| 1 km | 1.07 m | 加载米级网格和局部材质页 |
+| 100 m | 10.7 cm | 缩小高精度区块覆盖范围，保留远处粗层 |
+| 10 m | 1.07 cm | 脚边与视锥附近的厘米位移，远处继续降档 |
+
+这是量级示例，不是交互模式阈值。实际选择要用投影误差、坡度、屏幕分辨率、视锥／地平线裁剪、
+流式内存与每帧生成预算。网格误差和纹素密度应分别控制；陡崖需要更多几何，平地可以主要增加材质细节。
+高度、颜色、水体与碰撞共享种子和世界坐标；区块接缝用共享格点、边界一致采样及父子形变处理。
+
+### 21.3 侵蚀与多层噪声的职责
+
+若目标包括可信的山谷、冲积平原、河道和湖盆，建议增加**水力侵蚀／排水网络**；
+若需要自然的崩积坡、碎石坡脚，建议增加**热力侵蚀**（坡角驱动搬运），按材质设休止角。
+它们解决地貌结构，Simplex/Perlin FBM 解决统计细节，不能相互替代。
+
+不要在跨入 10 km 时才改变基础地形。侵蚀应按连续区域／流域离线生成或后台生成并缓存，
+远景消费其低频结果，近景逐渐加载更高频残差。缓存键包含种子、算法版本、参数与区域坐标；
+邻域 halo 和统一边界通量／排水条件必须覆盖侵蚀的影响范围，不能每块独立侵蚀后拼接。
+改变迭代次数、随机种子或水位来迎合某一 LOD，会导致海岸、河床和碰撞随视距改变。
+
+厘米层优先用带宽限制的多层 Simplex/Perlin、岩性／湿度／坡度掩码及少量散布物；
+现有 double Simplex 可以继续用，不必为了换成 Perlin 重写。低于屏幕可解析尺度的高频应转为法线／粗糙度，
+不必全做顶点。水力模拟可以局部用于玩法，但不是无限地形每帧生成的必要步骤。
+
+### 21.4 接口与缓存约束
+
+- 区块的物理高度、法线、水体类型、局部水位、水深与碰撞应从同一物理采样结果派生。
+  先在 double 域完成采样与减去区块原点，再生成局部 float 顶点。
+- 海洋与湖泊需要独立的水体模型：海洋全局水位、流域／连通性、湖泊溢流口和区域水位。
+  几何细化时不能重新随机判定海岸或湖岸；单纯增加噪声会制造会随 LOD 出现／消失的小水洼。
+- `ContentFingerprint()` 仍用于不含近地细节的全球贴图／网格；
+  **包含 `PlanetDetailSampler` 的区块缓存应使用 `TerrainContentFingerprint()`**，
+  后者包含 `detail` 参数与细节生成器版本。当前 SolarSystem provider 还需在合入时接这个键。
+- globe 与 chunk 的可视位移统一调用 `DisplacementMetres(height)`。
+  有水时围绕固定海平面夸张陆地；物理采样始终不乘显示倍率。
+  SolarSystem 工作树已有同名方法，但仍是旧的“高度整体乘倍率”公式，合并时必须采用同一新公式，
+  否则 globe / chunk 的交接高度不一致。
+
+2026-10-05 初次验证：Unity 脚本编译通过、控制台无错误／警告；133 项 EditMode 回归全部通过，
+包括海陆／湿度／高程／迎风条件改变云场、显示倍率不改变物理高度与水体、细节缓存失效、
+双精度细节频段截止与父子采样一致性。Earth 的显示缓存随后按 20× 重烘。

@@ -99,14 +99,27 @@ namespace Planet.Solar
             }
 
             GUILayout.Space(6);
-            GUILayout.Label("1-9,0 切换天体   Tab 逐个   F 重新取景", _hint);
-            GUILayout.Label("滚轮 / PgUp,PgDn 缩放   左键拖动 环绕", _hint);
-            GUILayout.Label("空格 暂停   -/= 时间流速   \\ 复位   N 今天   R J2000", _hint);
-            GUILayout.Label("G 天体放大 400×（仅为可见，非真实比例）  L 经纬网格  H 隐藏本面板", _hint);
+            bool surfaceRoam = SurfaceRoamHudState.Active;
+            double surfaceAltitudeMetres = SurfaceRoamHudState.PlayerToSurfaceDistanceMetres;
+            if (surfaceRoam)
+            {
+                GUILayout.Label("按住右键拖动 环视   右键 + Q/W/E/A/S/D 漫游", _hint);
+                GUILayout.Label("Esc 返回轨道视角   H 隐藏本面板", _hint);
+                GUILayout.Space(4);
+                GUILayout.Label(string.Format("到地表距离  {0}", FormatMetresAlways(surfaceAltitudeMetres)), _body);
+                GUILayout.Label("玩家坐标基准：地表局部系（body-fixed，不受自转影响）", _hint);
+            }
+            else
+            {
+                GUILayout.Label("1-9,0 切换天体   Tab 逐个   F 重新取景", _hint);
+                GUILayout.Label("滚轮 / PgUp,PgDn 缩放   左键拖动 环绕", _hint);
+                GUILayout.Label("空格 暂停   -/= 时间流速   \\ 复位   N 今天   R J2000", _hint);
+                GUILayout.Label("G 天体放大 400×（仅为可见，非真实比例）  L 经纬网格  H 隐藏本面板", _hint);
 
-            GUILayout.Space(6);
-            GUILayout.Label(string.Format("比例尺  1 场景单位 = {0:N0} km", _sim.KmPerUnit), _hint);
-            GUILayout.Label(string.Format("当前视距  {0}", FormatLength(CameraDistance())), _hint);
+                GUILayout.Space(6);
+                GUILayout.Label(string.Format("比例尺  1 场景单位 = {0:N0} km", _sim.KmPerUnit), _hint);
+                GUILayout.Label(string.Format("当前视距  {0}", FormatLength(CameraDistance())), _hint);
+            }
 
             GUILayout.EndArea();
 
@@ -117,9 +130,13 @@ namespace Planet.Solar
             GUILayout.Label("30 – 50 AU", _body);
             GUILayout.Label("4.49e9 – 7.48e9 km", _hint);
             GUILayout.Label("4,488 – 7,480 场景单位", _hint);
-            GUILayout.Label(cam != null
-                ? string.Format("当前视场高 {0}", FormatLength(2f * CameraDistance() * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad)))
-                : "-", _hint);
+            // Surface roam replaces the orbit view-height figure with the player-to-surface
+            // distance in metres (C6). Orbit mode keeps the original field-height readout.
+            GUILayout.Label(surfaceRoam
+                ? string.Format("到地表距离 {0}", FormatMetresAlways(surfaceAltitudeMetres))
+                : (cam != null
+                    ? string.Format("当前视场高 {0}", FormatLength(2f * CameraDistance() * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad)))
+                    : "-"), _hint);
             GUILayout.EndArea();
         }
 
@@ -127,6 +144,16 @@ namespace Planet.Solar
         {
             var cam = Camera.main;
             return cam != null ? cam.transform.position.magnitude : 0f;
+        }
+
+        /// <summary>
+        /// Surface-mode GUI figure is always metres, per the C6 display contract — the orbit
+        /// view-height length units are not carried over into the free-roam readout.
+        /// </summary>
+        private static string FormatMetresAlways(double metres)
+        {
+            if (double.IsNaN(metres) || double.IsInfinity(metres)) return "-";
+            return string.Format("{0:N2} m", metres);
         }
 
         private static string DisplayName(Body b)

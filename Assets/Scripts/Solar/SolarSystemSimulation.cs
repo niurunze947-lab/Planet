@@ -119,14 +119,18 @@ namespace Planet.Solar
         /// Scene-unit radius of the focused body, read from the body itself instead of being
         /// re-derived from the catalog, so the camera, the shells and the render scale can never
         /// disagree about how big the body is.
+        ///
+        /// <para>Returns 0 when there is no focused body or its scale has not been resolved.
+        /// Callers that gate on "am I near the surface" must treat 0 as "unknown" — a fallback
+        /// of 1 scene unit would put a close-orbiting camera "inside" a million-km body and
+        /// permanently block the near-surface mode.</para>
         /// </summary>
         public float FocusRadiusUnits
         {
             get
             {
                 CelestialBody view = FocusView;
-                float radius = view != null ? view.RadiusUnits : 0f;
-                return radius > 0f ? radius : 1f;
+                return view != null ? view.RadiusUnits : 0f;
             }
         }
 

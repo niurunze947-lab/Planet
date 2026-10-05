@@ -13,13 +13,15 @@ namespace Planet.Interaction
         public const float DefaultFarRate = 1f;
 
         /// <summary>
-        /// Earth calibration: center height 6562 km, surface height ~100 km
+        /// Earth calibration (original): center height 6562 km, surface height ~100 km
         /// → enter when surfaceHeight / centerHeight ≤ 100/6562.
+        /// Widened for playability: 5% of centre distance (Earth ≈ 335 km altitude) so the
+        /// gate is reachable and the free-roam band has usable headroom.
         /// </summary>
-        public const float DefaultSurfaceModeEnterRatio = 100f / 6562f;
+        public const float DefaultSurfaceModeEnterRatio = 0.05f;
 
         /// <summary>Hysteresis: leave surface mode only after climbing well above the enter band.</summary>
-        public const float DefaultSurfaceModeExitRatio = 0.030f;
+        public const float DefaultSurfaceModeExitRatio = 0.08f;
 
         /// <summary>Non-negative distance from the camera to the solid surface.</summary>
         public static float SurfaceClearance(float viewHeight, float surfaceRadius)
@@ -49,7 +51,13 @@ namespace Planet.Interaction
         /// <summary>
         /// Smooth log-zoom rate multiplier. Near the surface the change rate falls toward
         /// <paramref name="nearRate"/> (marginal effect); far away it recovers to
-        /// <paramref name="farRate"/>. Smoothstep keeps the rate continuous at both ends.
+        /// <paramref name="farRate"/>.
+        ///
+        /// <para><b>The damper only applies inside the near-surface band.</b> Above
+        /// <c>DefaultSurfaceModeEnterRatio</c> the rate stays at <paramref name="farRate"/>.
+        /// Damping the whole approach made the enter gate unreachable: at nearRate=0.08 the
+        /// last 10% → 1.524% of centre height needed on the order of a hundred wheel notches,
+        /// so surface mode never fired no matter how hard the player zoomed.</para>
         /// </summary>
         public static float ZoomRateMultiplier(
             float viewHeight,
@@ -58,7 +66,10 @@ namespace Planet.Interaction
             float farRate = DefaultFarRate)
         {
             float t = Mathf.Clamp01(ClearanceOverViewHeight(viewHeight, surfaceRadius));
-            float s = t * t * (3f - 2f * t);
+            float band = DefaultSurfaceModeEnterRatio;
+            if (t >= band) return farRate;
+            float s = band > 1e-6f ? t / band : 0f;
+            s = s * s * (3f - 2f * s);
             return Mathf.Lerp(nearRate, farRate, s);
         }
 

@@ -75,13 +75,34 @@ public sealed class ViewDistanceBoundaryTests
     [Test]
     public void ApplyLogZoomDampsInwardButNotOutward()
     {
-        float view = Radius * 1.2f;
+        // Damping is for fine control INSIDE the surface-mode band (ratio ≤ 1.524%),
+        // not for the whole approach — otherwise the enter gate is unreachable.
+        float view = Radius * 1.01f; // ratio ≈ 0.99%, inside the band
         float inward = ViewDistanceBoundary.ApplyLogZoom(view, -0.5f, Radius, Min, Max, 0.08f, 1f);
         float outward = ViewDistanceBoundary.ApplyLogZoom(view, 0.5f, Radius, Min, Max, 0.08f, 1f);
 
         float undampedIn = view * UnityEngine.Mathf.Exp(-0.5f);
         Assert.Greater(inward, undampedIn + 1e-4f);
         Assert.AreEqual(view * UnityEngine.Mathf.Exp(0.5f), outward, 1e-3f);
+    }
+
+    [Test]
+    public void ApproachToTheEnterBandIsNotCrushedByTheNearRate()
+    {
+        // Regression for "can never trigger surface mode": the last stretch from 10% to
+        // the 1.524% enter band must keep a usable rate. At the old continuous smoothstep
+        // this needed ~100 wheel notches and players never crossed.
+        float enter = ViewDistanceBoundary.DefaultSurfaceModeEnterRatio;
+        float justOutside = Radius / (1f - enter * 1.05f); // just above the band
+        float rate = ViewDistanceBoundary.ZoomRateMultiplier(justOutside, Radius, 0.08f, 1f);
+        Assert.GreaterOrEqual(rate, 0.99f);
+
+        // A handful of full-rate notches must be enough to cross from 10% into the band.
+        float view = Radius / (1f - 0.10f); // 10% ratio
+        for (int i = 0; i < 8; i++)
+            view = ViewDistanceBoundary.ApplyLogZoom(view, -0.24f, Radius, Min, Max, 0.08f, 1f);
+        float ratio = ViewDistanceBoundary.SurfaceModeRatio(view, Radius);
+        Assert.LessOrEqual(ratio, enter);
     }
 
     [Test]

@@ -41,6 +41,9 @@ namespace Planet.Solar
         public bool handleInput = true;
         [Tooltip("Turn off when an external interaction controller owns zoom (ViewDistanceController).")]
         public bool handleZoomInput = true;
+        [Tooltip("When true the rig does not orbit the body centre; an external controller owns " +
+                 "the transform (surface free-roam). Orbit look, zoom and auto-orbit are suppressed.")]
+        public bool freeRoam;
 
         /// <summary>Distance the rig is easing towards; also the exact position when scripted.</summary>
         public float TargetDistance { get { return _targetDistance; } }
@@ -182,6 +185,9 @@ namespace Planet.Solar
         /// </summary>
         public void ApplyTransform()
         {
+            // Surface free-roam owns the transform: never re-centre on the body.
+            if (freeRoam) return;
+
             if (_sim == null) _sim = SolarSystemSimulation.Instance;
             if (_sim == null) return;
 
@@ -242,6 +248,7 @@ namespace Planet.Solar
         private void HandleOrbitInput()
         {
             if (!handleInput) return;
+            if (freeRoam) return;
             var mouse = Mouse.current;
             var kb = Keyboard.current;
 

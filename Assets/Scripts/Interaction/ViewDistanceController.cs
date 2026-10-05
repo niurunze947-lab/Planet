@@ -33,6 +33,10 @@ namespace Planet.Interaction
         [Tooltip("Use log-altitude zoom once clearanceOverViewHeight falls below this.")]
         [Range(0.001f, 1f)] public float altitudeZoomRatio = 0.10f;
 
+        [Tooltip("Master switch for wheel / key zoom. Surface free-roam turns this off and " +
+                 "rebinds the wheel to fly speed.")]
+        public bool zoomEnabled = true;
+
         /// <summary>Optional full-frequency surface query (C2) for the terrain-aware floor and back-pressure.</summary>
         public Planet.Procedural.Terrain.IPlanetSurfaceQuery SurfaceQuery
         {
@@ -81,6 +85,8 @@ namespace Planet.Interaction
                 cam.gameObject.AddComponent<SurfaceModeController>();
             if (Object.FindObjectOfType<BodyFixedCameraAnchor>() == null)
                 cam.gameObject.AddComponent<BodyFixedCameraAnchor>();
+            if (Object.FindObjectOfType<SurfaceRoamController>() == null)
+                cam.gameObject.AddComponent<SurfaceRoamController>();
         }
 
         private void OnEnable()
@@ -105,12 +111,17 @@ namespace Planet.Interaction
             if (_camera == null) return;
             if (!_camera.handleInput) return;
 
-            float logDelta = ReadZoomLogDelta();
-            if (Mathf.Abs(logDelta) > 1e-8f)
-                ApplyZoomLogDelta(logDelta);
+            // Surface free-roam suppresses view-height zoom entirely (C6).
+            // Clamping is the orbit rig's job; free-roam owns its own floor.
+            if (zoomEnabled && !_camera.freeRoam)
+            {
+                float logDelta = ReadZoomLogDelta();
+                if (Mathf.Abs(logDelta) > 1e-8f)
+                    ApplyZoomLogDelta(logDelta);
 
-            // Surface radius can change with focus or the size-exaggeration toggle.
-            ClampCameraDistances();
+                // Surface radius can change with focus or the size-exaggeration toggle.
+                ClampCameraDistances();
+            }
         }
 
         private float ReadZoomLogDelta()

@@ -396,7 +396,12 @@ namespace Planet.Solar
 
             SolarSystemSimulation sim = Simulation;
             double kmPerUnit = sim != null ? sim.KmPerUnit : SolarSystemFactory.DefaultKmPerUnit;
-            _resolvedSceneRadius = Definition != null ? (float)(Definition.RadiusKm / kmPerUnit) : 1f;
+            // Unbaked body with no catalog entry: publish 0, not a fake 1-unit radius.
+            // A 1-unit fallback makes every close camera look "inside" the body and silently
+            // disables the near-surface gate (SurfaceModeController).
+            _resolvedSceneRadius = Definition != null && kmPerUnit > 0.0
+                ? (float)(Definition.RadiusKm / kmPerUnit)
+                : 0f;
         }
 
         private void WarnIfScaleDrifted()

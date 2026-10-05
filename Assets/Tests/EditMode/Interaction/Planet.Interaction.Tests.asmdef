@@ -3,6 +3,7 @@
     "references": [
         "Planet.Interaction",
         "Planet.Procedural",
+        "Planet.Solar",
         "Unity.Mathematics"
     ],
     "includePlatforms": ["Editor"],

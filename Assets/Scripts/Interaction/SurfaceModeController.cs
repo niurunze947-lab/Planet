@@ -80,6 +80,15 @@ namespace Planet.Interaction
             // even before the eased distance catches up.
             float gateView = Mathf.Min(current, target);
 
+            // Unknown / broken scale: never open the gate, and say so once. A zero radius would
+            // make every distance look "far"; a huge fallback would make every distance look
+            // "inside". Both silently disable surface mode.
+            if (radius <= 0f)
+            {
+                WarnInvalidRadiusOnce(radius, current);
+                return;
+            }
+
             bool outside = ViewDistanceBoundary.IsOutsideSurface(gateView, radius);
             bool next = ViewDistanceBoundary.EvaluateSurfaceMode(
                 gateView, radius, _inSurfaceMode, enterRatio, exitRatio);
@@ -89,6 +98,19 @@ namespace Planet.Interaction
 
             if (next != _inSurfaceMode)
                 ApplyMode(next, gateView);
+        }
+
+        private bool _warnedInvalidRadius;
+
+        private void WarnInvalidRadiusOnce(float radius, float view)
+        {
+            if (_warnedInvalidRadius) return;
+            _warnedInvalidRadius = true;
+            Debug.LogWarning(string.Format(
+                "[SurfaceMode] focused body radius is {0} scene units (view={1}); " +
+                "near-surface mode stays off until the body scale is valid " +
+                "(Tools > Planet > Bake Body Scales).",
+                radius, view), this);
         }
 
         private void LogApproachProgress(float current, float target, float radius, bool outside, bool next)

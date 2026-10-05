@@ -31,6 +31,8 @@ namespace Planet.Interaction
         private void LateUpdate()
         {
             if (orbitCamera == null) return;
+            // Surface free-roam (C6) owns the camera; orbit-yaw anchoring would fight it.
+            if (orbitCamera.freeRoam) return;
 
             var sim = SolarSystemSimulation.Instance;
             CelestialBody body = sim != null ? sim.FocusView : null;

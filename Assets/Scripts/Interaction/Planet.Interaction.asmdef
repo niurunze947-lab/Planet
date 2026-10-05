@@ -1,0 +1,11 @@
+{
+    "name": "Planet.Interaction",
+    "rootNamespace": "Planet.Interaction",
+    "references": [
+        "Planet.Procedural",
+        "Planet.Solar",
+        "Unity.InputSystem",
+        "Unity.Mathematics"
+    ],
+    "autoReferenced": true
+}

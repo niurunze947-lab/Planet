@@ -59,4 +59,40 @@ public sealed class SurfaceCameraClipTests
             Assert.Greater(farU, nearU * 100.0, "altitude=" + altitude);
         }
     }
+
+    [Test]
+    public void SanitizeCapsTheOrbitCloseUpFrustum()
+    {
+        // Regression: orbit near=1e-6 with far=40000 is a 4e10:1 frustum. IMGUI then throws
+        // "Screen position out of view frustum" from SendMouseEvents and the session dies.
+        float near = 1e-6f;
+        float far = 40000f;
+        SurfaceCameraClip.SanitizeClipPlanes(ref near, ref far);
+
+        Assert.Greater(near, 0f);
+        Assert.Greater(far, near);
+        Assert.LessOrEqual(far / near, SurfaceCameraClip.MaxNearFarRatio * 1.01f);
+    }
+
+    [Test]
+    public void SanitizeKeepsAUsableDepthRangeWhenAlreadySane()
+    {
+        float near = 0.01f;
+        float far = 100f;
+        SurfaceCameraClip.SanitizeClipPlanes(ref near, ref far);
+        Assert.AreEqual(0.01f, near, 1e-9f);
+        Assert.AreEqual(100f, far, 1e-5f);
+    }
+
+    [Test]
+    public void SanitizeRecoversFromNaNOrInvertedPairs()
+    {
+        float near = float.NaN;
+        float far = -5f;
+        SurfaceCameraClip.SanitizeClipPlanes(ref near, ref far);
+        Assert.IsFalse(float.IsNaN(near));
+        Assert.IsFalse(float.IsNaN(far));
+        Assert.Greater(far, near);
+        Assert.LessOrEqual(far / near, SurfaceCameraClip.MaxNearFarRatio * 1.01f);
+    }
 }

@@ -228,25 +228,17 @@ namespace Planet.Interaction
         }
 
         /// <summary>
-        /// Wheel and +/- change the fly speed level (10 m/s × 2^level). The orbit view-height
-        /// zoom stays disabled; the wheel is rebound to speed, not altitude.
+        /// Mouse wheel changes the fly speed level (10 m/s × 2^level). The orbit view-height
+        /// zoom stays disabled; the wheel is rebound to speed, not altitude. Keyboard −/=
+        /// is left to the simulation's time-rate (it is bound there and would fight this).
         /// </summary>
         private void HandleSpeed()
         {
             var mouse = Mouse.current;
-            if (mouse != null)
-            {
-                float scroll = mouse.scroll.ReadValue().y;
-                if (Mathf.Abs(scroll) > 0.01f)
-                    _speedLevel = SurfaceRoamInput.AdjustSpeedLevel(_speedLevel, scroll / 120f);
-            }
-
-            var kb = Keyboard.current;
-            if (kb == null) return;
-            if (kb.equalsKey.wasPressedThisFrame || kb.numpadPlusKey.wasPressedThisFrame)
-                _speedLevel = SurfaceRoamInput.AdjustSpeedLevel(_speedLevel, 1f);
-            if (kb.minusKey.wasPressedThisFrame || kb.numpadMinusKey.wasPressedThisFrame)
-                _speedLevel = SurfaceRoamInput.AdjustSpeedLevel(_speedLevel, -1f);
+            if (mouse == null) return;
+            float scroll = mouse.scroll.ReadValue().y;
+            if (Mathf.Abs(scroll) > 0.01f)
+                _speedLevel = SurfaceRoamInput.AdjustSpeedLevel(_speedLevel, scroll / 120f);
         }
 
         private void LateUpdate()
@@ -380,13 +372,13 @@ namespace Planet.Interaction
             double altitudeMetres = System.Math.Max(PlayerToSurfaceDistanceMetres, 1.0);
             float nearM = SurfaceCameraClip.NearMetres(altitudeMetres);
             float farM = SurfaceCameraClip.FarMetres(altitudeMetres, (double)radiusUnits * (double)kmPerUnit * 1000.0);
-            cam.nearClipPlane = (float)SurfaceLocalSpace.MetresToSceneUnits(nearM, kmPerUnit);
-            cam.farClipPlane = Mathf.Max(
+            float near = (float)SurfaceLocalSpace.MetresToSceneUnits(nearM, kmPerUnit);
+            float far = Mathf.Max(
                 (float)SurfaceLocalSpace.MetresToSceneUnits(farM, kmPerUnit),
                 radiusUnits * 8f);
-            if (cam.nearClipPlane < 1e-8f) cam.nearClipPlane = 1e-8f;
-            if (cam.nearClipPlane >= cam.farClipPlane * 1e-3f)
-                cam.nearClipPlane = cam.farClipPlane * 1e-4f;
+            SurfaceCameraClip.SanitizeClipPlanes(ref near, ref far);
+            cam.nearClipPlane = near;
+            cam.farClipPlane = far;
         }
 
         /// <summary>

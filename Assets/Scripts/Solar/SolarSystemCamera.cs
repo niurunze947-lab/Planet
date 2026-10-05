@@ -199,12 +199,25 @@ namespace Planet.Solar
             transform.position = -dir * distance;
             transform.rotation = rot;
 
-            // Near plane just in front of whatever we are looking at; far plane has to reach the
-            // far side of the Kuiper belt from anywhere inside it.
+            // Near plane just in front of whatever we are looking at. Far covers the focused
+            // body and the current orbit; the old hard 40000-unit floor (Kuiper belt) made a
+            // 4e10:1 frustum at surface range and crashed IMGUI (Screen position out of view
+            // frustum). System-scale views still get a large far via distance * 4.
+            // (Sanitize is inlined: Planet.Solar must not reference Planet.Interaction.)
             float r = _sim.FocusRadiusUnits;
             float surfaceGap = Mathf.Max(distance - r, distance * 1e-3f);
-            _cam.nearClipPlane = Mathf.Clamp(surfaceGap * 0.02f, 1e-6f, 50f);
-            _cam.farClipPlane = Mathf.Max(40000f, distance * 4f);
+            float near = Mathf.Clamp(surfaceGap * 0.02f, 1e-6f, 50f);
+            float far = Mathf.Max(distance * 4f, r * 20f);
+            if (distance > 1f) far = Mathf.Max(far, 40000f);
+
+            if (float.IsNaN(near) || near <= 0f) near = 1e-6f;
+            if (float.IsNaN(far) || far <= 0f) far = near * 1e5f;
+            if (far < near * 2f) far = near * 2f;
+            float maxFar = near * 1e5f;
+            if (far > maxFar) far = maxFar;
+
+            _cam.nearClipPlane = near;
+            _cam.farClipPlane = far;
         }
 
         private void HandleFocusInput()

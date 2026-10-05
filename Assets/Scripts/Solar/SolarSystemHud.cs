@@ -104,7 +104,7 @@ namespace Planet.Solar
             if (surfaceRoam)
             {
                 GUILayout.Label("按住右键拖动 环视（左右扭头）  右键 + Q/W/E/A/S/D 漫游", _hint);
-                GUILayout.Label("滚轮 或 -/= 调速   Esc 返回轨道视角   H 隐藏本面板", _hint);
+                GUILayout.Label("滚轮 调速   Esc 返回轨道视角   H 隐藏本面板", _hint);
                 GUILayout.Space(4);
                 GUILayout.Label(string.Format("到地表距离  {0}", FormatMetresAlways(surfaceAltitudeMetres)), _body);
                 GUILayout.Label(string.Format("漫游速度    {0}", FormatSpeed(SurfaceRoamHudState.FlySpeedMetresPerSecond)), _body);

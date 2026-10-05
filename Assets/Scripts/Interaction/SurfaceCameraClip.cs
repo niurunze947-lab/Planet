@@ -23,6 +23,14 @@ namespace Planet.Interaction
         /// <summary>Far plane is at least this many times the altitude (horizon + sky).</summary>
         public const double FarAltitudeFraction = 8.0;
 
+        /// <summary>
+        /// Hard cap on far/near. A 4e10:1 frustum (near 1e-6, far 40000 — the old orbit
+        /// close-up) makes the projection matrix numerically singular; IMGUI then throws
+        /// "Screen position out of view frustum" from SendMouseEvents and the play session
+        /// dies. 1e5:1 is about the practical float limit for a usable depth buffer.
+        /// </summary>
+        public const float MaxNearFarRatio = 1e5f;
+
         /// <summary>Near clip in metres. Never large enough to eat the planet at any altitude.</summary>
         public static float NearMetres(double altitudeMetres)
         {
@@ -41,6 +49,22 @@ namespace Planet.Interaction
             double radius = Math.Max(bodyRadiusMetres, 1.0);
             double far = Math.Max(radius * FarRadiusFraction, alt * FarAltitudeFraction + radius * 2.0);
             return (float)far;
+        }
+
+        /// <summary>
+        /// Sanitises a near/far pair in the same units. Guarantees near &gt; 0, far &gt; near,
+        /// and far/near ≤ <see cref="MaxNearFarRatio"/> (far is shortened first — a clipped
+        /// distant body is recoverable, a broken frustum is not).
+        /// </summary>
+        public static void SanitizeClipPlanes(ref float near, ref float far)
+        {
+            if (float.IsNaN(near) || float.IsInfinity(near) || near <= 0f) near = 1e-6f;
+            if (float.IsNaN(far) || float.IsInfinity(far) || far <= 0f) far = near * MaxNearFarRatio;
+
+            if (far < near * 2f) far = near * 2f;
+
+            float maxFar = near * MaxNearFarRatio;
+            if (far > maxFar) far = maxFar;
         }
     }
 }

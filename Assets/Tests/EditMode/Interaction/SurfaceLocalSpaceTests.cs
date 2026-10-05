@@ -50,6 +50,20 @@ public sealed class SurfaceLocalSpaceTests
     }
 
     [Test]
+    public void BodyFromEnuUsesLocalUpAndNorth()
+    {
+        var space = SurfaceLocalSpace.CreateFromDirection(new double3(1, 0, 0), EarthRadiusMetres);
+        Quaternion enu = space.BodyFromEnu();
+
+        Assert.Less(Vector3.Angle(enu * Vector3.forward, SurfaceLocalSpace.ToVector3(space.north)), 1e-3f);
+        Assert.Less(Vector3.Angle(enu * Vector3.up, SurfaceLocalSpace.ToVector3(space.up)), 1e-3f);
+        // Screen-right is cross(up, north) — the Unity camera basis, not a mirrored geographic east.
+        Vector3 screenRight = Vector3.Cross(
+            SurfaceLocalSpace.ToVector3(space.up), SurfaceLocalSpace.ToVector3(space.north));
+        Assert.Less(Vector3.Angle(enu * Vector3.right, screenRight), 1e-3f);
+    }
+
+    [Test]
     public void LocalToBodyFixedRoundTrips()
     {
         var space = SurfaceLocalSpace.CreateFromDirection(new double3(0.3, 0.8, 0.5), EarthRadiusMetres);

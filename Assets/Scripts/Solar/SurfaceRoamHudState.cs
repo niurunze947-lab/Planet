@@ -15,16 +15,26 @@ namespace Planet.Solar
         /// <summary>Player-to-surface distance in metres.</summary>
         public static double PlayerToSurfaceDistanceMetres;
 
+        /// <summary>Current fly speed in metres per second.</summary>
+        public static double FlySpeedMetresPerSecond;
+
         public static void Publish(bool active, double playerToSurfaceDistanceMetres)
+        {
+            Publish(active, playerToSurfaceDistanceMetres, 0.0);
+        }
+
+        public static void Publish(bool active, double playerToSurfaceDistanceMetres, double flySpeedMetresPerSecond)
         {
             Active = active;
             PlayerToSurfaceDistanceMetres = playerToSurfaceDistanceMetres;
+            FlySpeedMetresPerSecond = flySpeedMetresPerSecond;
         }
 
         public static void Clear()
         {
             Active = false;
             PlayerToSurfaceDistanceMetres = 0.0;
+            FlySpeedMetresPerSecond = 0.0;
         }
     }
 }

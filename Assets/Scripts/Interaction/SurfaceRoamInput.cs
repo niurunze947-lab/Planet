@@ -20,15 +20,20 @@ namespace Planet.Interaction
         /// <summary>Look sensitivity in degrees per pixel, matching the orbit drag roughly.</summary>
         public const float DefaultLookSensitivity = 0.12f;
 
-        /// <summary>Fly speed in metres per second at speed level 1.</summary>
-        public const float DefaultMoveSpeedMetres = 8f;
+        /// <summary>Fly speed in metres per second at speed level 0.</summary>
+        public const float DefaultMoveSpeedMetres = 10f;
 
-        /// <summary>Speed is scaled by 2^level so a few notches cover cm/s to flight.</summary>
-        public const int MinSpeedLevel = -3;
-        public const int MaxSpeedLevel = 4;
+        /// <summary>
+        /// Speed is scaled by 2^level so a few notches cover walking to orbital skimming.
+        /// Level 0 = 10 m/s; level 12 ≈ 41 km/s; level −5 ≈ 0.3 m/s.
+        /// </summary>
+        public const int MinSpeedLevel = -5;
+        public const int MaxSpeedLevel = 12;
 
         /// <summary>
         /// Free-look rotation delta in degrees (x=yaw, y=pitch). Only while the right button is held.
+        /// Pitch matches the orbit drag convention the rest of the product uses: mouse up looks down
+        /// (the scene is dragged). Yaw turns the head left/right; it does not move the player.
         /// </summary>
         public static Vector2 LookDeltaDegrees(
             Vector2 mouseDeltaPixels,
@@ -36,7 +41,7 @@ namespace Planet.Interaction
             float sensitivity = DefaultLookSensitivity)
         {
             if (!rightMouseButtonHeld) return Vector2.zero;
-            return new Vector2(mouseDeltaPixels.x * sensitivity, -mouseDeltaPixels.y * sensitivity);
+            return new Vector2(mouseDeltaPixels.x * sensitivity, mouseDeltaPixels.y * sensitivity);
         }
 
         /// <summary>

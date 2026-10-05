@@ -195,22 +195,46 @@ public sealed class SurfaceRoamContractTests
     {
         // The bug this pins: writing the camera position through the body while leaving the
         // look in world space makes the planet appear to rotate around the camera. The world
-        // look must be bodyRot * freeLookEuler, so a spin carries the view with the ground.
+        // look must be bodyRot * enu * freeLookEuler, so a spin carries the view with the ground.
+        var space = SurfaceLocalSpace.CreateFromDirection(new double3(1, 0, 0), 6371000.0);
+        Quaternion enu = space.BodyFromEnu();
         Quaternion freeLook = Quaternion.Euler(12f, 34f, 0f);
         Quaternion spinA = Quaternion.AngleAxis(10f, Vector3.up);
         Quaternion spinB = Quaternion.AngleAxis(70f, Vector3.up);
 
-        Quaternion lookA = SurfaceRoamController.BodyFixedLookToWorld(spinA, 12f, 34f);
-        Quaternion lookB = SurfaceRoamController.BodyFixedLookToWorld(spinB, 12f, 34f);
+        Quaternion lookA = SurfaceRoamController.BodyFixedLookToWorld(spinA, enu, 12f, 34f);
+        Quaternion lookB = SurfaceRoamController.BodyFixedLookToWorld(spinB, enu, 12f, 34f);
 
-        Assert.Less(Quaternion.Angle(lookA, spinA * freeLook), 1e-3f);
-        Assert.Less(Quaternion.Angle(lookB, spinB * freeLook), 1e-3f);
+        Assert.Less(Quaternion.Angle(lookA, spinA * enu * freeLook), 1e-3f);
+        Assert.Less(Quaternion.Angle(lookB, spinB * enu * freeLook), 1e-3f);
 
         // Relative look between two spin states is exactly the spin delta: the landscape
         // stays put in front of the player.
         Quaternion deltaLook = lookB * Quaternion.Inverse(lookA);
         Quaternion deltaSpin = spinB * Quaternion.Inverse(spinA);
         Assert.Less(Quaternion.Angle(deltaLook, deltaSpin), 1e-3f);
+    }
+
+    [Test]
+    public void EnuYawTurnsHeadNotBodyPolarAxis()
+    {
+        // At the equator the body polar axis (+Y) is horizontal. Yaw about the local up
+        // (surface normal) must therefore change the look along the horizon without
+        // introducing any roll — the "左右扭头" contract.
+        var space = SurfaceLocalSpace.CreateFromDirection(new double3(1, 0, 0), 6371000.0);
+        Quaternion enu = space.BodyFromEnu();
+
+        Quaternion look0 = enu * Quaternion.Euler(0f, 0f, 0f);
+        Quaternion look90 = enu * Quaternion.Euler(0f, 90f, 0f);
+
+        // Zero pose: forward = local north, up = local up.
+        Assert.Greater(Vector3.Dot(look0 * Vector3.forward, SurfaceLocalSpace.ToVector3(space.north)), 0.999f);
+        Assert.Greater(Vector3.Dot(look0 * Vector3.up, SurfaceLocalSpace.ToVector3(space.up)), 0.999f);
+
+        // Yaw 90° keeps the same up (no roll) and faces screen-right of the zero pose —
+        // a head turn, not a body-polar swing.
+        Assert.Greater(Vector3.Dot(look90 * Vector3.up, SurfaceLocalSpace.ToVector3(space.up)), 0.999f);
+        Assert.Greater(Vector3.Dot(look90 * Vector3.forward, look0 * Vector3.right), 0.999f);
     }
 
     [Test]
@@ -229,16 +253,32 @@ public sealed class SurfaceRoamContractTests
         Vector3 localUnits = SurfaceLocalSpace.ToVector3(playerBf * units);
         Vector3 playerWorld = bodyPos + spin * localUnits;
 
-        // At the same spin, the free-look forward is carried by the same rotation.
-        Quaternion look = SurfaceRoamController.BodyFixedLookToWorld(spin, 0f, 0f);
+        Quaternion look = SurfaceRoamController.BodyFixedLookToWorld(spin, space.BodyFromEnu(), 0f, 0f);
         Vector3 lookForward = look * Vector3.forward;
 
-        // The player's body-fixed up is +X (equator). After spin about +Y the world up of the
-        // look at zero pitch is the rotated body +Z-ish frame — what matters is that look and
-        // position share the rotation, so the ground under the player does not shear past the view.
         Vector3 expectedPos = spin * localUnits;
         Assert.Less((playerWorld - expectedPos).magnitude, 1e-12f);
-        Assert.Greater(Vector3.Dot(lookForward, spin * Vector3.forward), 0.9999f);
+        // Zero-pose look is local north, carried by the same spin as the position.
+        Assert.Greater(Vector3.Dot(lookForward, spin * SurfaceLocalSpace.ToVector3(space.north)), 0.999f);
+    }
+
+    [Test]
+    public void ZeroPoseFlyFollowsLocalNorthAndUp()
+    {
+        // At the ENU zero pose, W is local north and E is local up — so WASD moves over the
+        // planet's surface (body-fixed) instead of only changing altitude or spinning in place.
+        var space = SurfaceLocalSpace.CreateFromDirection(new double3(1, 0, 0), 6371000.0);
+        Quaternion lookBody = space.BodyFromEnu() * Quaternion.Euler(0f, 0f, 0f);
+
+        Vector3 wishFwd = lookBody * Vector3.forward;
+        Vector3 wishUp = lookBody * Vector3.up;
+        Vector3 wishRight = lookBody * Vector3.right;
+
+        Assert.Greater(Vector3.Dot(wishFwd, SurfaceLocalSpace.ToVector3(space.north)), 0.999f);
+        Assert.Greater(Vector3.Dot(wishUp, SurfaceLocalSpace.ToVector3(space.up)), 0.999f);
+        // Right is screen-right of the camera basis, orthogonal to up and forward.
+        Assert.Less(Mathf.Abs(Vector3.Dot(wishRight, SurfaceLocalSpace.ToVector3(space.up))), 1e-3f);
+        Assert.Less(Mathf.Abs(Vector3.Dot(wishRight, SurfaceLocalSpace.ToVector3(space.north))), 1e-3f);
     }
 
     [Test]

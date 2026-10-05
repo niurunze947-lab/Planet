@@ -92,6 +92,22 @@ namespace Planet.Interaction
         }
 
         /// <summary>
+        /// Body-fixed camera basis for free-look: forward = local north, up = surface normal.
+        /// Yaw therefore turns about the local up (head left/right) instead of the body's polar
+        /// axis — at the equator the polar axis is horizontal, so a polar yaw swings the whole
+        /// world around the camera instead of turning the view.
+        /// </summary>
+        public Quaternion BodyFromEnu()
+        {
+            // LookRotation is the Unity-consistent right-handed camera basis. Its +X is
+            // cross(up, north), which is screen-right — WASD then matches the view exactly.
+            Vector3 n = ToVector3(north);
+            Vector3 u = ToVector3(up);
+            if (n.sqrMagnitude < 1e-12f || u.sqrMagnitude < 1e-12f) return Quaternion.identity;
+            return Quaternion.LookRotation(n, u);
+        }
+
+        /// <summary>
         /// Scheme A: world rotation that takes the surface normal to Unity +Y.
         /// <paramref name="bodyWorldRotation"/> is the focused body's current world rotation
         /// (the simulation's tilt × spin), so the result is in the same space as the transforms.

@@ -103,10 +103,11 @@ namespace Planet.Solar
             double surfaceAltitudeMetres = SurfaceRoamHudState.PlayerToSurfaceDistanceMetres;
             if (surfaceRoam)
             {
-                GUILayout.Label("按住右键拖动 环视   右键 + Q/W/E/A/S/D 漫游", _hint);
-                GUILayout.Label("Esc 返回轨道视角   H 隐藏本面板", _hint);
+                GUILayout.Label("按住右键拖动 环视（左右扭头）  右键 + Q/W/E/A/S/D 漫游", _hint);
+                GUILayout.Label("滚轮 或 -/= 调速   Esc 返回轨道视角   H 隐藏本面板", _hint);
                 GUILayout.Space(4);
                 GUILayout.Label(string.Format("到地表距离  {0}", FormatMetresAlways(surfaceAltitudeMetres)), _body);
+                GUILayout.Label(string.Format("漫游速度    {0}", FormatSpeed(SurfaceRoamHudState.FlySpeedMetresPerSecond)), _body);
                 GUILayout.Label("玩家坐标基准：地表局部系（body-fixed，不受自转影响）", _hint);
             }
             else
@@ -154,6 +155,13 @@ namespace Planet.Solar
         {
             if (double.IsNaN(metres) || double.IsInfinity(metres)) return "-";
             return string.Format("{0:N2} m", metres);
+        }
+
+        private static string FormatSpeed(double metresPerSecond)
+        {
+            if (double.IsNaN(metresPerSecond) || double.IsInfinity(metresPerSecond)) return "-";
+            if (metresPerSecond >= 1000.0) return string.Format("{0:N2} km/s", metresPerSecond / 1000.0);
+            return string.Format("{0:N1} m/s", metresPerSecond);
         }
 
         private static string DisplayName(Body b)

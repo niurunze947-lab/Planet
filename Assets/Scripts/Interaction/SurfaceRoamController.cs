@@ -35,14 +35,25 @@ namespace Planet.Interaction
 
         [Header("Free-look")]
         public float lookSensitivity = SurfaceRoamInput.DefaultLookSensitivity;
-        [Tooltip("Seconds to reach the altitude-bound target speed (weak inertia).")]
+        [Tooltip("Seconds to reach the target speed (weak inertia).")]
         public float speedResponseSeconds = 0.35f;
+        [Tooltip("Speed level at engage. Wheel and +/- change it; speed = 10 m/s × 2^level.")]
+        public int initialSpeedLevel = 3;
 
         /// <summary>True while this controller owns the camera transform.</summary>
         public bool IsRoaming { get { return _roaming; } }
 
         public float Yaw { get { return _yaw; } }
         public float Pitch { get { return _pitch; } }
+
+        /// <summary>Current fly speed level. Speed is 10 m/s × 2^level.</summary>
+        public int SpeedLevel { get { return _speedLevel; } }
+
+        /// <summary>Current fly speed in metres per second.</summary>
+        public double FlySpeedMetresPerSecond
+        {
+            get { return SurfaceRoamInput.SpeedForLevel(_speedLevel); }
+        }
 
         /// <summary>Player-to-surface distance in metres (the GUI figure).</summary>
         public double PlayerToSurfaceDistanceMetres
@@ -92,6 +103,7 @@ namespace Planet.Interaction
         private double3 _playerBfMetres;
         private float _yaw;
         private float _pitch;
+        private int _speedLevel;
         private double _fallbackAltitudeMetres;
         private double _ceilingAltitudeMetres;
         private double _ceilingSpeedMetresPerSecond;
@@ -163,8 +175,9 @@ namespace Planet.Interaction
             }
 
             _velocityBodyMetresPerSecond = double3.zero;
+            _speedLevel = initialSpeedLevel;
             _roaming = true;
-            SurfaceRoamHudState.Publish(true, PlayerToSurfaceDistanceMetres);
+            PublishHud();
             if (RoamEngaged != null) RoamEngaged();
         }
 
@@ -199,12 +212,41 @@ namespace Planet.Interaction
             if (!_roaming) return;
 
             HandleLook();
+            HandleSpeed();
             HandleFly(Time.deltaTime);
-            SurfaceRoamHudState.Publish(true, PlayerToSurfaceDistanceMetres);
+            PublishHud();
 
             var kb = Keyboard.current;
             if (kb != null && kb.escapeKey.wasPressedThisFrame)
                 ReleaseRoam();
+        }
+
+        private void PublishHud()
+        {
+            SurfaceRoamHudState.Publish(
+                true, PlayerToSurfaceDistanceMetres, FlySpeedMetresPerSecond);
+        }
+
+        /// <summary>
+        /// Wheel and +/- change the fly speed level (10 m/s × 2^level). The orbit view-height
+        /// zoom stays disabled; the wheel is rebound to speed, not altitude.
+        /// </summary>
+        private void HandleSpeed()
+        {
+            var mouse = Mouse.current;
+            if (mouse != null)
+            {
+                float scroll = mouse.scroll.ReadValue().y;
+                if (Mathf.Abs(scroll) > 0.01f)
+                    _speedLevel = SurfaceRoamInput.AdjustSpeedLevel(_speedLevel, scroll / 120f);
+            }
+
+            var kb = Keyboard.current;
+            if (kb == null) return;
+            if (kb.equalsKey.wasPressedThisFrame || kb.numpadPlusKey.wasPressedThisFrame)
+                _speedLevel = SurfaceRoamInput.AdjustSpeedLevel(_speedLevel, 1f);
+            if (kb.minusKey.wasPressedThisFrame || kb.numpadMinusKey.wasPressedThisFrame)
+                _speedLevel = SurfaceRoamInput.AdjustSpeedLevel(_speedLevel, -1f);
         }
 
         private void LateUpdate()
@@ -225,11 +267,10 @@ namespace Planet.Interaction
         }
 
         /// <summary>
-        /// Camera-relative QWEASDQE with altitude-bound speed and weak inertia.
+        /// Camera-relative QWEASDQE with user speed level and weak inertia.
         /// Unity-editor gesture: the right mouse button must be held. Movement is integrated
-        /// directly in body-fixed metres along the body-fixed look, so W stays "where the camera
-        /// looks" relative to the ground while the planet turns — never a world-space direction
-        /// that the spinning body would then shear against the landscape.
+        /// in body-fixed metres along the body-fixed look, so W is always "where the camera
+        /// looks" relative to the ground while the planet turns.
         /// </summary>
         private void HandleFly(float deltaTime)
         {
@@ -243,9 +284,8 @@ namespace Planet.Interaction
                 kb.wKey.isPressed, kb.aKey.isPressed, kb.sKey.isPressed,
                 kb.dKey.isPressed, kb.qKey.isPressed, kb.eKey.isPressed, rmb);
 
-            // Body-fixed look: the same Euler the camera write uses.
-            Quaternion lookBody = Quaternion.Euler(_pitch, _yaw, 0f);
-            double speed = TargetSpeedMetres;
+            Quaternion lookBody = LookBodyRotation();
+            double speed = FlySpeedMetresPerSecond;
 
             // Unity-editor style: W/S follow the look direction (including pitch).
             double3 targetVel = double3.zero;
@@ -270,6 +310,16 @@ namespace Planet.Interaction
             // Body-fixed metres are already the spin-invariant truth — integrate in place.
             _playerBfMetres += _velocityBodyMetresPerSecond * (double)deltaTime;
             _space.playerLocalMetres = BodyFixedToLocal(_playerBfMetres);
+        }
+
+        /// <summary>
+        /// Free-look in the body-fixed ENU frame (east/up/north). Yaw therefore turns about
+        /// the local surface normal — head left/right — not about the body's polar axis.
+        /// </summary>
+        private Quaternion LookBodyRotation()
+        {
+            Quaternion enu = _space.IsValid ? _space.BodyFromEnu() : Quaternion.identity;
+            return enu * Quaternion.Euler(_pitch, _yaw, 0f);
         }
 
         /// <summary>
@@ -303,17 +353,19 @@ namespace Planet.Interaction
             }
 
             orbitCamera.transform.position = playerWorld;
-            orbitCamera.transform.rotation = BodyFixedLookToWorld(bodyRot, _pitch, _yaw);
+            orbitCamera.transform.rotation = bodyRot * LookBodyRotation();
             ApplyClipPlanes();
         }
 
         /// <summary>
-        /// Body-fixed free-look Euler → world rotation. The body's live rotation is the outer
-        /// factor so a spinning planet carries the look with it instead of shearing past the camera.
+        /// Body-fixed free-look Euler → world rotation, given the body-fixed ENU basis.
+        /// The body's live rotation is the outer factor so a spinning planet carries the look
+        /// with it; the ENU factor makes yaw turn about the local surface normal.
         /// </summary>
-        public static Quaternion BodyFixedLookToWorld(Quaternion bodyWorldRotation, float pitch, float yaw)
+        public static Quaternion BodyFixedLookToWorld(
+            Quaternion bodyWorldRotation, Quaternion bodyFromEnu, float pitch, float yaw)
         {
-            return bodyWorldRotation * Quaternion.Euler(pitch, yaw, 0f);
+            return bodyWorldRotation * bodyFromEnu * Quaternion.Euler(pitch, yaw, 0f);
         }
 
         private void ApplyClipPlanes()
@@ -405,12 +457,15 @@ namespace Planet.Interaction
             if (!(_ceilingSpeedMetresPerSecond > SurfaceRoamSpeed.GroundMaxMetresPerSecond))
                 _ceilingSpeedMetresPerSecond = SurfaceRoamSpeed.GroundMaxMetresPerSecond;
 
-            // Keep the exact look the system view had, but express it in the body frame so the
-            // free-look angles stay ground-relative while the planet turns.
+            // Keep the exact look the system view had, expressed in the local ENU frame so the
+            // free-look angles stay ground-relative (yaw about the surface normal) while the
+            // planet turns.
             Quaternion camRotWorld = orbitCamera != null ? orbitCamera.transform.rotation : Quaternion.identity;
-            Vector3 e = (Quaternion.Inverse(bodyRot) * camRotWorld).eulerAngles;
+            Quaternion enu = _space.IsValid ? _space.BodyFromEnu() : Quaternion.identity;
+            Vector3 e = (Quaternion.Inverse(enu) * Quaternion.Inverse(bodyRot) * camRotWorld).eulerAngles;
             _pitch = e.x; if (_pitch > 180f) _pitch -= 360f;
             _yaw = e.y;
+            _speedLevel = initialSpeedLevel;
             _velocityBodyMetresPerSecond = double3.zero;
         }
 

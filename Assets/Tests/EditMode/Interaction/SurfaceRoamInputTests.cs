@@ -16,7 +16,7 @@ public sealed class SurfaceRoamInputTests
 
         Vector2 held = SurfaceRoamInput.LookDeltaDegrees(delta, true, 0.1f);
         Assert.AreEqual(1f, held.x, 1e-5f);
-        Assert.AreEqual(-0.4f, held.y, 1e-5f);
+        Assert.AreEqual(0.4f, held.y, 1e-5f);
 
         Vector2 released = SurfaceRoamInput.LookDeltaDegrees(delta, false, 0.1f);
         Assert.AreEqual(0f, released.x);
@@ -24,13 +24,14 @@ public sealed class SurfaceRoamInputTests
     }
 
     [Test]
-    public void LookPitchUsesInvertedMouseY()
+    public void LookPitchMatchesOrbitDragConvention()
     {
-        // Mouse up (positive y) should pitch the camera up (positive pitch after ApplyLook).
+        // Same convention as SolarSystemCamera left-drag: mouse up looks down (scene is dragged),
+        // so a positive mouse Y lowers the pitch.
         Vector2 look = SurfaceRoamInput.LookDeltaDegrees(new Vector2(0f, 5f), true, 0.2f);
         float yaw = 0f, pitch = 0f;
         SurfaceRoamInput.ApplyLook(ref yaw, ref pitch, look);
-        Assert.Greater(pitch, 0f);
+        Assert.Less(pitch, 0f);
     }
 
     [Test]

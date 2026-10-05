@@ -31,6 +31,10 @@
 - `SolarSystemSimulation.FocusView` / `FocusRadiusUnits` 和 `SolarSystemCamera.CurrentViewHeightUnits`、
   `FocusSurfaceRadiusUnits`、`SurfaceClearanceUnits`、`SurfaceClearanceRatio`；
 - 程序化资源的 `ContentFingerprint()`。它是缓存失效键，不是业务状态存储。
+- **C1** `Planet.Procedural.Terrain.PlanetViewState`：双精度体固定（BF）米制视图状态，协调器每帧推送；
+- **C2** `Planet.Procedural.Terrain.IPlanetSurfaceQuery`：全频地表高程/半径查询 + `PendingDetailWork`
+  背压，经 `CelestialBody` 暴露，由地形系统实现；
+- **C-ratio** `Planet.Procedural.Terrain.ViewHeightRatios`：两套命名比例，见 §3。
 
 新增接口时先在 `main` 修改本文件和对应程序集文档，再在职责分支实现。禁止通过复制字段、
 读取私有组件或增加反向 asmdef 绕过接口。
@@ -40,11 +44,21 @@
 三条工作树使用同一个定义，单位统一为当前 Unity 场景单位：
 
 ```text
-viewHeight           = 相机到当前焦点天体中心的距离
-surfaceRadius        = SolarSystemSimulation.FocusRadiusUnits
-surfaceClearance     = max(viewHeight - surfaceRadius, 0)
-surfaceClearanceRatio = surfaceClearance / max(surfaceRadius, 1e-6)
+viewHeight            = 相机到当前焦点天体中心的距离
+surfaceRadius         = SolarSystemSimulation.FocusRadiusUnits
+surfaceClearance      = max(viewHeight - surfaceRadius, 0)
+
+clearanceOverView     = surfaceClearance / max(viewHeight, 1e-12)    // 地表模式闸门
+clearanceOverRadius   = surfaceClearance / max(surfaceRadius, 1e-6)  // 近地预载/调试滞回
 ```
+
+两套比例**都只在行星外**（`viewHeight >= surfaceRadius`，相对地表正距离）参与进入判定；
+行星内部/球心附近不得打开地表模式。渲染 LOD 连续性不依赖模式阈值。
+
+| 用途 | 比例 | 进入 | 离开 |
+|---|---|---|---|
+| 地表模式（interaction） | `clearanceOverView` | ≤ 1.524%（地球 100 km / 6562 km） | ≥ 3.0% |
+| 近地资源预载 debug | `clearanceOverRadius` | ≤ 0.25 | ≥ 0.35 |
 
 `viewHeight` 不是大气半径、云层半径或网格顶点到相机的距离。浮动原点把焦点天体放在世界原点，
 因此当前相机轨道距离就是唯一的中心距来源。未来若相机改为局部地表坐标，必须继续对外提供
@@ -56,8 +70,9 @@ surfaceClearanceRatio = surfaceClearance / max(surfaceRadius, 1e-6)
 
 1. 目标距离和当前距离都要钳制为 `viewHeight >= surfaceRadius`，允许等于半径，不允许进入实体地表。
 2. 缩放使用对数距离；靠近地表时只降低距离变化率，不改变距离单位。推荐初始参数为：
-   远距速率倍率 `1.0`、近地速率倍率 `0.08`、过渡区间 `surfaceClearanceRatio 0..1`，
-   并用平滑函数避免在阈值处跳变。
+   远距速率倍率 `1.0`、近地速率倍率 `0.08`、过渡区间 `clearanceOverView 0..1`，
+   并用平滑函数避免在阈值处跳变。近地后改为对数高程缩放 `h' = h · exp(δ · rate)`，
+   并接受 `IPlanetSurfaceQuery.PendingDetailWork` 背压降速。
 3. 每帧的边界顺序固定为「读取半径 → 处理输入 → 限制目标距离 → 平滑到当前距离 → 发布事件」。
    禁止先移动相机再用碰撞体回弹；那会在浮动原点和极小天体上产生抖动。
 
@@ -70,8 +85,8 @@ surfaceClearanceRatio = surfaceClearance / max(surfaceRadius, 1e-6)
 
 | 状态 | 条件 | 本轮行为 | 未来行为 |
 |---|---|---|---|
-| `SystemView` → `SurfaceDetailPending` | `surfaceClearanceRatio <= 0.25` | 记录一次 debug 事件，包含天体名、`viewHeight`、半径和比例 | 预加载地表 LOD、植被和碰撞资源 |
-| `SurfaceDetailPending` → `SystemView` | `surfaceClearanceRatio >= 0.35` | 记录一次离开事件 | 卸载近地专属资源并恢复星系层预算 |
+| `SystemView` → `SurfaceDetailPending` | `clearanceOverRadius <= 0.25` | 记录一次 debug 事件，包含天体名、`viewHeight`、半径和比例 | 预加载地表 LOD、植被和碰撞资源 |
+| `SurfaceDetailPending` → `SystemView` | `clearanceOverRadius >= 0.35` | 记录一次离开事件 | 卸载近地专属资源并恢复星系层预算 |
 
 事件只表达「是否应加载星球表面细节」，不等于 mode 已经切换。事件名和字段先固定，
 实际资源加载由 `planet-definition` 后续实现；这样 interaction 可以先接入日志和测试，

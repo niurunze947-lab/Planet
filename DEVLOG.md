@@ -176,7 +176,7 @@
 
 ## 待补
 
-- [ ] `codex/planet-definition` 并入 `main`：本分支已合入 main，源码、场景双组件和文档索引冲突已处理
+- [x] `codex/planet-definition` 并入 `main`：R2 已 cherry-pick `4cd1455` → `c7705cf`，相机所有权已合成
 - [ ] `ChunkStreamer` 接入帧循环：需要在 `Planet.Procedural` 侧实现一个按
       `SurfaceChunkKey` 生产 `ChunkGeometryBuffers` 的 `IChunkContentProvider`
 - [ ] 用分块网格替换 `PlanetSurfaceView` 的单位球网格，并接上大气散射的高程连续过渡

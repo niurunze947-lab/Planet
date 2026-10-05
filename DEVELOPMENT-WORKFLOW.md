@@ -20,7 +20,7 @@
 | 轮次 | 权威母点 | 实际分支名 |
 |---|---|---|
 | 2026-10-04 | `integration/authority-2026-10-04`（`a1697b4`） | `codex/planet-definition`、`mimo/interaction`、`dsh/SolarSystem` |
-| 2026-10-05 起 | 见 `integration/authority-2026-10-05` | 沿用上表；`codex/planet-definition` 尚未合并 |
+| 2026-10-05 起 | 见 `integration/authority-2026-10-05` / R2 见 §6.2 | 沿用上表；`codex/planet-definition` 与 `mimo/interaction` C6 已并入 |
 
 ## 2. 程序集和目录 ownership
 
@@ -49,9 +49,19 @@
 - **C2** `Planet.Procedural.Terrain.IPlanetSurfaceQuery`：全频地表高程/半径查询 + `PendingDetailWork`
   背压，经 `CelestialBody` 暴露，由地形系统实现；
 - **C-ratio** `Planet.Procedural.Terrain.ViewHeightRatios`：两套命名比例，见 §3；
-- **交互层对外**：`Planet.Interaction.ViewDistanceBoundary`（纯函数：比例、速率、钳制、闸门判定）、
-  `SurfaceModeController.EnteredSurfaceMode` / `ExitedSurfaceMode` 事件与 `[SurfaceMode]` 日志口径。
-  预订这些事件的资源预加载由 `planet-definition` 实现。
+- **C6 交互所有权**：`SolarSystemCamera.freeRoam`（true 时轨道 rig 不写 transform、不接轨道输入）；
+  由 `SurfaceRoamController` 接管 body-fixed 米制位姿。**裁面硬顶 near/far ≤ 1e5:1**，
+  精确模式与轨道路径都必须过消杀；
+- **C6 精确地表高度**：`SolarSystemCamera.HasPreciseSurfaceDistance` /
+  `SetSurfaceClearanceMetres` / `TargetSurfaceClearanceMetres` / `CameraBodyFixedMetres`。
+  厘米离地真值；与 `freeRoam` 为**或**关系释放 `BodyFixedCameraAnchor`；
+- **交互层对外**：`Planet.Interaction.ViewDistanceBoundary`（纯函数：比例、速率、钳制、闸门判定、
+  `ApplySurfaceClearanceZoomMetres`）、`SurfaceModeController.EnteredSurfaceMode` / `ExitedSurfaceMode`
+  事件与 `[SurfaceMode]` 日志口径。预订这些事件的资源预加载由 `planet-definition` 实现；
+- **显示位移**：`PlanetSurfaceSampler.DisplacementMetres(height)`——globe 与 chunk 唯一入口。
+  有海时围绕固定海平面夸张陆地，物理高度不乘倍率；
+- **缓存键**：全球贴图/网格用 `ContentFingerprint()`；含 `PlanetDetailSampler` 的区块缓存用
+  `TerrainContentFingerprint()`（`GeneratorVersion` + `detail`）。
 
 新增接口时先在 `main` 修改本文件和对应程序集文档，再在职责分支实现。禁止通过复制字段、
 读取私有组件或增加反向 asmdef 绕过接口。
@@ -114,13 +124,13 @@ clearanceOverRadius   = surfaceClearance / max(surfaceRadius, 1e-6)  // 近地�
 
 | 用途 | 比例 | 进入 | 离开 | 状态 |
 |---|---|---|---|---|
-| 地表模式闸门（interaction） | `clearanceOverView` | ≤ `100/6562` ≈ **1.524%** | ≥ **3.0%** | **已实现** |
+| 地表模式闸门（interaction） | `clearanceOverView` | ≤ **5%**（Earth ≈ 335 km 高度） | ≥ **8%** | **已实现**；2026-10-05 C6 放宽，保证闸门可达 |
 | 近地资源预载 debug | `clearanceOverRadius` | ≤ 0.25 | ≥ 0.35 | 保留，**尚无消费者** |
 
 两行的常量各自只有一处定义，不要在别处再写一份数字：
 
 - `Planet.Interaction.ViewDistanceBoundary.DefaultSurfaceModeEnterRatio` / `DefaultSurfaceModeExitRatio`
-  （`100f/6562f`、`0.030f`），由 `SurfaceModeController` 使用；
+  （`0.05f`、`0.08f`），由 `SurfaceModeController` 使用；历史标定 `100/6562` 只作注释；
 - `Planet.Procedural.Terrain.ViewHeightRatios.ClearanceOverRadius`，目前**只有测试引用**
   （`NearSurfaceContractTests`）。它预留给"预载地表资源"的那一天，别以为它在跑。
 
@@ -261,6 +271,22 @@ CelestialBody.RadiusUnits = sceneRadiusUnits × bodySizeExaggeration
    "untracked working tree files would be overwritten"。处理方式：比对两侧 GUID，
    确认自生成的那份**没有任何引用**后删除，让工程提交版落地。
 
+
+### 6.2 2026-10-05 R2（C6 + 运行时地形）实际记录
+
+| 步骤 | 结果 |
+|---|---|
+| 备份标签 | `integration/pre-2026-10-05-R2-{main,interaction,planet-definition}` |
+| interaction 并入 | cherry-pick `c28d2c3` / `9c22dcb` / `9f7febd` → `808ea1c`…`38b0975`，**零冲突** |
+| planet-definition 并入 | cherry-pick `4cd1455` → `c7705cf`；**1 文件冲突** `BodyFixedCameraAnchor.cs`（freeRoam vs 精确高度），按「或」合成 |
+| 自动合并语义校验 | `SolarSystemCamera` / `ViewDistanceController` / `ViewDistanceBoundary` 双方案共存；精确模式裁面补 1e5:1 消杀 |
+| 阈值回写 | §3 地表闸门 5% / 8%；精确高度与 `freeRoam` 写入 §2 |
+
+因会话层禁止 `git merge`，本轮以 **按哈希 cherry-pick** 完成等价整合。本轮经验：
+
+1. **双相机所有权必须显式合成**（`freeRoam` 管输入地图，`HasPreciseSurfaceDistance` 管厘米真值），不要指望文本自动合并正确。
+2. **精确模式裁面也要过 1e5:1 消杀**，否则近地 1e-13 near + 40000 far 会重现 IMGUI 崩溃。
+3. **MeshLod 资源搬迁必须以 rename 入库**（GUID 100% 保留）；删除+新增两套路径会断场景引用。
 ## 7. 合并验收清单
 
 - 程序集依赖方向无环（清单见 §2），`Planet.Solar` 不引用 `Assembly-CSharp`，也不引用 `Unity.Mathematics`；

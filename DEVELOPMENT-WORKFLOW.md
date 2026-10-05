@@ -22,7 +22,7 @@
 |---|---|---|---|
 | `planet-definition` | `Assets/Scripts/Procedural/`、程序化着色器、`Assets/Editor/PlanetFrameworkBuilder.cs`、`PlanetSurfaceBaker.cs`、`SolarSystemMaterialBuilder.cs`、`Assets/Resources/Solar/BodyMaterials/`、程序化 EditMode 回归测试 | `PlanetSurfaceView` 与 `IPlanetRadiusProvider` 的兼容扩展；资源 GUID 只能保留，不能删除重建 | `SolarSystemCamera` 输入、轨道方程、场景焦点和交互状态机 |
 | `interaction` | 新建的 `Assets/Scripts/Interaction/` 及其程序集；玩家输入、视距边界、近地 debug 事件和未来的 mode 切换 | `SolarSystemCamera` 的只读视距查询/设置接口；事件名和阈值表 | 程序化采样公式、材质烘焙、SolarSystem 目录数据 |
-| `SolarSystem` | `Assets/Scripts/Solar/`、星系目录/模拟/浮动原点、`SolarSystem.unity` 的结构性接线 | `CelestialBody` 的半径发布接口、相机查询接口、场景构建菜单的兼容改动 | 交互输入算法、地表采样和材质缓存内部实现 |
+| `SolarSystem` | `Assets/Scripts/Solar/`（含 `Space/` 尺度层）、星系目录/模拟/浮动原点、`SolarSystem.unity` 的结构性接线、`Assets/Editor/BodyScaleBaker.cs`、`Assets/Editor/SpaceScaleAuditor.cs`、`Assets/Tests/EditMode/Solar/` | `CelestialBody` 的半径发布接口、相机查询接口、场景构建菜单的兼容改动、`BeltField` 的公开粒子视图与节奏 API | 交互输入算法、地表采样和材质缓存内部实现 |
 
 当前稳定的跨程序集接口只有：
 
@@ -39,6 +39,34 @@
 新增接口时先在 `main` 修改本文件和对应程序集文档，再在职责分支实现。禁止通过复制字段、
 读取私有组件或增加反向 asmdef 绕过接口。
 
+### 2.1 尺度层接口（2026-10-04 起，`SolarSystem` ownership）
+
+`Assets/Scripts/Solar/Space/` 把「宇宙尺度」和「地表厘米级细节」拆成两套坐标系，
+细节见 [PLANET-SPACE.md](PLANET-SPACE.md)。它对其他工作树只开放四个接触点：
+
+| 接触点 | 谁会用 | 语义 |
+|---|---|---|
+| `SolarSpaceContext.Origin` | 编辑器工具、调试视图 | 当前渲染原点（`RenderOrigin.frame` + `positionInFrameMetres`）。**唯一的降 float 点** |
+| `SolarSpaceContext.Tree` | 编辑器工具 | 四级架树；换架是**减法**，永远不是缩放 |
+| `SolarSpaceContext.SurfaceGrid` | `planet-definition`（未来） | 聚焦天体的分块网格；`SampleDirection` / `ChunkOriginInBodyMetres` / `ChunkSizeMetres` |
+| `SpaceFrame.BudgetAt(position, format)` | 任何要判断"这里还够不够精确"的调用方 | 该点的 float32/64 步长与"能否表达某特征" |
+
+**这一层不实现大气散射，也不实现地表采样。** 它提供的是 `viewHeight` 的**位置**部分
+（见 §3）与一套不产生坐标断点的原点栈；介质随高程的连续计算仍由
+`Planet.Procedural` 的 `PlanetAtmosphere` 负责。
+
+两条硬约束：
+
+- **`Planet.Solar` 不得引用 `Unity.Mathematics`**（引用即 `CS0012`）。要参考半径就调用
+  `CubeFaceMath.ReferenceRadiusMetres`，不要绕过程序集边界去拿吃 `double3` 的版本；
+- **`Planet.Solar.asmdef` 的 `references` 列表是穷举的四项，本次改造一项都没加**。
+  任何新增引用都会与其他工作树的同名 asmdef 逐行冲突。
+
+未来 `planet-definition` 要把分块网格接上真实几何时，需要在自己那一侧实现
+`IChunkContentProvider`（按 `SurfaceChunkKey` 产出 `ChunkGeometryBuffers`），
+由 `SolarSpaceContext` 在帧循环里驱动 `ChunkStreamer`。**在那之前，
+`ChunkStreamer` 只有策略与测试，没有接进帧循环**——不要以为地表分块已经在渲染。
+
 ## 3. 当前视场高度契约
 
 三条工作树使用同一个定义，单位统一为当前 Unity 场景单位：
@@ -53,6 +81,12 @@ surfaceClearanceRatio = surfaceClearance / max(surfaceRadius, 1e-6)
 `viewHeight` 不是大气半径、云层半径或网格顶点到相机的距离。浮动原点把焦点天体放在世界原点，
 因此当前相机轨道距离就是唯一的中心距来源。未来若相机改为局部地表坐标，必须继续对外提供
 等价的中心距和半径，不能让下游重新猜测。
+
+> **2026-10-04 补充：这套契约现在同时承担「消除地表 / 太空场景切换断点」的职责。**
+> 大气散射介质随相机高程**连续**计算，读的就是 `viewHeight`；而位置层面的断点由
+> `Space/` 的原点栈消除——地表架用 `Threshold` 模式（`surfaceRebaseThresholdMetres = 64`），
+> 所以不存在"切换到另一套坐标系"的那一刻，只有同一个原点体系里连续变化的相机高程。
+> 两条路径都**不产生**需要被补偿的跳变，因此介质可以一直算下去而不必分场景。
 
 ### 3.1 交互输入边界
 
@@ -131,6 +165,10 @@ CelestialBody.RadiusUnits = sceneRadiusUnits × bodySizeExaggeration
 - 调试输出允许进入 `interaction` 的工作提交，但必须带统一事件名和可关闭开关；不能把
   一次性截图探针、临时材质、临时场景或 Unity `Library/` 带入提交。
 - 长期回归测试放在 `Assets/Tests/EditMode/`；一次性验证脚本和模板遗留脚本不进入该目录。
+  **一个子目录一个 asmdef**：`Assets/Tests/EditMode/Solar/`（`Planet.Solar.Tests`）与
+  `Assets/Tests/EditMode/`（程序化测试）必须分开，同目录两个 asmdef 会直接编译失败。
+- **审计工具的报告写入 `Library/`**（已被 `.gitignore` 排除），不要把生成的报告提交进来；
+  审计工具本身与它的 `.meta` 属于长期资产，要入库。
 
 ## 6. 合并与刷新流程
 
@@ -151,10 +189,15 @@ CelestialBody.RadiusUnits = sceneRadiusUnits × bodySizeExaggeration
 
 ## 7. 合并验收清单
 
-- 三个程序集的依赖方向无环，`Planet.Solar` 不引用 `Assembly-CSharp`；
+- 三个程序集的依赖方向无环，`Planet.Solar` 不引用 `Assembly-CSharp`，也不引用 `Unity.Mathematics`；
 - `PlanetAtmosphere`、`PlanetCloudLayer` 和 `CelestialBody` 都通过半径接口协作；
 - `viewHeight`、`surfaceClearanceRatio` 和 0.25/0.35 滞回阈值在 debug 日志中口径一致；
+- 尺度层没有引入第二处降 float 点：`RenderOrigin.ToRender` 仍是从宇宙坐标到 `Vector3` 的**唯一**出口，
+  且新框架与原浮动原点变换**逐位一致**（`Tools ▸ Planet ▸ Audit Space Scale` 报告
+  「框架与原浮动原点的位置差」应为 0.000×10⁰ 场景单位）；
+- `Planet.Solar.asmdef` 的 `references` 列表没有被改动（仍是穷举的四项）；
 - 生成资产的 GUID、场景对象和 Build Settings 引用未丢失；
 - 程序化 EditMode 回归测试存在且只覆盖可长期复用的确定性/接缝/形状/光学契约；
+  `Planet.Solar.Tests` 覆盖数值预算、架树往返、分块接缝、LOD 方向、流式迟滞、原点重定基与碎带节奏；
 - `Assets/TutorialInfo` 等模板遗留物、临时测试脚本和中间截图不进入权威提交；
 - 每个工作树的分支指针与 `main` 的权威标签相同；除明确保留的本地验证截图外，工作区没有未提交的代码或源资源改动。

@@ -91,6 +91,32 @@
   因为 `PlanetSurfaceView` 的网格是 `HideFlags.DontSave`，每次进 Play 都重新生成。
   网格持久化属于 `planet-definition` 分支
 
+### 宇宙尺度坐标阶梯与地表流式 LOD
+
+- `Solar/Space/` 新增六个文件：`SpacePrecision` / `SpaceFrame` / `SurfaceChunkGrid` /
+  `ChunkLocalGeometry` / `ChunkStreamer` / `FloatingOrigin`，加场景组件 `SolarSpaceContext`
+- **两套坐标系**：宇宙侧 `double` 米存在四级架树（Galactic → Stellar → Planetary → Surface），
+  地表侧 `float` 米相对**分块自己的原点**；唯一规则是「在 double 里减，最后一步才降到 float」。
+  `RenderOrigin.ToRender` 是全局**唯一**的降 float 点
+- **视场连续过渡**：地表架用 `Threshold` 模式（64 m），不存在坐标系切换断点；
+  大气介质需要的 `viewHeight` 由既有 `surfaceClearanceRatio` 契约提供，着色器不属本分支
+- **块接缝**：顶点方向用**全局整数格点索引**，同级相邻块逐位相同（L3 实测 0 ULP）；
+  跨面邻接**不写 24 条边表**，改为翻过边界在父面 uv 方形里继续走一步（L2 实测 384/384）
+- **LOD**：屏幕空间误差规则；`maxLevel = 20`（地球 9.544 m 块 / 59.65 cm 网格 / 953.7 nm 步长，
+  比单位球表示细 524,288 倍）；`ChunkStreamer` 每帧硬预算 + 最近优先 + 逐出迟滞
+- **远场策略**：按投影像素分 Full / Proxy / Marker / Skipped 四档，只切 `MeshRenderer`
+  （焦点=地球时实测 1 全渲染 / 2 代理 / 1 标记 / 17 跳过）；轨道线静态，切焦点**不重算顶点**
+- **碎带自适应节奏**：`interval = angularStalenessDegrees / (maxMeanMotion × daysPerSecond)`。
+  实测 120 帧矩阵构建数 176,793（每帧解）→ 2,952（0.002 天/秒）→ **1,476（暂停）**，
+  即相关区间 **2.047 → 约 0.03 ms/帧**；约 49.2% 的环粒子在相机背后，从不提交
+- 新增只读审计菜单 **Tools ▸ Planet ▸ Audit Space Scale**（`Assets/Editor/SpaceScaleAuditor.cs`），
+  报告七节写入 `Library/SpaceScaleAudit.txt`
+- 新增测试程序集 **`Planet.Solar.Tests`**（`Assets/Tests/EditMode/Solar/`，**59/59 通过**）。
+  必须放子目录：Unity 不允许同一目录下两个 asmdef
+- **`Planet.Solar.asmdef` 一项引用都没加**（列表仍是穷举的四项）
+- 验证：编译零错误零警告；新框架与原浮动原点变换**逐位一致**（21 天体，最大差 0.000×10⁰ 场景单位）
+- 文档：新增 `PLANET-SPACE.md`；`PLANET-SOLARSYSTEM.md` §1 / §9 与总览同步
+
 ---
 
 ## 踩坑备忘
@@ -110,9 +136,17 @@
 | 星球半径与启动耗时无关 | 慢的是程序化网格生成（`HideFlags.DontSave`，每次 Play 重算），不是半径换算 |
 | 新建 asmdef 后 Unity 说找不到 | 窗口失焦时资源库不自动刷新，显式 `AssetDatabase.Refresh` |
 | asmdef 程序集不应直接驱动壳层 | `Planet.Solar` 只发布 `IPlanetRadiusProvider`；大气 / 云在 `Planet.Procedural` 中自行读取半径 |
+| 同一目录放两个 asmdef | 直接报 `contains multiple assembly definition files`，测试程序集必须有自己的子目录 |
+| LOD 取"满足容差的最细一层" | 几何误差随层数变小，判据单调，`break` 立刻触发 → 全距离都返回 L0；必须取**最粗**的合格层 |
+| 接缝检验按索引配对两块的边 | 跨面时共享边反向遍历，会误报 ULP 级"裂缝"；必须比**点集** |
+| Play 模式下改不了场景 | `MarkSceneDirty` / `SaveScene` 抛 "This cannot be used during play mode"；先 `manage_editor stop` |
+| 审计报告里出现 1.0×10¹⁶ px | 相机与天体位置重合时 `2r/d` 爆炸；测不准的量要打印成"测不准"，不要放进表里 |
 
 ---
 
 ## 待补
 
-- [ ] 
+- [ ] `ChunkStreamer` 接入帧循环：需要在 `Planet.Procedural` 侧实现一个按
+      `SurfaceChunkKey` 生产 `ChunkGeometryBuffers` 的 `IChunkContentProvider`
+- [ ] 用分块网格替换 `PlanetSurfaceView` 的单位球网格，并接上大气散射的高程连续过渡
+- [ ] 银河系架 `solInGalaxyMetres` 的数据源（当前为 0，架构上已支持）

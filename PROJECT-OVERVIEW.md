@@ -2,7 +2,8 @@
 
 > 更新：2026-10-04 ｜ 数据来源：Unity Editor 实时查询、工程文件与运行时验证。
 > 本版包含真实比例太阳系与 Earth 的程序化星球尺度示例：场景与轨道见
-> [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md)，程序化星球表面生成框架见
+> [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md)，宇宙尺度坐标阶梯与地表流式 LOD 见
+> [PLANET-SPACE.md](PLANET-SPACE.md)，程序化星球表面生成框架见
 > [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md)，贴图来源见 [PLANET-ASSETS.md](PLANET-ASSETS.md)。
 
 ---
@@ -34,6 +35,22 @@
 - 一套米制采样函数同时供几何、颜色、云密度、星空测光使用，因此贴图与几何不可能对不上
 - **21 个天体均接入**；`appearance` 定义可见表面类型与特征，`shapeScale` 保留 Haumea 三轴形状。近似与对策见 [PLANET-MATERIALS.md](PLANET-MATERIALS.md)
 
+**D. 宇宙尺度坐标阶梯与行星表面流式 LOD**（服务于 B 的尺度层，见 [PLANET-SPACE.md](PLANET-SPACE.md)）
+
+- **两套坐标系**：宇宙侧 `double` 米存在四级架树（Galactic → Stellar → Planetary → Surface），
+  地表侧 `float` 米相对**分块自己的原点**。唯一规则是「在 double 里减，最后一步才降到 float」
+- **实测边界**：float32 只能把 1 m 的细节保持到 8,388.6 km、1 cm 到 83.9 km；
+  「一块石头到一整个星系」跨 23 个数量级，float32 需要 4 级、float64 需要 2 级。
+  **太阳系只需要天体之上的一级**，这正是落地级数
+- **Cube-Sphere 分块网格**：`maxLevel = 20`，地球 L20 = 9.544 m 块 / 59.65 cm 网格间距 /
+  953.7 nm 顶点步长（比单位球表示的 0.4657 m 细 **524,288 倍**）；同级接缝实测 **0 ULP**，
+  跨面邻接 384/384
+- **流式加载**：每帧最多 2 块 / 4 ms，最近优先，逐出带迟滞；**远场策略**按投影像素四档，
+  只切 `MeshRenderer`；轨道线静态，切焦点不重算顶点
+- **碎带自适应节奏**：120 帧矩阵构建数 176,793 → **1,476**（暂停），相关区间 2.047 → 约 0.03 ms/帧
+- 验证：审计菜单 **Tools ▸ Planet ▸ Audit Space Scale**；`Planet.Solar.Tests` **59/59 通过**；
+  新框架与原浮动原点变换**逐位一致**（21 天体，最大差 0.000×10⁰ 场景单位）
+
 ---
 
 ## 2. 基本信息
@@ -62,12 +79,12 @@
 D:\UnityProjects\Planet\
 ├── Assets/                     281.6 MB   ← 入库
 │   ├── Scenes/                 3 个场景（含 SolarSystem.unity，707 KB）+ 1 个 Volume Profile
-│   ├── Scripts/                Solar/ 轨道系统、Procedural/ 星球框架、相机与天空控制
-│   ├── Editor/                 菜单 Tools ▸ Planet：构建、全部天体材质、缩放烘焙/审计、视觉刷新、截图
+│   ├── Scripts/                Solar/ 轨道系统（含 Space/ 坐标阶梯）、Procedural/ 星球框架、相机与天空控制
+│   ├── Editor/                 菜单 Tools ▸ Planet：构建、全部天体材质、缩放烘焙/审计、尺度审计、视觉刷新、截图
 │   ├── Shaders/                行星表面、大气、云、星空、白模和轨道
 │   ├── Settings/               URP 配置、3 个材质、后处理 Profile
 │   ├── Resources/Solar/        Terra、BodyMaterials/ 独立定义／派生缓存与回退白模材质
-│   ├── Tests/EditMode/         程序化材质采样、形状与缓存回归测试
+│   ├── Tests/EditMode/         程序化材质采样、形状与缓存回归测试；Solar/ 子目录为 `Planet.Solar.Tests`（59 项）
 │   ├── Textures/               182.9 MB，12 张贴图
 │   ├── Screenshots/            93.6 MB，46 张验证截图（其中 solar_* 15 张）
 ├── Packages/                   3.4 MB     ← 入库
@@ -82,6 +99,7 @@ D:\UnityProjects\Planet\
 ├── PLANET-PROCEDURAL.md        程序化星球表面生成框架（实现、参数、限制）
 ├── PLANET-MATERIALS.md         21 个天体的外观、资产、框架缺口与对策
 ├── PLANET-SOLARSYSTEM.md       真实比例太阳系场景说明（正式工程场景）
+├── PLANET-SPACE.md             宇宙尺度坐标阶梯与行星表面流式 LOD
 ├── DEVELOPMENT-WORKFLOW.md     隔离开发、视场高度契约与合并流程
 ├── PROJECT-OVERVIEW.md         本文档
 └── .gitignore / .gitattributes
@@ -280,6 +298,7 @@ Unity.Mathematics。地形与纹素缓冲按面并行计算，Unity Mesh / Textu
 | `SolarMaterials.cs` | 材质缓存与经纬网开关 |
 | `SolarSystemAppearanceCatalog.cs` | 21 个天体首次外观预设、Catalog 物理形状同步；已有定义保留手工调整 |
 | `CircleLine.cs` | 柯伊伯带边界参考圆 |
+| `Space/`（6 文件） | 宇宙尺度坐标阶梯：`SpacePrecision` 数值预算、`SpaceFrame` 四级架树、`SurfaceChunkGrid` Cube-Sphere 分块与 LOD、`ChunkLocalGeometry` 分块本地坐标、`ChunkStreamer` 流式加载、`FloatingOrigin` 原点重定基；场景组件 `SolarSpaceContext`。见 [PLANET-SPACE.md](PLANET-SPACE.md) |
 
 ### 8.2 编辑器工具（`Assets/Editor/`）
 
@@ -287,6 +306,8 @@ Unity.Mathematics。地形与纹素缓冲按面并行计算，Unity Mesh / Textu
 |---|---|
 | `SolarSystemBuilder.cs` | 重建太阳系、白模材质、11 机位出图 |
 | `PlanetFrameworkBuilder.cs` | 程序化示例构建、缓存管理、视觉刷新 |
+| `BodyScaleBaker.cs` | 把目录半径烘焙／审计进 21 个 `CelestialBody.sceneRadiusUnits` |
+| `SpaceScaleAuditor.cs` | 只读尺度审计，报告七节写入 `Library/SpaceScaleAudit.txt` |
 | `PlanetSurfaceBaker.cs` | 按面并行生成地表与云密度 Cubemap |
 | `SolarSystemMaterialBuilder.cs` | 全部天体的独立缓存／材质生成、分批构建、场景接线与环 profile |
 
@@ -296,6 +317,8 @@ Unity.Mathematics。地形与纹素缓冲按面并行计算，Unity Mesh / Textu
 |---|---|---|
 | `Assets/Scripts/`（根） | 4 | 高程球、相机、自转和表面测光 |
 | `Assets/Scripts/Procedural/` | 13 | 统一定义、坐标、采样、外观参数／采样器、Cube Sphere、云、大气、半径接口与共享壳层 Mesh |
+| `Assets/Scripts/Solar/Space/` | 6 | 坐标阶梯、分块网格、LOD、流式加载与浮动原点（见 [PLANET-SPACE.md](PLANET-SPACE.md)） |
+| `Assets/Tests/EditMode/Solar/` | 6 + 1 asmdef | `Planet.Solar.Tests`：**59 项** EditMode 回归（必须放子目录，Unity 不允许同目录两个 asmdef） |
 
 ### 8.4 着色器
 
@@ -463,6 +486,16 @@ set_active_instance "<projectName>@<hash>"                  # 切到自己的实
 
 12. **`Planet.Solar` 不能引用 `Assembly-CSharp`。** asmdef 程序集在结构上就引用不到 `Assembly-CSharp` / `Assembly-CSharp-Editor`（方向是反的）。所以 `CelestialBody` 不直接碰 `PlanetAtmosphere`，而是实现 `IPlanetRadiusProvider` 让壳层自己来取。要把 `Assets/Scripts/` 根目录的脚本挪进星系逻辑时，先确认它不在 `Assembly-CSharp` 里。
 
+13. **`Planet.Solar` 不能引用 `Unity.Mathematics`。** 一旦引用，任何用 `double3` 的调用都会直接 `CS0012`（实测）。`CubeFaceMath.ReferenceRadiusMetres` 之所以在星系侧重新实现了一遍参考半径，就是为了不依赖 `Planet.Procedural` 里那个吃 `double3` 的版本——它同时还能处理 `shapeScale`，那个版本不能。
+
+14. **降 float 只能发生在最后一步。** 宇宙坐标必须在 `double` 里、在拥有该点的坐标架里相减，`RenderOrigin.ToRender` 是全局唯一的降 float 点。先降后减的写法在 50 AU 处会把 1 m **整个抹掉**（那儿的 float32 步长是 524 km），而且失效方式是"远处的地形悄悄变成一个大平面"，不会报错。
+
+15. **测试程序集必须有自己的目录。** Unity 不允许同一目录下存在两个 asmdef，`Assets/Tests/EditMode/Solar/` 这个子目录就是为此而建；与 `Planet.Procedural.Tests.asmdef` 并列会直接报 `contains multiple assembly definition files`。
+
+16. **Play 模式下改不了场景。** `EditorSceneManager.MarkSceneDirty` / `SaveScene` 会抛 "This cannot be used during play mode"。改 `SolarSpaceContext.maxChunkLevel` 这类序列化字段前先停止播放，否则改动只留在内存里，重启就丢。
+
+17. **`maxLevel` 有两处值，序列化值覆盖代码默认值。** `SolarSpaceContext.Initialize()` 用 Inspector 里的 `maxChunkLevel` 覆盖 `SurfaceChunkGrid` 的默认值，所以"代码里写的是 20"不等于"跑的是 20"。改完必须存场景，然后用 **Tools ▸ Planet ▸ Audit Space Scale** 从报告里核对实际生效的值。
+
 ---
 
 ## 13. 文档索引
@@ -476,6 +509,7 @@ set_active_instance "<projectName>@<hash>"                  # 切到自己的实
 | `PLANET-PROCEDURAL.md` | **程序化星球表面生成框架**：数据链、坐标与单位、地形 / 水体 / 云算法、网格与烘焙缓存、着色器取舍、已知限制 |
 | `PLANET-MATERIALS.md` | 21 个天体材质、观测解释、独立资产、框架扩展、缺口与验证 |
 | `PLANET-SOLARSYSTEM.md` | 真实比例太阳系场景（正式工程场景）：轨道力学、数值验证、坐标系、操作键位、光照取舍、**§9 程序集边界与对外接口** |
+| `PLANET-SPACE.md` | **宇宙尺度坐标阶梯与行星表面流式 LOD**：数值预算实测、四级架树、Cube-Sphere 分块接缝、屏幕空间误差 LOD、流式加载预算、远场策略、碎带节奏、验证与已知限制 |
 | `DEVELOPMENT-WORKFLOW.md` | 三工作树 ownership、程序集边界、当前视场高度契约、近地 debug 阈值与合并刷新流程 |
 | `MCP-Setup/MCP-HANDSHAKE-REPORT.md` | 四客户端握手验证记录 |
 | `MCP-Setup/mcp-tool-list.json` | 47 个工具的完整清单 |

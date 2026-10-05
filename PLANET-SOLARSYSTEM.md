@@ -183,8 +183,13 @@ Earth 使用 `ProceduralTerra.asset`：地表、海洋、生态、云与大气�
 `features` 分别提供 `hasOcean`、`hasAtmosphere`、`hasClouds`、`hasEcology`、`hasIceCaps`；
 水位与地形函数分离，改水位不会移动山脉。水体、生物群系与配色的完整规则见框架文档 §7 / §8。
 
-`CelestialBody` 在编辑器初始化时就计算实际场景半径，再通过 `IPlanetRadiusProvider` 供壳层读取；
-因而 1× 和 `G` 的 400× 模式下，壳层与表面比例相同。
+`CelestialBody` 把**自己的场景缩放**序列化在组件上（`sceneRadiusUnits`，单位是场景单位），
+而不是每帧从目录推算：目录给出物理半径（km），编辑器烘焙做**一次**换算
+`sceneRadiusUnits = RadiusKm ÷ kmPerUnit`，运行时只读这个值再乘 `G` 的放大倍率，
+并经 `IPlanetRadiusProvider` 供壳层读取；因而 1× 和 `G` 的 400× 模式下，壳层与表面比例相同。
+换算的出处记在 `bakedKmPerUnit` 里，比例对不上时会在运行时警告，可用
+`Tools ▸ Planet ▸ Validate Body Scales` 离线审计。规则详见
+[DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §4.1。
 
 其余 20 个天体分别具有独立 `PlanetDefinition`、Albedo Cubemap 和材质，位于
 `Assets/Resources/Solar/BodyMaterials/`。默认每面 64 段，25,350 顶点／49,152 三角形；
@@ -293,6 +298,8 @@ HUD 显示：模拟日期、时间流速、焦点天体的半径/扁率/自转�
 | **Rebuild Solar System Scene** | 从 `SolarSystemCatalog` 重新生成整个场景并保存 |
 | **Rebuild White-Model Materials** | 重新生成 `Assets/Resources/Solar/` 里的五个材质 |
 | **Build Solar System Materials** | 为 21 个天体生成或复用独立程序化定义与缓存、材质，并保存正式场景 |
+| **Bake Body Scales** | 把 `SolarSystemCatalog.RadiusKm ÷ kmPerUnit` 一次性烘焙进 21 个 `CelestialBody.sceneRadiusUnits` 并保存场景；改目录或 `kmPerUnit` 后必须重跑 |
+| **Validate Body Scales** | 只读审计：列出与目录不符、未烘焙、或按另一个 `kmPerUnit` 烘焙过的星球 |
 | **Open Solar System Scene** | 打开场景 |
 | **Capture Solar System Poses** | 按 `SolarSystemPoses` 的 11 个机位出图到 `Assets/Screenshots/`（需在 Play 模式） |
 | **Reimport Solar Screenshots** | 出图后手动触发资源导入 |
@@ -394,7 +401,7 @@ Assembly-CSharp / Assembly-CSharp-Editor   （胶水层：PlanetLightingControll
 | 调用方 | 允许使用的成员 |
 |---|---|
 | `PlanetLightingController`（`Assembly-CSharp`，**唯一的运行时外部调用方**） | `SolarSystemSimulation.Instance` / `.FocusDefinition` / `.FocusView` / `.FocusRadiusUnits` / `.ViewCamera`、`Body.IsSun` |
-| 编辑器工具（`Assembly-CSharp-Editor`） | `SolarSystemFactory.BuildAll`、`SolarMaterials`、`SolarSystemPoses`、`CelestialBody` 的 `bodyName` / `BuildVisuals` / `RadiusUnits` |
+| 编辑器工具（`Assembly-CSharp-Editor`） | `SolarSystemFactory.BuildAll`、`SolarMaterials`、`SolarSystemPoses`、`CelestialBody` 的 `bodyName` / `BuildVisuals` / `RadiusUnits` / `sceneRadiusUnits` / `bakedKmPerUnit` / `BakeScale` |
 | 交互层 | `SolarSystemCamera` 的视距查询与设置、`SolarSystemSimulation` 的焦点查询；不得读取网格或材质缓存 |
 
 `SolarMeshFactory` 是 `internal`，仅 `Planet.Solar` 内部使用。其他未列入契约的类型即使目前为
@@ -415,6 +422,12 @@ Assembly-CSharp / Assembly-CSharp-Editor   （胶水层：PlanetLightingControll
 `ApplyProperties()` 里自取。`CelestialBody.ApplyState` **不再**反向推送
 `PlanetAtmosphere` / `PlanetCloudLayer` —— 那会要求星系程序集引用壳层组件，而 `PlanetAtmosphere`
 位于 `Planet.Procedural` 程序集，Solar 程序集不需要引用具体渲染实现。
+
+**2026-10-04 起，缩放由星球自己持有。** `CelestialBody.sceneRadiusUnits` 是序列化的场景半径，
+`RadiusUnits` 变成它的只读派生量（× `bodySizeExaggeration`），
+`ApplyState(position, radiusUnits, spin)` 相应简化为 `ApplyState(position, spin)` ——
+模拟只负责摆放和自转，半径不再每帧由它推送。对壳层与相机**没有影响**：它们读的
+`IPlanetRadiusProvider.RadiusUnits` 语义不变，只是现在有了稳定、可在 Inspector 里看到的值。
 
 > **给其他工作树的提醒**：只要不动上面这两个接口，`Planet.Procedural` 内部怎么改都不会波及
 > 星系程序集。若确实需要改动 `IPlanetRadiusProvider`，或 `PlanetSurfaceView` 这四个成员，

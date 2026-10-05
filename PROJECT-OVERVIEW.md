@@ -63,7 +63,7 @@ D:\UnityProjects\Planet\
 ├── Assets/                     281.6 MB   ← 入库
 │   ├── Scenes/                 3 个场景（含 SolarSystem.unity，707 KB）+ 1 个 Volume Profile
 │   ├── Scripts/                Solar/ 轨道系统、Procedural/ 星球框架、相机与天空控制
-│   ├── Editor/                 菜单 Tools ▸ Planet：构建、全部天体材质、视觉刷新、截图
+│   ├── Editor/                 菜单 Tools ▸ Planet：构建、全部天体材质、缩放烘焙/审计、视觉刷新、截图
 │   ├── Shaders/                行星表面、大气、云、星空、白模和轨道
 │   ├── Settings/               URP 配置、3 个材质、后处理 Profile
 │   ├── Resources/Solar/        Terra、BodyMaterials/ 独立定义／派生缓存与回退白模材质
@@ -195,6 +195,11 @@ Renderer Feature: ScreenSpaceAmbientOcclusion
 柯伊伯带外缘 7,480 单位。所有轨道在 `double` 下以 km 计算，只在提交 `Transform` 时转 float 并减去
 焦点位置（浮动原点）。太阳在地球处的视直径算得 **0.533°**，真实 0.532°。
 
+星球自己的**场景缩放**（`CelestialBody.sceneRadiusUnits`）是**序列化在星球上**的，不是每帧从
+目录推算：目录给出物理半径，`Tools ▸ Planet ▸ Bake Body Scales` 做一次 `RadiusKm ÷ kmPerUnit`
+的换算并写进场景，运行时只读。改目录或 `kmPerUnit` 后必须重跑该菜单（`Rebuild Solar System Scene`
+会自动烘焙）。规则见 [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §4.1。
+
 **完整说明见 [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md)**（轨道力学、数值验证、坐标系映射、
 操作键位、光照取舍、编辑器工具）。
 
@@ -265,7 +270,7 @@ Unity.Mathematics。地形与纹素缓冲按面并行计算，Unity Mesh / Textu
 | `SolarSystemCatalog.cs` | 21 个天体的物理与轨道数据、土星环分段 |
 | `SolarSystemSimulation.cs` | 日期、位置、自转、浮动原点、光照和轨道线 |
 | `SolarSystemFactory.cs` | 从 Catalog 创建场景对象、相机和环境 |
-| `CelestialBody.cs` | 白模或程序化表面适配、实际渲染半径、环和转轴 |
+| `CelestialBody.cs` | 白模或程序化表面适配、序列化场景缩放（`sceneRadiusUnits` + 出处 `bakedKmPerUnit`）、环和转轴 |
 | `SolarSystemCamera.cs` | 焦点切换、取景、对数缩放、环绕、输入 |
 | `SolarSystemHud.cs` | 日期、比例、天体物理量与操作提示 |
 | `BeltField.cs` | 轨道粒子实例化与恒定张角标记 |

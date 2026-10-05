@@ -67,6 +67,16 @@ namespace Planet.Solar
         public Light sunLight;
         public Camera viewCamera;
 
+        [Header("Space frames")]
+        [Tooltip("Binds the simulation to the four-rung space frame tree (galaxy -> star -> body -> " +
+                 "surface chunk) so surface detail can be expressed in its own coordinate system. " +
+                 "Leaving this off keeps the scene exactly as it was before the framework existed.")]
+        public bool enableSpaceFrames = true;
+
+        [Tooltip("Disabled by default: the orbits root is shifted with the origin every frame, which " +
+                 "is cheap, and hiding it changes what the HUD and the capture poses show.")]
+        public bool cullOrbitsNearBody = false;
+
         // ---- runtime state ---------------------------------------------------------------
         private CelestialBody[] _views;
         private Body[] _defs;
@@ -81,7 +91,9 @@ namespace Planet.Solar
         private OrbitPath[] _orbitPaths;
         private CircleLine[] _circleLines;
         private BeltField[] _belts;
+        private SolarSpaceContext _space;
         private bool _built;
+        private bool _orbitsVisible = true;
 
         public float KmPerUnit { get { return kmPerUnit > 0f ? kmPerUnit : 1e6f; } }
         public double UnitsPerKm { get { return 1.0 / KmPerUnit; } }
@@ -92,15 +104,29 @@ namespace Planet.Solar
         public Vec3d PositionKmAt(int i) { return _posKm[i]; }
         public Camera ViewCamera { get { return viewCamera; } }
 
+        /// <summary>
+        /// The frame tree binding, or null when <see cref="enableSpaceFrames"/> is off. This is the
+        /// entry point for anything that needs to express a position in the cosmic coordinate
+        /// system rather than in render units.
+        /// </summary>
+        public SolarSpaceContext SpaceContext { get { return _space; } }
+
         public int FocusIndex { get { return _focusIndex; } }
         public CelestialBody FocusView { get { return _views != null ? _views[_focusIndex] : null; } }
         public Body FocusDefinition { get { return _defs != null ? _defs[_focusIndex] : null; } }
+
+        /// <summary>
+        /// Scene-unit radius of the focused body, read from the body itself instead of being
+        /// re-derived from the catalog, so the camera, the shells and the render scale can never
+        /// disagree about how big the body is.
+        /// </summary>
         public float FocusRadiusUnits
         {
             get
             {
-                Body b = FocusDefinition;
-                return b == null ? 1f : (float)(b.RadiusKm * UnitsPerKm * bodySizeExaggeration);
+                CelestialBody view = FocusView;
+                float radius = view != null ? view.RadiusUnits : 0f;
+                return radius > 0f ? radius : 1f;
             }
         }
 
@@ -174,6 +200,21 @@ namespace Planet.Solar
             if (_circleLines == null) _circleLines = new CircleLine[0];
             _belts = GetComponentsInChildren<BeltField>(true);
 
+            // The space-frame binding is created here rather than required in the scene so an
+            // existing SolarSystem.unity keeps working untouched; the scene builder adds it
+            // explicitly so a rebuilt scene has it visible in the Inspector. Auto-creation is
+            // play-mode only: adding a component from OnEnable in edit mode would dirty the scene
+            // every time the asset database refreshed.
+            _space = GetComponent<SolarSpaceContext>();
+            if (_space == null && enableSpaceFrames && Application.isPlaying)
+                _space = gameObject.AddComponent<SolarSpaceContext>();
+            if (_space != null)
+            {
+                _space.enabled = enableSpaceFrames;
+                if (enableSpaceFrames) _space.Initialize(this);
+                else _space = null;
+            }
+
             SetFocusByName(focusBody, true);
 
             _built = true;
@@ -245,12 +286,16 @@ namespace Planet.Solar
             if (!paused) julianDate += daysPerSecond * Time.deltaTime;
             ComputePositions();
             UpdateOrigin();
+
+            // The frame tree has to be in step with the origin before anything is laid out: the
+            // surface rung's own origin and the observer's cosmic position both come from here.
+            if (_space != null) _space.RefreshFrames(Time.deltaTime);
+
             ApplyTransforms();
             UpdateLightAndLines();
         }
 
-        private void HandleTimeInput()
-        {
+        private void HandleTimeInput()        {
             if (!handleInput) return;
             var kb = UnityEngine.InputSystem.Keyboard.current;
             if (kb == null) return;
@@ -265,6 +310,22 @@ namespace Planet.Solar
             if (kb.minusKey.wasPressedThisFrame) daysPerSecond = Mathf.Max(0.002f, daysPerSecond * 0.5f);
             if (kb.equalsKey.wasPressedThisFrame) daysPerSecond = Mathf.Min(2000000f, daysPerSecond * 2f);
             if (kb.backslashKey.wasPressedThisFrame) daysPerSecond = 5f;
+        }
+
+        /// <summary>
+        /// Resolves every body's position for the current <see cref="julianDate"/> and advances the
+        /// floating origin, without touching transforms.
+        ///
+        /// The per-frame path does this internally; this exists for the editor audit tool and for
+        /// tests, which run outside play mode and would otherwise read an all-zero position array -
+        /// which silently turns every downstream "how far away is this body" answer into garbage.
+        /// </summary>
+        public void RefreshPositions()
+        {
+            if (!_built) Build();
+            if (!_built) return;
+            ComputePositions();
+            UpdateOrigin();
         }
 
         private void ComputePositions()
@@ -331,7 +392,6 @@ namespace Planet.Solar
         private void ApplyTransforms()
         {
             double unitsPerKm = UnitsPerKm;
-            double sizeMul = Mathf.Max(bodySizeExaggeration, 1e-6f);
             double daysSinceEpoch = julianDate - OrbitalMechanics.J2000;
 
             for (int i = 0; i < _views.Length; i++)
@@ -342,14 +402,16 @@ namespace Planet.Solar
                 Vec3d rel = _posKm[i] - _originKm;
                 Vector3 world = OrbitalMechanics.ToUnity(rel, unitsPerKm);
 
-                float radiusUnits = (float)(def.RadiusKm * unitsPerKm * sizeMul);
-
                 // Sidereal rotation: one full turn per |RotationHours|, negative for retrograde
                 // bodies (Venus, Uranus, Pluto), which is why they come out turning backwards.
                 double periodDays = def.RotationHours / 24.0;
                 double spinDeg = periodDays != 0.0 ? 360.0 * daysSinceEpoch / periodDays : 0.0;
 
-                _views[i].ApplyState(world, radiusUnits, spinDeg);
+                // The radius is deliberately not passed in any more. Each body owns its scene-unit
+                // scale in CelestialBody.sceneRadiusUnits and publishes it through
+                // IPlanetRadiusProvider; the simulation only places and spins it. Deriving it here
+                // on every frame was the last place the catalog's RadiusKm became a render fact.
+                _views[i].ApplyState(world, spinDeg);
             }
         }
 
@@ -402,11 +464,71 @@ namespace Planet.Solar
             }
 
             for (int i = 0; i < _belts.Length; i++)
-                if (_belts[i] != null) _belts[i].Render(viewCamera, _originKm, UnitsPerKm, julianDate);
+            {
+                if (_belts[i] == null) continue;
+                // The time state lets the belt pick a solve cadence from how fast it is actually
+                // moving, instead of re-solving 7,200 Kepler equations on a frame where nothing
+                // visible changed.
+                var time = new BeltTimeState { daysPerSecond = daysPerSecond, paused = paused };
+                _belts[i].Render(viewCamera, _originKm, UnitsPerKm, julianDate, time);
+            }
+
+            ApplyFarFieldPolicy(camDist, focusRadius);
 
             // The orbit rings ride along with the floating origin.
             if (orbitsRoot != null)
                 orbitsRoot.position = OrbitalMechanics.ToUnity(_originKm * -1.0, UnitsPerKm);
+        }
+
+        /// <summary>
+        /// What happens to everything that is <i>not</i> the focused body, once the camera is close
+        /// enough to a planet that the rest of the system is measured in fractions of a pixel.
+        ///
+        /// <para>At true scale there is nothing to simplify geometrically - every other body already
+        /// covers less than a pixel, which is why the orbit lines exist at all. What is worth doing
+        /// is refusing to <i>submit</i> geometry that cannot change a pixel:</para>
+        ///
+        /// <list type="bullet">
+        /// <item><b>Body renderers.</b> A body whose disc projects under
+        /// <c>SolarSpaceContext.subPixelThreshold</c> pixels is switched off. The 'G' exaggeration
+        /// multiplies every radius by 400, so the classification re-derives itself the moment the
+        /// user asks for a visible solar system - there is no second code path and no flag to keep
+        /// in sync.</item>
+        /// <item><b>Orbit lines.</b> Optional (<see cref="cullOrbitsNearBody"/>), because the orbit
+        /// lines are the primary navigation aid and hiding them changes what the capture poses
+        /// record. The hysteresis band stops the root flickering at the threshold.</item>
+        /// <item><b>Debris belts.</b> Handled inside <see cref="BeltField"/> - see its class comment
+        /// for why the win there is in the solve cadence rather than in the drawing.</item>
+        /// </list>
+        /// </summary>
+        private void ApplyFarFieldPolicy(float camDist, float focusRadius)
+        {
+            if (_space == null) return;
+
+            if (_space.cullSubPixelBodies)
+            {
+                for (int i = 0; i < _views.Length; i++)
+                {
+                    if (_views[i] == null) continue;
+                    BodyRenderTier tier = _space.ClassifyBody(i);
+                    _views[i].SetRenderersVisible(tier != BodyRenderTier.Skipped);
+                }
+            }
+
+            if (!cullOrbitsNearBody || orbitsRoot == null) return;
+
+            // Ratio form, so the band works for a 2,440 km Mercury and a 696,340 km Sun alike.
+            float ratio = camDist / Mathf.Max(focusRadius, 1e-9f);
+            if (_orbitsVisible)
+            {
+                if (ratio < 3f) _orbitsVisible = false;
+            }
+            else if (ratio > 4f)
+            {
+                _orbitsVisible = true;
+            }
+            if (orbitsRoot.gameObject.activeSelf != _orbitsVisible)
+                orbitsRoot.gameObject.SetActive(_orbitsVisible);
         }
 
         // ==================================================================================
@@ -458,12 +580,19 @@ namespace Planet.Solar
         {
             Body b = _defs[index];
             if (b == null) return 1f;
-            double unitsPerKm = UnitsPerKm;
-            double sizeMul = Mathf.Max(bodySizeExaggeration, 1e-6f);
-            double r = b.RadiusKm * unitsPerKm * sizeMul;
+
+            // Prefer the body's own published radius so framing follows the same scale the body
+            // actually renders at. The catalog is only a fallback for a missing view.
+            CelestialBody view = _views != null && index < _views.Length ? _views[index] : null;
+            double bodyRadius = view != null && view.RadiusUnits > 0f
+                ? view.RadiusUnits
+                : b.RadiusKm * UnitsPerKm * Mathf.Max(bodySizeExaggeration, 1e-6f);
 
             // Give ring systems room, and give moons a wider berth so the parent is in frame.
-            if (b.Rings.HasValue) r = b.Rings.Value.outerKm * unitsPerKm * sizeMul;
+            // The ring mesh carries unit outer radius and is scaled by outerKm / RadiusKm, so the
+            // ring's scene-unit outer edge is that same ratio applied to the body radius.
+            double r = bodyRadius;
+            if (b.Rings.HasValue && b.RadiusKm > 0.0) r = bodyRadius * (b.Rings.Value.outerKm / b.RadiusKm);
             if (b.Kind == BodyKind.Moon) r *= 6.0;
             return Mathf.Max((float)r * 4.5f, 1e-4f);
         }

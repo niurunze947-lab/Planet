@@ -26,10 +26,14 @@
 
 当前稳定的跨程序集接口只有：
 
-- `IPlanetRadiusProvider.RadiusUnits`：`CelestialBody` 发布当前场景半径，壳层订阅；
+- `IPlanetRadiusProvider.RadiusUnits`：`CelestialBody` 发布当前场景半径，壳层订阅。
+  自 §4.1 起它的语义是**只读派生量** = `sceneRadiusUnits × bodySizeExaggeration`，由星球自己
+  持有缩放（旧写法 `ApplyState(position, radiusUnits, spin)` 已改为 `ApplyState(position, spin)`，
+  半径不再由模拟每帧推送）。壳层、相机、HUD 都只读它，不写；
 - `PlanetSurfaceView.definition`、`BuildSurface(float)`、`SetRadius(float)`、`SurfaceTransform`；
-- `SolarSystemSimulation.FocusView` / `FocusRadiusUnits` 和 `SolarSystemCamera.CurrentViewHeightUnits`、
-  `FocusSurfaceRadiusUnits`、`SurfaceClearanceUnits`、`SurfaceClearanceRatio`；
+- `SolarSystemSimulation.FocusView` / `FocusRadiusUnits`（现取 `FocusView.RadiusUnits`）和
+  `SolarSystemCamera.CurrentViewHeightUnits`、`FocusSurfaceRadiusUnits`、`SurfaceClearanceUnits`、
+  `SurfaceClearanceRatio`；
 - 程序化资源的 `ContentFingerprint()`。它是缓存失效键，不是业务状态存储。
 
 新增接口时先在 `main` 修改本文件和对应程序集文档，再在职责分支实现。禁止通过复制字段、
@@ -83,13 +87,36 @@ surfaceClearanceRatio = surfaceClearance / max(surfaceRadius, 1e-6)
 
 ## 4. SolarSystem 数据规则
 
-`SolarSystemCatalog` 是物理半径、质量、轨道和环的来源；程序运行时不得把星球缩放值写死为
-另一份常数。`SolarSystemBuilder`、`SolarSystemMaterialBuilder` 只能生成或接线派生资产，
-不能成为运行时真相。新增天体或修改比例时按以下顺序：
+`SolarSystemCatalog` 是物理半径、质量、轨道和环的**唯一真相来源**；`SolarSystemBuilder`、
+`SolarSystemMaterialBuilder` 只能生成或接线派生资产，不能成为运行时真相。
+
+### 4.1 星球缩放：目录是真相，星球持有派生缓存
+
+2026-10-04 起，星球的场景缩放不再每帧从目录推算，而是**固化在星球自己身上**：
+
+```text
+SolarSystemCatalog.RadiusKm  ÷  SolarSystemSimulation.kmPerUnit
+        ↓  （只在编辑器烘焙时执行一次）
+CelestialBody.sceneRadiusUnits        // 序列化在星球的组件上，Inspector 可读可改
+CelestialBody.bakedKmPerUnit          // 出处：烘焙时用的 kmPerUnit，只用于漂移检测
+        ↓  （运行时只做一次乘法，'G' 键切换）
+CelestialBody.RadiusUnits = sceneRadiusUnits × bodySizeExaggeration
+```
+
+这条规则**没有**推翻"不得写死第二份常数"的本意，因为它把缩放定义成**带出处的派生缓存**，
+和 Albedo / 云密度 Cubemap 的 `ContentFingerprint()` 是同一个模式：
+
+- 物理半径仍然只有 `SolarSystemCatalog` 一份，星球上存的是已经换算成场景单位的**结果**；
+- `bakedKmPerUnit` 记下这笔换算是在什么比例下做的，所以漂移是**可检测**的，不是静默的：
+  `CelestialBody` 在运行时对不上就发警告，`Tools ▸ Planet ▸ Validate Body Scales` 可以离线审计；
+- 只有编辑器烘焙会写这两个字段（`CelestialBody.BakeScale` + `BodyScaleBaker`），运行时只读。
+
+因此**新增天体或修改比例时**按以下顺序：
 
 1. 先改目录数据和对应的外观预设/定义；
-2. 再运行编辑器菜单生成场景和缓存；
-3. 检查场景引用、GUID、`RadiusUnits` 和文档；
+2. 再运行 `Tools ▸ Planet ▸ Bake Body Scales` 重算 21 个星球的缩放（`Rebuild Solar System Scene`
+   会在建场景时自动烘焙；`Build Solar System Materials` **不会**，它只碰定义和材质）；
+3. 检查场景引用、GUID、`RadiusUnits`、`Validate Body Scales` 的报告和文档；
 4. 最后提交生成结果与源数据同一提交。
 
 后续移除一键生成式场景构建器时，保留菜单作为迁移工具，直到场景序列化数据和验证脚本能够

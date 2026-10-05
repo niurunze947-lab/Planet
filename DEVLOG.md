@@ -73,6 +73,24 @@
 - 新菜单 Build Solar System Materials 分批重建所有天体；生成器版本升至 4，保留 GUID、已有手工定义参数和独立资产路径
 - 材质观测解释、示意范围与框架缺口见新增 `PLANET-MATERIALS.md`；采样／接缝／形状／指纹回归测试见 `Assets/Tests/EditMode/`
 
+### 星球缩放固化
+
+- 星球半径不再每帧由 `SolarSystemSimulation` 从目录推算：`SolarSystemCatalog.RadiusKm ÷ kmPerUnit`
+  改为在编辑器**烘焙一次**，存进 `CelestialBody.sceneRadiusUnits`（+ 出处 `bakedKmPerUnit`）
+- `ApplyState(position, radiusUnits, spin)` → `ApplyState(position, spin)`；`RadiusUnits` 变成只读派生量，
+  `FocusRadiusUnits` / `FrameDistanceFor` 改读星球自己发布的值
+- 缩放写入只在**值变化**时发生（`G` 键或手改 Inspector），不再每帧写 21 次 `localScale`；
+  `CelestialBody.Update` 负责拾取 Inspector 手改
+- 新增菜单 `Bake Body Scales` / `Validate Body Scales`（`Assets/Editor/BodyScaleBaker.cs`，
+  本分支 ownership；未改 planet-definition 的 `SolarSystemMaterialBuilder` / `PlanetFrameworkBuilder`）
+- 场景改动是**纯新增** 42 行（21 × `sceneRadiusUnits` + 21 × `bakedKmPerUnit`），零删除，GUID 全保留
+- 验证：21 个烘焙值对目录最大相对误差 4.5×10⁻⁸；1× 与 400× 下大气比仍为 **1.012557**、云比 **1.009**；
+  EditMode **27/27** 通过
+- **注意**：这**没有**加快初始化。实测半径换算 1000 帧 × 21 天体只需 **0.32 ms**（约 0.3 µs/帧）；
+  启动耗时几乎全在程序化网格生成 —— Play 模式日志实测场景集成 **19.3 s**，
+  因为 `PlanetSurfaceView` 的网格是 `HideFlags.DontSave`，每次进 Play 都重新生成。
+  网格持久化属于 `planet-definition` 分支
+
 ---
 
 ## 踩坑备忘
@@ -88,6 +106,8 @@
 | 改了采样公式但地形没变 | 需提升 `GeneratorVersion` 让内容指纹失效 |
 | 重烘贴图后场景引用丢失 | 用 `CopySerialized` 覆盖旧资产，勿删除重建 |
 | MCP 调用改的其实是另一个工作树 | 多实例各有端口，先查 `Application.dataPath` 再 `set_active_instance` |
+| MCP 客户端会中途**换**实例 | 端口表只在启动时可靠；`execute_code` 里加一道 `Application.dataPath` 断言，并核对程序集 `asm.Location` 落在哪个工作树 |
+| 星球半径与启动耗时无关 | 慢的是程序化网格生成（`HideFlags.DontSave`，每次 Play 重算），不是半径换算 |
 | 新建 asmdef 后 Unity 说找不到 | 窗口失焦时资源库不自动刷新，显式 `AssetDatabase.Refresh` |
 | asmdef 程序集不应直接驱动壳层 | `Planet.Solar` 只发布 `IPlanetRadiusProvider`；大气 / 云在 `Planet.Procedural` 中自行读取半径 |
 

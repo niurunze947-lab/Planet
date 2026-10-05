@@ -103,6 +103,7 @@ namespace Planet.Procedural
         public PlanetPalette palette = new PlanetPalette();
         public PlanetFeatureOptions features = new PlanetFeatureOptions();
         public PlanetAppearanceParameters appearance = new PlanetAppearanceParameters();
+        public PlanetDetailParameters detail = new PlanetDetailParameters();
 
         public PlanetSurfaceSampler CreateSampler()
         {
@@ -126,6 +127,8 @@ namespace Planet.Procedural
             if (features == null) features = new PlanetFeatureOptions();
             if (appearance == null) appearance = new PlanetAppearanceParameters();
             appearance.Validate();
+            if (detail == null) detail = new PlanetDetailParameters();
+            detail.Validate();
             physical.radiusMetres = Math.Max(1000.0, physical.radiusMetres);
             physical.massKilograms = Math.Max(0.0, physical.massKilograms);
             physical.flattening = Mathf.Clamp(physical.flattening, 0f, 0.2f);

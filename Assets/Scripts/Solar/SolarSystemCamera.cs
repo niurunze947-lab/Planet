@@ -54,7 +54,14 @@ namespace Planet.Solar
         private CelestialBody _precisionBody;
         private double _preciseClearance, _targetClearance;
         private Vec3d _precisionDirection;
+        private Vec3d _precisionUp;
         private float _precisionYaw, _precisionPitch;
+
+        // Unity 2022's ScreenPointToRay becomes invalid below roughly 1e-7 scene units even when
+        // far/near is capped. At the project scale this is about 100 m; smaller values produce the
+        // exact SendMouseEvents error seen during high-speed surface travel.
+        public const float MinProjectionNear = 1e-7f;
+        public const float MaxProjectionRatio = 1e5f;
 
         /// <summary>Keeps local altitude in double. Never round-trips it through the float centre distance.</summary>
         public void SetSurfaceClearanceMetres(double metres, bool snap = false)
@@ -71,6 +78,11 @@ namespace Planet.Solar
                     new Vec3d(worldDirection.x, worldDirection.y, worldDirection.z));
                 double len = _precisionDirection.Length;
                 _precisionDirection = _precisionDirection * (1.0 / System.Math.Max(len, 1e-20));
+                Vector3 cameraUpWorld = transform.up.sqrMagnitude > 1e-12f ? transform.up : Vector3.up;
+                _precisionUp = RotateDouble(Quaternion.Inverse(_precisionBody.transform.rotation),
+                    new Vec3d(cameraUpWorld.x, cameraUpWorld.y, cameraUpWorld.z));
+                double upLen = _precisionUp.Length;
+                _precisionUp = _precisionUp * (1.0 / System.Math.Max(upLen, 1e-20));
                 _preciseClearance = initialClearance;
             }
             _targetClearance = System.Math.Max(0.01, metres);
@@ -153,6 +165,18 @@ namespace Planet.Solar
             distance = _targetDistance;
             _hasTarget = true;
             ApplyTransform();
+        }
+
+        /// <summary>
+        /// Updates the orbit distance bookkeeping without asking the orbit rig to apply its
+        /// transform. Use while an external surface controller owns the camera pose.
+        /// </summary>
+        public void SetExternalViewHeight(float units)
+        {
+            float clamped = ClampToSurfaceFloor(units);
+            _targetDistance = clamped;
+            distance = clamped;
+            _hasTarget = true;
         }
 
         /// <summary>
@@ -261,8 +285,11 @@ namespace Planet.Solar
                 float dy = Mathf.DeltaAngle(_precisionYaw, yaw), dp = Mathf.DeltaAngle(_precisionPitch, pitch);
                 if (dy != 0 || dp != 0)
                 {
-                    _precisionDirection = RotateDouble(Quaternion.Euler(dp, dy, 0), _precisionDirection);
+                    Quaternion delta = Quaternion.Euler(dp, dy, 0);
+                    _precisionDirection = RotateDouble(delta, _precisionDirection);
                     _precisionDirection = _precisionDirection * (1.0 / _precisionDirection.Length);
+                    _precisionUp = RotateDouble(delta, _precisionUp);
+                    _precisionUp = _precisionUp * (1.0 / System.Math.Max(_precisionUp.Length, 1e-20));
                     _precisionYaw = yaw; _precisionPitch = pitch;
                 }
                 var terrain = _precisionBody.GetComponent<Planet.Procedural.Terrain.RuntimeTerrainRenderer>();
@@ -273,17 +300,16 @@ namespace Planet.Solar
                 CameraBodyFixedMetres = _precisionDirection * (ground + _preciseClearance);
                 Vec3d world = RotateDouble(_precisionBody.transform.rotation, CameraBodyFixedMetres);
                 transform.position = _precisionBody.transform.position + new Vector3((float)(world.x * unitsPerMetre), (float)(world.y * unitsPerMetre), (float)(world.z * unitsPerMetre));
-                transform.rotation = Quaternion.LookRotation(new Vector3((float)-world.x, (float)-world.y, (float)-world.z), _precisionBody.transform.up);
+                Vector3 forward = new Vector3((float)-world.x, (float)-world.y, (float)-world.z);
+                Vector3 upHint = ToVector3(RotateDouble(_precisionBody.transform.rotation, _precisionUp));
+                transform.rotation = StableLookRotation(forward, upHint, _precisionBody.transform.up);
                 distance = (float)((ground + _preciseClearance) * unitsPerMetre);
                 _targetDistance = (float)((ground + _targetClearance) * unitsPerMetre);
                 // Projection still uses scene units, but centimetre terrain is rendered camera-relative.
                 // Same 1e5:1 frustum cap as the orbit path: an uncapped 4e10:1 near/far crashed IMGUI.
                 float pNear = (float)System.Math.Max(1e-13, System.Math.Min(50, _preciseClearance * unitsPerMetre * 0.1));
                 float pFar = 40000f;
-                if (float.IsNaN(pNear) || pNear <= 0f) pNear = 1e-6f;
-                if (pFar < pNear * 2f) pFar = pNear * 2f;
-                float pMaxFar = pNear * 1e5f;
-                if (pFar > pMaxFar) pFar = pMaxFar;
+                SanitizeProjectionPlanes(ref pNear, ref pFar);
                 _cam.nearClipPlane = pNear;
                 _cam.farClipPlane = pFar;
                 return;
@@ -308,14 +334,52 @@ namespace Planet.Solar
             float far = Mathf.Max(distance * 4f, r * 20f);
             if (distance > 1f) far = Mathf.Max(far, 40000f);
 
-            if (float.IsNaN(near) || near <= 0f) near = 1e-6f;
-            if (float.IsNaN(far) || far <= 0f) far = near * 1e5f;
-            if (far < near * 2f) far = near * 2f;
-            float maxFar = near * 1e5f;
-            if (far > maxFar) far = maxFar;
+            SanitizeProjectionPlanes(ref near, ref far);
 
             _cam.nearClipPlane = near;
             _cam.farClipPlane = far;
+        }
+
+        /// <summary>Clamps a projection pair away from Unity's invalid tiny near/far range.</summary>
+        public static void SanitizeProjectionPlanes(ref float near, ref float far)
+        {
+            if (float.IsNaN(near) || float.IsInfinity(near) || near <= 0f)
+                near = MinProjectionNear;
+            if (near < MinProjectionNear) near = MinProjectionNear;
+            if (float.IsNaN(far) || float.IsInfinity(far) || far <= 0f)
+                far = near * MaxProjectionRatio;
+            if (far < near * 2f) far = near * 2f;
+            float maxFar = near * MaxProjectionRatio;
+            if (far > maxFar) far = maxFar;
+        }
+
+        /// <summary>
+        /// Builds a stable camera rotation from a forward direction and a persistent up hint.
+        /// The hint is projected onto the forward tangent plane so it cannot flip when the view
+        /// direction becomes parallel to a planet pole or spin axis.
+        /// </summary>
+        public static Quaternion StableLookRotation(Vector3 forward, Vector3 upHint, Vector3 fallbackUp)
+        {
+            if (forward.sqrMagnitude < 1e-12f || float.IsNaN(forward.x) ||
+                float.IsNaN(forward.y) || float.IsNaN(forward.z))
+                return Quaternion.identity;
+
+            forward.Normalize();
+            Vector3 up = Vector3.ProjectOnPlane(upHint, forward);
+            if (up.sqrMagnitude < 1e-10f)
+                up = Vector3.ProjectOnPlane(fallbackUp, forward);
+            if (up.sqrMagnitude < 1e-10f)
+            {
+                Vector3 axis = Mathf.Abs(Vector3.Dot(forward, Vector3.up)) < 0.9f
+                    ? Vector3.up : Vector3.right;
+                up = Vector3.ProjectOnPlane(axis, forward);
+            }
+            return Quaternion.LookRotation(forward, up.normalized);
+        }
+
+        private static Vector3 ToVector3(Vec3d value)
+        {
+            return new Vector3((float)value.x, (float)value.y, (float)value.z);
         }
 
         private void HandleFocusInput()

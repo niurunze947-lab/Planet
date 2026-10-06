@@ -95,4 +95,15 @@ public sealed class SurfaceCameraClipTests
         Assert.Greater(far, near);
         Assert.LessOrEqual(far / near, SurfaceCameraClip.MaxNearFarRatio * 1.01f);
     }
+
+    [Test]
+    public void SanitizeRaisesTinyNearPlanesToProjectionFloor()
+    {
+        float near = 1e-12f;
+        float far = 0.1f;
+        SurfaceCameraClip.SanitizeClipPlanes(ref near, ref far);
+
+        Assert.AreEqual(SurfaceCameraClip.MinNearSceneUnits, near, 1e-12f);
+        Assert.LessOrEqual(far / near, SurfaceCameraClip.MaxNearFarRatio * 1.01f);
+    }
 }

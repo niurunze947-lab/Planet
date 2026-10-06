@@ -1,4 +1,5 @@
 using System;
+using Planet.Solar;
 
 namespace Planet.Interaction
 {
@@ -29,7 +30,14 @@ namespace Planet.Interaction
         /// "Screen position out of view frustum" from SendMouseEvents and the play session
         /// dies. 1e5:1 is about the practical float limit for a usable depth buffer.
         /// </summary>
-        public const float MaxNearFarRatio = 1e5f;
+        public const float MaxNearFarRatio = SolarSystemCamera.MaxProjectionRatio;
+
+        /// <summary>
+        /// Smallest scene-unit near plane accepted by the runtime projection path (0.1 m at the
+        /// solar-system scale). This keeps the projection depth away from zero without clipping
+        /// the close ground view.
+        /// </summary>
+        public const float MinNearSceneUnits = SolarSystemCamera.MinProjectionNear;
 
         /// <summary>Near clip in metres. Never large enough to eat the planet at any altitude.</summary>
         public static float NearMetres(double altitudeMetres)
@@ -58,13 +66,7 @@ namespace Planet.Interaction
         /// </summary>
         public static void SanitizeClipPlanes(ref float near, ref float far)
         {
-            if (float.IsNaN(near) || float.IsInfinity(near) || near <= 0f) near = 1e-6f;
-            if (float.IsNaN(far) || float.IsInfinity(far) || far <= 0f) far = near * MaxNearFarRatio;
-
-            if (far < near * 2f) far = near * 2f;
-
-            float maxFar = near * MaxNearFarRatio;
-            if (far > maxFar) far = maxFar;
+            SolarSystemCamera.SanitizeProjectionPlanes(ref near, ref far);
         }
     }
 }

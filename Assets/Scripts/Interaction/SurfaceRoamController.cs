@@ -60,6 +60,8 @@ namespace Planet.Interaction
         {
             get
             {
+                double radial = CurrentRadialClearanceMetres();
+                if (radial >= 0.0) return radial;
                 if (_space.IsValid) return math.max(_space.PlayerToSurfaceDistanceMetres, 0.0);
                 return _fallbackAltitudeMetres;
             }
@@ -103,6 +105,10 @@ namespace Planet.Interaction
         private double3 _playerBfMetres;
         private float _yaw;
         private float _pitch;
+        // The exact body-fixed camera orientation captured on entry. Keeping this as a quaternion
+        // preserves the existing roll/attitude; converting it to Euler X/Y loses a component when
+        // the orbit camera is viewed from an arbitrary point on the planet.
+        private Quaternion _lookBodyRotation = Quaternion.identity;
         private int _speedLevel;
         private double _fallbackAltitudeMetres;
         private double _ceilingAltitudeMetres;
@@ -193,6 +199,17 @@ namespace Planet.Interaction
                     orbitCamera.SnapToDistance((float)SurfaceLocalSpace.MetresToSceneUnits(
                         math.length(_playerBfMetres), KmPerUnit()));
                 }
+                var sim = SolarSystemSimulation.Instance;
+                Vector3 bodyPosition = sim != null && sim.FocusView != null
+                    ? sim.FocusView.transform.position
+                    : Vector3.zero;
+                Vector3 inward = bodyPosition - orbitCamera.transform.position;
+                if (inward.sqrMagnitude > 1e-12f)
+                {
+                    Vector3 orbitEuler = Quaternion.LookRotation(inward.normalized, Vector3.up).eulerAngles;
+                    orbitCamera.pitch = orbitEuler.x > 180f ? orbitEuler.x - 360f : orbitEuler.x;
+                    orbitCamera.yaw = orbitEuler.y > 180f ? orbitEuler.y - 360f : orbitEuler.y;
+                }
                 orbitCamera.freeRoam = false;
                 orbitCamera.handleInput = _restoredOrbitInput;
                 orbitCamera.handleZoomInput = _restoredZoomInput;
@@ -255,7 +272,39 @@ namespace Planet.Interaction
             bool rmb = mouse.rightButton.isPressed;
             Vector2 look = SurfaceRoamInput.LookDeltaDegrees(
                 mouse.delta.ReadValue(), rmb, lookSensitivity);
-            SurfaceRoamInput.ApplyLook(ref _yaw, ref _pitch, look);
+            if (look.sqrMagnitude <= 0f) return;
+
+            Quaternion enu = _space.IsValid ? _space.BodyFromEnu() : Quaternion.identity;
+            Vector3 upBody = enu * Vector3.up;
+            if (upBody.sqrMagnitude < 1e-12f) upBody = Vector3.up;
+            _lookBodyRotation = ApplyLookDelta(_lookBodyRotation, upBody, look);
+
+            Vector3 e = (Quaternion.Inverse(enu) * _lookBodyRotation).eulerAngles;
+            _pitch = e.x > 180f ? e.x - 360f : e.x;
+            _yaw = e.y > 180f ? e.y - 360f : e.y;
+        }
+
+        /// <summary>
+        /// Applies local-up yaw and camera-right pitch while preserving the captured quaternion.
+        /// Pitch is clamped by forward elevation so repeated mouse motion cannot flip the camera.
+        /// </summary>
+        public static Quaternion ApplyLookDelta(Quaternion bodyLook, Vector3 upBody, Vector2 delta)
+        {
+            bodyLook = NormalizeRotation(bodyLook);
+            upBody = upBody.sqrMagnitude > 1e-12f ? upBody.normalized : Vector3.up;
+            if (delta.sqrMagnitude <= 0f) return bodyLook;
+
+            bodyLook = Quaternion.AngleAxis(delta.x, upBody) * bodyLook;
+            Vector3 forward = bodyLook * Vector3.forward;
+            float elevation = Mathf.Asin(Mathf.Clamp(Vector3.Dot(forward, upBody), -1f, 1f)) * Mathf.Rad2Deg;
+            float nextElevation = Mathf.Clamp(elevation + delta.y, -89.9f, 89.9f);
+            float appliedPitch = nextElevation - elevation;
+
+            Vector3 rightBody = bodyLook * Vector3.right;
+            if (Mathf.Abs(appliedPitch) > 1e-6f && rightBody.sqrMagnitude > 1e-12f)
+                bodyLook = Quaternion.AngleAxis(-appliedPitch, rightBody) * bodyLook;
+
+            return NormalizeRotation(bodyLook);
         }
 
         /// <summary>
@@ -301,6 +350,7 @@ namespace Planet.Interaction
 
             // Body-fixed metres are already the spin-invariant truth — integrate in place.
             _playerBfMetres += _velocityBodyMetresPerSecond * (double)deltaTime;
+            ClampPlayerOutsideSurface();
             _space.playerLocalMetres = BodyFixedToLocal(_playerBfMetres);
         }
 
@@ -310,8 +360,7 @@ namespace Planet.Interaction
         /// </summary>
         private Quaternion LookBodyRotation()
         {
-            Quaternion enu = _space.IsValid ? _space.BodyFromEnu() : Quaternion.identity;
-            return enu * Quaternion.Euler(_pitch, _yaw, 0f);
+            return _lookBodyRotation;
         }
 
         /// <summary>
@@ -360,6 +409,13 @@ namespace Planet.Interaction
             return bodyWorldRotation * bodyFromEnu * Quaternion.Euler(pitch, yaw, 0f);
         }
 
+        /// <summary>Composes an exact body-fixed camera pose without an Euler round-trip.</summary>
+        public static Quaternion BodyFixedLookToWorld(
+            Quaternion bodyWorldRotation, Quaternion bodyFixedLook)
+        {
+            return bodyWorldRotation * bodyFixedLook;
+        }
+
         private void ApplyClipPlanes()
         {
             var cam = orbitCamera != null ? orbitCamera.GetComponent<Camera>() : null;
@@ -369,7 +425,10 @@ namespace Planet.Interaction
             CelestialBody body = sim != null ? sim.FocusView : null;
             float radiusUnits = body != null ? body.RadiusUnits : 0f;
             float kmPerUnit = KmPerUnit();
-            double altitudeMetres = System.Math.Max(PlayerToSurfaceDistanceMetres, 1.0);
+            // The ENU frame is anchored at entry. At high fly speeds the player can travel far
+            // enough that its local y component is no longer the radial altitude; derive clipping
+            // from the current body-fixed radius so near/far remain valid during 40 km/s travel.
+            double altitudeMetres = System.Math.Max(CurrentRadialClearanceMetres(), 1.0);
             float nearM = SurfaceCameraClip.NearMetres(altitudeMetres);
             float farM = SurfaceCameraClip.FarMetres(altitudeMetres, (double)radiusUnits * (double)kmPerUnit * 1000.0);
             float near = (float)SurfaceLocalSpace.MetresToSceneUnits(nearM, kmPerUnit);
@@ -390,7 +449,7 @@ namespace Planet.Interaction
         {
             if (orbitCamera == null) return;
             double units = SurfaceLocalSpace.MetresToSceneUnits(math.length(_playerBfMetres), KmPerUnit());
-            if (units > 0.0) orbitCamera.SnapToDistance((float)units);
+            if (units > 0.0) orbitCamera.SetExternalViewHeight((float)units);
         }
 
         /// <summary>
@@ -454,17 +513,88 @@ namespace Planet.Interaction
             // planet turns.
             Quaternion camRotWorld = orbitCamera != null ? orbitCamera.transform.rotation : Quaternion.identity;
             Quaternion enu = _space.IsValid ? _space.BodyFromEnu() : Quaternion.identity;
-            Vector3 e = (Quaternion.Inverse(enu) * Quaternion.Inverse(bodyRot) * camRotWorld).eulerAngles;
+            _lookBodyRotation = NormalizeRotation(Quaternion.Inverse(bodyRot) * camRotWorld);
+
+            // Keep the legacy angle properties meaningful for diagnostics/HUD consumers. They no
+            // longer drive the pose; the quaternion above is authoritative and preserves roll.
+            Vector3 e = (Quaternion.Inverse(enu) * _lookBodyRotation).eulerAngles;
             _pitch = e.x; if (_pitch > 180f) _pitch -= 360f;
-            _yaw = e.y;
+            _yaw = e.y; if (_yaw > 180f) _yaw -= 360f;
             _speedLevel = initialSpeedLevel;
             _velocityBodyMetresPerSecond = double3.zero;
+        }
+
+        private static Quaternion NormalizeRotation(Quaternion rotation)
+        {
+            float length = Mathf.Sqrt(rotation.x * rotation.x + rotation.y * rotation.y +
+                rotation.z * rotation.z + rotation.w * rotation.w);
+            return length > 1e-6f && !float.IsNaN(length) && !float.IsInfinity(length)
+                ? new Quaternion(rotation.x / length, rotation.y / length,
+                    rotation.z / length, rotation.w / length)
+                : Quaternion.identity;
         }
 
         private double3 BodyFixedToLocal(double3 playerBfMetres)
         {
             if (!_space.IsValid) return new double3(0.0, _fallbackAltitudeMetres, 0.0);
             return _space.BodyFixedToLocal(playerBfMetres);
+        }
+
+        /// <summary>Returns radial body-fixed clearance from the current terrain surface.</summary>
+        private double CurrentRadialClearanceMetres()
+        {
+            double length = math.length(_playerBfMetres);
+            if (!(length > 1e-6) || !math.isfinite(length)) return -1.0;
+
+            var sim = SolarSystemSimulation.Instance;
+            CelestialBody body = sim != null ? sim.FocusView : null;
+            if (body == null) return -1.0;
+
+            double3 direction = _playerBfMetres / length;
+            IPlanetSurfaceQuery query = body.GetComponent<IPlanetSurfaceQuery>();
+            double ground = SurfaceRadiusAt(direction, query);
+            if (!(ground > 0.0) || double.IsNaN(ground) || double.IsInfinity(ground)) return -1.0;
+            return math.max(length - ground, 0.0);
+        }
+
+        /// <summary>
+        /// Prevents a high-speed Q/W/S/E step from tunnelling through the solid body. The previous
+        /// visual-only radius clamp left the body-fixed truth underground, which then produced a
+        /// near clip below Unity's ScreenPointToRay precision floor.
+        /// </summary>
+        private void ClampPlayerOutsideSurface()
+        {
+            double length = math.length(_playerBfMetres);
+            double3 direction = length > 1e-6 && math.all(math.isfinite(_playerBfMetres))
+                ? _playerBfMetres / length
+                : new double3(0.0, 1.0, 0.0);
+            double ground = SurfaceRadiusAt(direction, null);
+            if (!(ground > 0.0) || double.IsNaN(ground) || double.IsInfinity(ground)) return;
+
+            double safety = viewDistance != null
+                ? System.Math.Max(viewDistance.minClearanceMetres, 0.01)
+                : 0.01;
+            double floor = ground + safety;
+            if (length < floor)
+            {
+                _playerBfMetres = direction * floor;
+                double inward = math.dot(_velocityBodyMetresPerSecond, direction);
+                if (inward < 0.0)
+                    _velocityBodyMetresPerSecond -= direction * inward;
+            }
+        }
+
+        private double SurfaceRadiusAt(double3 direction, IPlanetSurfaceQuery knownQuery)
+        {
+            var sim = SolarSystemSimulation.Instance;
+            CelestialBody body = sim != null ? sim.FocusView : null;
+            IPlanetSurfaceQuery query = knownQuery ?? (body != null
+                ? body.GetComponent<IPlanetSurfaceQuery>() : null);
+            double ground = query != null
+                ? query.SampleSurfaceRadiusMetres(direction, 1.0)
+                : FallbackRadiusMetres();
+            return ground > 0.0 && !double.IsNaN(ground) && !double.IsInfinity(ground)
+                ? ground : FallbackRadiusMetres();
         }
 
         private double FallbackRadiusMetres()

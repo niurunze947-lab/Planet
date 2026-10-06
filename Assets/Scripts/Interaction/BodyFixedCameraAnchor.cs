@@ -9,6 +9,7 @@ namespace Planet.Interaction
     /// body's rotating frame so the ground does not slide under the player near the surface.
     /// </summary>
     [DisallowMultipleComponent]
+    [DefaultExecutionOrder(-10)] // publish body-fixed yaw/pitch before SolarSystemCamera.LateUpdate
     public class BodyFixedCameraAnchor : MonoBehaviour
     {
         public SolarSystemCamera orbitCamera;

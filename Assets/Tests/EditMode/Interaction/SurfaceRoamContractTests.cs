@@ -43,6 +43,28 @@ public sealed class SurfaceRoamContractTests
     }
 
     [Test]
+    public void ExternalViewHeightDoesNotMoveCameraTransform()
+    {
+        var go = new GameObject("cam");
+        try
+        {
+            go.AddComponent<Camera>();
+            var orbit = go.AddComponent<SolarSystemCamera>();
+            go.transform.position = new Vector3(4f, 5f, 6f);
+
+            orbit.SetExternalViewHeight(3f);
+
+            Assert.AreEqual(new Vector3(4f, 5f, 6f), go.transform.position);
+            Assert.AreEqual(3f, orbit.CurrentViewHeightUnits, 1e-6f);
+            Assert.AreEqual(3f, orbit.TargetDistance, 1e-6f);
+        }
+        finally
+        {
+            Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
     public void FreeRoamStopsOrbitTransformFromRecentringOnTheBody()
     {
         // ApplyTransform is a no-op in free-roam: the camera must not snap back to
@@ -213,6 +235,53 @@ public sealed class SurfaceRoamContractTests
         Quaternion deltaLook = lookB * Quaternion.Inverse(lookA);
         Quaternion deltaSpin = spinB * Quaternion.Inverse(spinA);
         Assert.Less(Quaternion.Angle(deltaLook, deltaSpin), 1e-3f);
+    }
+
+    [Test]
+    public void LookDeltaKeepsTheCapturedOrientationWhenInputIsZero()
+    {
+        Quaternion captured = Quaternion.Euler(23f, 71f, 12f);
+        Quaternion updated = SurfaceRoamController.ApplyLookDelta(captured, Vector3.up, Vector2.zero);
+        Assert.Less(Quaternion.Angle(captured, updated), 1e-4f);
+    }
+
+    [Test]
+    public void LookPitchClampsBeforeCameraCanFlip()
+    {
+        Quaternion updated = SurfaceRoamController.ApplyLookDelta(
+            Quaternion.identity, Vector3.up, new Vector2(0f, 120f));
+        Vector3 forward = updated * Vector3.forward;
+        float elevation = Mathf.Asin(Mathf.Clamp(Vector3.Dot(forward, Vector3.up), -1f, 1f)) * Mathf.Rad2Deg;
+        Assert.AreEqual(89.9f, elevation, 0.02f);
+    }
+
+    [Test]
+    public void StableLookRotationDoesNotFlipWhenUpHintIsParallelToView()
+    {
+        Quaternion rotation = SolarSystemCamera.StableLookRotation(
+            new Vector3(0f, 1f, 0.001f), Vector3.up, Vector3.forward);
+        Assert.Greater(Vector3.Dot(rotation * Vector3.forward, new Vector3(0f, 1f, 0.001f).normalized), 0.999f);
+        Assert.IsFalse(float.IsNaN(rotation.x));
+        Assert.IsFalse(float.IsNaN(rotation.w));
+    }
+
+    [Test]
+    public void ProjectionSanitizerRaisesUnityInvalidClipPair()
+    {
+        float near = 1e-13f;
+        float far = 1e-8f;
+        SolarSystemCamera.SanitizeProjectionPlanes(ref near, ref far);
+        Assert.AreEqual(SolarSystemCamera.MinProjectionNear, near, 1e-15f);
+        Assert.LessOrEqual(far / near, SolarSystemCamera.MaxProjectionRatio * 1.01f);
+    }
+
+    [Test]
+    public void BodyFixedAnchorRunsBeforeTheOrbitCamera()
+    {
+        var attribute = (DefaultExecutionOrder)System.Attribute.GetCustomAttribute(
+            typeof(BodyFixedCameraAnchor), typeof(DefaultExecutionOrder));
+        Assert.IsNotNull(attribute);
+        Assert.AreEqual(-10, attribute.order);
     }
 
     [Test]

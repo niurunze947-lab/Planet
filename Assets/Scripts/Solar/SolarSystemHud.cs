@@ -104,17 +104,16 @@ namespace Planet.Solar
             if (surfaceRoam)
             {
                 GUILayout.Label("按住右键拖动 环视（左右扭头）  右键 + Q/W/E/A/S/D 漫游", _hint);
-                GUILayout.Label("滚轮 调速   Esc 取消导航目标   F 重新聚焦   H 隐藏面板", _hint);
+                GUILayout.Label("左键 环绕选落点   滚轮 靠近/远离", _hint);
                 GUILayout.Space(4);
                 GUILayout.Label(string.Format("到地表距离  {0}", FormatMetresAlways(surfaceAltitudeMetres)), _body);
                 GUILayout.Label(string.Format("漫游速度    {0}", FormatSpeed(SurfaceRoamHudState.FlySpeedMetresPerSecond)), _body);
-                GUILayout.Label("地表自由飞行 · 地形碰撞 · 无重力", _hint);
             }
             else
             {
                 GUILayout.Label("1-9,0 / Tab 临时聚焦   F 重新取景   Esc 取消目标", _hint);
                 GUILayout.Label("右键环视 + Q/W/E/A/S/D 飞行", _hint);
-                GUILayout.Label("滚轮：有目标时推进，无目标时调速", _hint);
+                GUILayout.Label("左键 环绕选落点   滚轮 前进/后退", _hint);
                 GUILayout.Label("空格 暂停   -/= 时间流速   \\ 复位   N 今天   R J2000", _hint);
                 GUILayout.Label("G 天体放大 400×（仅为可见，非真实比例）  L 经纬网格  H 隐藏本面板", _hint);
 
@@ -122,6 +121,9 @@ namespace Planet.Solar
                 GUILayout.Label(string.Format("比例尺  1 场景单位 = {0:N0} km", _sim.KmPerUnit), _hint);
                 GUILayout.Label(string.Format("当前视距  {0}", FormatLength(CameraDistance())), _hint);
             }
+            GUILayout.Label(string.Format("速度倍率    {0:0.#####}×   小键盘 +/-", SurfaceRoamHudState.SpeedMultiplier), _body);
+            bool gravity = GUILayout.Toggle(SurfaceRoamHudState.GravityEnabled, "重力  GM/r²");
+            if (gravity != SurfaceRoamHudState.GravityEnabled) SurfaceRoamHudState.RequestGravity(gravity);
 
             GUILayout.EndArea();
 

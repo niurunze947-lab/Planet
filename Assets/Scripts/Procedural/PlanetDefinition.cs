@@ -41,7 +41,7 @@ namespace Planet.Procedural
         public float terrainMaximumMetres = 8000f;
         [Range(0f, 1f)] public float waterCoverage;
         [Tooltip("Display-only terrain exaggeration: 1 = physical relief, 20-50 = globe inspection. Runtime chunks refresh after changing; physical heights and water classification stay unchanged.")]
-        [Range(1f, 100f)] public float visualReliefScale = 4f;
+        [Range(1f, 100f)] public float visualReliefScale = 1f;
 
         [Header("Relief")]
         [Min(0.1f)] public float mountainFrequency = 12f;

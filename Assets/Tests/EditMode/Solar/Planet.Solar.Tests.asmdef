@@ -3,6 +3,7 @@
     "references": [
         "Planet.Solar",
         "Planet.Procedural",
+        "Unity.Mathematics",
         "Unity.InputSystem",
         "Unity.RenderPipelines.Core.Runtime",
         "Unity.RenderPipelines.Universal.Runtime"

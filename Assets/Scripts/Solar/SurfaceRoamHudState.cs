@@ -1,3 +1,5 @@
+using System;
+
 namespace Planet.Solar
 {
     /// <summary>
@@ -17,6 +19,14 @@ namespace Planet.Solar
 
         /// <summary>Current fly speed in metres per second.</summary>
         public static double FlySpeedMetresPerSecond;
+        public static float SpeedMultiplier = 1f;
+        public static bool GravityEnabled;
+        public static event Action<bool> GravityChanged;
+
+        public static void RequestGravity(bool enabled)
+        {
+            if (GravityChanged != null) GravityChanged(enabled);
+        }
 
         public static void Publish(bool active, double playerToSurfaceDistanceMetres)
         {

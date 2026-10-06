@@ -57,7 +57,7 @@ namespace Planet.Solar
                     d.physical.massKilograms = 5.9722e24;
                     a.surfaceKind = PlanetSurfaceKind.Terrestrial;
                     d.features = new PlanetFeatureOptions(); d.physical.atmosphereHeightMetres = 80000f;
-                    d.generation.seed = 271828; d.generation.visualReliefScale = 4f;
+                    d.generation.seed = 271828; d.generation.visualReliefScale = 1f;
                     a.interpretation = "Existing procedural Terra with ocean, ecology, ice, clouds and atmosphere; not Earth's observed continental map.";
                     break;
                 case "Moon":

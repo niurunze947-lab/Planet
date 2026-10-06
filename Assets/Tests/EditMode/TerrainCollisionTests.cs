@@ -68,11 +68,50 @@ public sealed class TerrainCollisionTests
                 verticalFovDegrees = 60, aspect = 1.6f, pixelHeight = 1080,
                 localCameraActive = true
             };
-            var leaves = RuntimeTerrainSelection.Select(source, view, 192, 25, 3, true);
+            var leaves = RuntimeTerrainSelection.Select(source, view, 1024, 25, 3, true);
             int coveringLevel = 0;
             foreach (var key in leaves)
                 if (TerrainLattice.NodeAt(direction, key.level).Equals(key)) coveringLevel = key.level;
             Assert.GreaterOrEqual(coveringLevel, 24);
+        }
+        finally { Object.DestroyImmediate(definition); }
+    }
+
+    [TestCase(5000.0)]
+    [TestCase(500.0)]
+    [TestCase(0.5)]
+    public void NeighbourhoodKeepsBaselineBehindCameraAndAcrossCubeFaces(double height)
+    {
+        var definition = ScriptableObject.CreateInstance<PlanetDefinition>();
+        try
+        {
+            var source = new RuntimeTerrainSource(definition);
+            // Exercise a cube seam, not only the centre of a face.
+            double3 direction = math.normalize(new double3(1, 0.15, 1));
+            double3 east = math.normalize(math.cross(direction, new double3(0, 1, 0)));
+            double3 north = math.cross(direction, east);
+            var policy = TerrainNeighbourhoodPolicy.Default;
+            var view = new PlanetViewState
+            {
+                positionBfMetres = source.Position(direction, 0.01) + direction * height,
+                rotationBf = quaternion.LookRotationSafe((float3)direction, new float3(0, 1, 0)),
+                localCameraActive = true, verticalFovDegrees = 60, aspect = 1.6f, pixelHeight = 1080
+            };
+            var leaves = RuntimeTerrainSelection.Select(source, view, 1024, 25, 3, true, null, policy);
+            Assert.LessOrEqual(leaves.Count, 1024);
+            foreach (double ring in new[] { 50.0, 500.0, 999.0, 4900.0 })
+            for (int i = 0; i < 12; i++)
+            {
+                double angle = i * math.PI / 6;
+                double3 sample = math.normalize(direction * source.radius +
+                    (east * math.cos(angle) + north * math.sin(angle)) * ring);
+                int required = policy.RequiredLevel(source.radius, height, ring);
+                int covering = -1;
+                foreach (var key in leaves)
+                    if (TerrainLattice.NodeAt(sample, key.level).Equals(key)) covering = key.level;
+                Assert.GreaterOrEqual(covering, required, "ring " + ring + " azimuth " + i);
+            }
+            Assert.LessOrEqual(RuntimeTerrainSelection.WithAncestors(leaves).Count, 1536);
         }
         finally { Object.DestroyImmediate(definition); }
     }

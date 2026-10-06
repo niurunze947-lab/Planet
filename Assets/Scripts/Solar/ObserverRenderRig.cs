@@ -40,10 +40,12 @@ namespace Planet.Solar
             LocalCamera.fieldOfView = background.fieldOfView;
             LocalCamera.aspect = background.aspect;
             LocalCamera.transform.SetPositionAndRotation(Vector3.zero, background.transform.rotation);
+            ObserverAtmosphereSky.Sync(SolarSystemSimulation.Instance);
         }
 
         private void OnDisable()
         {
+            ObserverAtmosphereSky.Clear();
             if (background != null)
             {
                 background.cullingMask = originalMask;

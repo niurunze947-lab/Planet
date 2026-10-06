@@ -5,6 +5,44 @@ namespace Planet.Interaction
 {
     public static class FlightMotion
     {
+        public const double GravitationalConstant = 6.67430e-11;
+
+        /// <summary>Point-mass acceleration in real metres and seconds, without a gameplay speed cap.</summary>
+        public static double3 GravityAcceleration(double3 fromCenterMetres, double massKilograms)
+        {
+            double radiusSquared = math.lengthsq(fromCenterMetres);
+            if (radiusSquared < 1 || !(massKilograms > 0)) return double3.zero;
+            return -fromCenterMetres * (GravitationalConstant * massKilograms /
+                (radiusSquared * Math.Sqrt(radiusSquared)));
+        }
+        /// <summary>Bound peak fractional growth of the planet on screen, independent of trip length.</summary>
+        public static double FocusDuration(double startRange, double endRange, double maxLogRate = 4.0)
+        {
+            double span = Math.Abs(Math.Log(Math.Max(startRange, 0.01) / Math.Max(endRange, 0.01)));
+            // The quintic smoothstep below has maximum derivative 1.875.
+            return Math.Max(0.6, 1.875 * span / Math.Max(0.1, maxLogRate));
+        }
+
+        public static double FocusRange(double startRange, double endRange, double progress,
+            double duration, out double radialVelocity)
+        {
+            startRange = Math.Max(startRange, 0.01);
+            endRange = Math.Max(endRange, 0.01);
+            double t = math.clamp(progress, 0, 1);
+            double eased = t * t * t * (10 + t * (-15 + 6 * t));
+            double span = Math.Log(endRange / startRange);
+            double range = startRange * Math.Exp(span * eased);
+            double derivative = 30 * t * t * (1 - t) * (1 - t);
+            radialVelocity = range * span * derivative / Math.Max(duration, 0.01);
+            return t >= 1 ? endRange : range;
+        }
+
+        public static double3 LimitMagnitude(double3 velocity, double speed)
+        {
+            double length = math.length(velocity);
+            return length > speed && length > 0 ? velocity * (Math.Max(0, speed) / length) : velocity;
+        }
+
         public static double3 Accelerate(double3 velocity, double3 target, double acceleration, double dt)
         {
             double3 delta = target - velocity;

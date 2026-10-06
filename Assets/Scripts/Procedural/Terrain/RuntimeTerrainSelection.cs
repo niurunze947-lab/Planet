@@ -7,7 +7,8 @@ namespace Planet.Procedural.Terrain
     public static class RuntimeTerrainSelection
     {
         public static HashSet<TerrainNodeKey> Select(RuntimeTerrainSource source, PlanetViewState view,
-            int maxLeaves, int maxLevel, double pixelTolerance, bool focused, HashSet<TerrainNodeKey> previousSplits = null)
+            int maxLeaves, int maxLevel, double pixelTolerance, bool focused, HashSet<TerrainNodeKey> previousSplits = null,
+            TerrainNeighbourhoodPolicy? neighbourhood = null)
         {
             var macroCache = new Dictionary<float3, float>();
             maxLeaves = math.max(6, maxLeaves);
@@ -16,10 +17,11 @@ namespace Planet.Procedural.Terrain
             var scores = new Dictionary<TerrainNodeKey, double>();
             double3 cameraDirection = math.normalizesafe(view.positionBfMetres, new double3(1, 0, 0));
             double clearance = math.abs(math.length(view.positionBfMetres) - math.length(source.Position(cameraDirection, 0.01, macroCache)));
+            TerrainNeighbourhoodPolicy policy = neighbourhood ?? TerrainNeighbourhoodPolicy.Default;
             for (int face = 0; face < 6; face++)
             {
                 var key = TerrainNodeKey.Root((PlanetCubeFace)face);
-                leaves.Add(key); scores[key] = Score(source, key, view, focused, clearance, macroCache);
+                leaves.Add(key); scores[key] = Score(source, key, view, focused, clearance, macroCache, policy);
             }
             while (leaves.Count + 3 <= maxLeaves)
             {
@@ -35,13 +37,15 @@ namespace Planet.Procedural.Terrain
                 leaves.Remove(best); scores.Remove(best);
                 for (int i = 0; i < 4; i++)
                 {
-                    var child = best.Child(i); leaves.Add(child); scores[child] = Score(source, child, view, focused, clearance, macroCache);
+                    var child = best.Child(i); leaves.Add(child);
+                    scores[child] = Score(source, child, view, focused, clearance, macroCache, policy);
                 }
             }
             return leaves;
         }
 
-        private static double Score(RuntimeTerrainSource source, TerrainNodeKey key, PlanetViewState view, bool focused, double clearance, Dictionary<float3, float> macroCache)
+        private static double Score(RuntimeTerrainSource source, TerrainNodeKey key, PlanetViewState view, bool focused,
+            double clearance, Dictionary<float3, float> macroCache, TerrainNeighbourhoodPolicy policy)
         {
             if (!focused) return 0;
             TerrainLattice.NodeUv(key, out double2 min, out double2 max);
@@ -49,13 +53,21 @@ namespace Planet.Procedural.Terrain
             double refRadius = source.ReferenceRadius(d);
             double edge = TerrainLattice.NodeSize(source.radius, key.level);
             double spacing = edge / TerrainLattice.N;
+            double3 cameraDirection = cameraDirectionFor(view);
+            bool underfoot = TerrainLattice.NodeAt(cameraDirection, key.level).Equals(key);
+            double surfaceDistance = TerrainNeighbourhoodPolicy.SurfaceDistanceToNode(cameraDirection, key, source.radius);
+            int requiredLevel = view.localCameraActive && source.solid
+                ? policy.RequiredLevel(source.radius, clearance, surfaceDistance) : 0;
+            if (key.level < requiredLevel)
+                return 1e18 / (key.level + 1);
+            if (view.localCameraActive && underfoot && spacing > math.max(0.01, clearance * 0.02))
+                return 1e16 / (key.level + 1);
             double3 center = source.Position(d, spacing, macroCache);
             // A planet-wide relief bound on every centimetre patch defeats frustum culling.
             double localRelief = math.min(source.ReliefBound, edge * 0.5 + source.detail.ResidualBound(spacing) * source.reliefScale);
             double bound = edge * 0.85 + localRelief;
             double3 relative = center - view.positionBfMetres;
             double range = math.length(relative);
-            bool underfoot = TerrainLattice.NodeAt(cameraDirectionFor(view), key.level).Equals(key);
             double protectedRange = 128.0 + math.min(10000.0, math.length(view.velocityBfMetresPerSecond) * 2.0);
             bool collisionNeighbourhood = view.localCameraActive &&
                 (underfoot || range - bound < protectedRange);
@@ -72,9 +84,6 @@ namespace Planet.Procedural.Terrain
             double distance = math.max(range - bound, math.max(0.01, clearance * 0.25));
             // Reserve the path below the observer before spending the remaining leaves on
             // the horizon. Otherwise coarse far patches exhaust the budget at ground level.
-            if (view.localCameraActive && underfoot &&
-                spacing > math.max(0.01, clearance * 0.02))
-                return 1e20 / (key.level + 1);
             double pixelsPerMetre = math.max(1, view.pixelHeight) /
                 (2 * math.tan(math.radians(math.clamp(view.verticalFovDegrees, 1f, 170f)) * 0.5) * distance);
             double curvature = spacing * spacing / (8 * source.radius);

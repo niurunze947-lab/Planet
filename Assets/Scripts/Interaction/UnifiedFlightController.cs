@@ -1,5 +1,6 @@
 using System;
 using Planet.Procedural.Terrain;
+using Planet.Procedural;
 using Planet.Solar;
 using Unity.Mathematics;
 using UnityEngine;
@@ -13,10 +14,20 @@ namespace Planet.Interaction
     {
         public SolarSystemCamera cameraRig;
         public float lookSensitivity = SurfaceRoamInput.DefaultLookSensitivity;
+        [Tooltip("Maximum logarithmic distance change per second during automatic focus.")]
+        [Min(0.1f)] public float focusLogRate = 4f;
         public float speedResponseSeconds = 0.35f;
         public int initialSpeedLevel = 3;
+        public const float MinSpeedMultiplier = 1f / 32f;
+        public const float MaxSpeedMultiplier = 128f;
+        [SerializeField, Range(MinSpeedMultiplier, MaxSpeedMultiplier)]
+        private float speedMultiplier = 1f;
+        public float SpeedMultiplier { get { return Mathf.Clamp(speedMultiplier, MinSpeedMultiplier, MaxSpeedMultiplier); } }
         public double collisionRadiusMetres = 0.5;
         public bool handleInput = true;
+        [Tooltip("Apply GM/r^2 of the nearby planet in real seconds. B toggles gravity.")]
+        public bool gravityEnabled;
+        public bool GravityEnabled { get { return gravityEnabled; } }
 
         public double3 PositionWorldMetres { get { return positionWorldMetres; } }
         public double3 VelocityWorldMetresPerSecond { get { return velocityWorldMetresPerSecond; } }
@@ -26,6 +37,7 @@ namespace Planet.Interaction
         public bool IsAutoFocusing { get { return autoFocusing; } }
         public double3 PositionBodyFixedMetres { get { return bodyFixedMetres; } }
         public double3 VelocityBodyFixedMetresPerSecond { get { return velocityBodyFixedMetresPerSecond; } }
+        public double MovementSpeedLimitMetresPerSecond { get { return FlightSpeedLimit(); } }
         public bool CollisionCoverageReady
         {
             get { return ActiveCollisionQuery() != null && ActiveCollisionQuery().CollisionCoverageReady; }
@@ -40,13 +52,16 @@ namespace Planet.Interaction
         private double3 positionWorldMetres, velocityWorldMetresPerSecond;
         private double3 bodyFixedMetres, velocityBodyFixedMetresPerSecond;
         private Quaternion lookWorld = Quaternion.identity, lookBody = Quaternion.identity;
-        private double3 focusStart;
+        private double3 focusDirection;
+        private double focusStartRange, focusEndRange;
         private Quaternion focusStartLook;
-        private float focusElapsed, focusDuration;
+        private double focusElapsed, focusDuration;
         private double3 wheelVelocityWorld;
         private int translationFrameIndex = -1;
         private double3 previousFrameCenter;
         private bool restoringBodyScale;
+        private double3 gravityVelocityWorld, gravityVelocityBody;
+        private bool appliedGravityState;
 
         private void Awake()
         {
@@ -58,10 +73,14 @@ namespace Planet.Interaction
                 if (legacy is SurfaceRoamController || legacy is SurfaceModeController ||
                     legacy is BodyFixedCameraAnchor || legacy is ViewDistanceController) legacy.enabled = false;
             speedLevel = initialSpeedLevel;
+            appliedGravityState = gravityEnabled;
         }
+
+        private void OnEnable() { SurfaceRoamHudState.GravityChanged += SetGravityEnabled; }
 
         private void OnDisable()
         {
+            SurfaceRoamHudState.GravityChanged -= SetGravityEnabled;
             if (cameraRig != null)
             {
                 cameraRig.externalObserver = false;
@@ -87,6 +106,7 @@ namespace Planet.Interaction
             velocityWorldMetresPerSecond = velocityMetresPerSecond;
             lookWorld = orientation;
             wheelVelocityWorld = double3.zero;
+            gravityVelocityWorld = gravityVelocityBody = double3.zero;
             UpdateNearGate();
             UpdateNearbyBody();
         }
@@ -97,6 +117,7 @@ namespace Planet.Interaction
             if (simulation == null || cameraRig == null || unityCamera == null || simulation.BodyCount == 0) return;
             if (!initialized) Initialize();
             if (!initialized) return;
+            if (appliedGravityState != gravityEnabled) SetGravityEnabled(gravityEnabled);
 
             float dt = Mathf.Min(Time.deltaTime, 0.1f);
             if (dt <= 0f) return;
@@ -112,6 +133,8 @@ namespace Planet.Interaction
             }
             HandleCommands();
             HandleLook();
+            HandleOrbit(dt);
+            HandleNavigationScroll(dt);
             if (autoFocusing) AdvanceFocus(dt);
             else AdvanceFlight(dt);
             UpdateNearGate();
@@ -153,6 +176,9 @@ namespace Planet.Interaction
             if (!handleInput) return;
             Keyboard kb = Keyboard.current;
             if (kb == null) return;
+            int speedStep = (kb.numpadPlusKey.wasPressedThisFrame ? 1 : 0) -
+                (kb.numpadMinusKey.wasPressedThisFrame ? 1 : 0);
+            if (speedStep != 0) AdjustSpeedMultiplier(speedStep);
             for (int i = 0; i < SolarSystemCamera.HotkeyBodies.Length; i++)
             {
                 Key key = i == 9 ? Key.Digit0 : (Key)((int)Key.Digit1 + i);
@@ -167,6 +193,7 @@ namespace Planet.Interaction
                 BeginFocus(simulation.FocusIndex);
             }
             if (kb.fKey.wasPressedThisFrame) BeginFocus(simulation.FocusIndex);
+            if (kb.bKey.wasPressedThisFrame) SetGravityEnabled(!gravityEnabled);
             if (kb.escapeKey.wasPressedThisFrame)
                 CancelNavigation();
             if (kb.gKey.wasPressedThisFrame && activeBodyIndex < 0 && nearbyBodyIndex < 0 && !restoringBodyScale)
@@ -182,13 +209,27 @@ namespace Planet.Interaction
             navigationTargetIndex = bodyIndex;
             autoFocusing = true;
             translationFrameIndex = -1;
-            focusStart = positionWorldMetres;
+            double3 relative = positionWorldMetres - BodyWorldMetres(bodyIndex);
+            focusStartRange = Math.Max(0.01, math.length(relative));
+            focusDirection = math.normalizesafe(relative, new double3(0, 0, -1));
             focusStartLook = lookWorld;
             focusElapsed = 0f;
             double radius = Math.Max(1.0, simulation.DefinitionAt(bodyIndex).RadiusKm * 1000.0);
-            double range = math.distance(positionWorldMetres, BodyWorldMetres(bodyIndex));
-            focusDuration = Mathf.Clamp((float)(0.6 + 0.3 * Math.Log10(Math.Max(range / radius, 1.0))), 0.6f, 2.5f);
+            focusEndRange = Math.Max(radius * 1.2,
+                simulation.FrameDistanceFor(bodyIndex) * simulation.KmPerUnit * 1000.0);
+            focusDuration = FlightMotion.FocusDuration(focusStartRange, focusEndRange, focusLogRate);
             wheelVelocityWorld = double3.zero;
+            gravityVelocityWorld = gravityVelocityBody = double3.zero;
+        }
+
+        public void SetGravityEnabled(bool enabled)
+        {
+            if (appliedGravityState == enabled) return;
+            gravityEnabled = enabled;
+            appliedGravityState = enabled;
+            // Preserve total velocity when toggling; only the decomposition changes.
+            gravityVelocityWorld = gravityVelocityBody = double3.zero;
+            SurfaceRoamHudState.GravityEnabled = enabled;
         }
 
         public void CancelNavigation()
@@ -196,6 +237,18 @@ namespace Planet.Interaction
             autoFocusing = false;
             navigationTargetIndex = -1;
             wheelVelocityWorld = double3.zero;
+        }
+
+        public void SetSpeedMultiplier(float multiplier)
+        {
+            if (float.IsNaN(multiplier) || float.IsInfinity(multiplier))
+                throw new ArgumentException("Speed multiplier must be finite.");
+            speedMultiplier = Mathf.Clamp(multiplier, MinSpeedMultiplier, MaxSpeedMultiplier);
+        }
+
+        public void AdjustSpeedMultiplier(int steps)
+        {
+            SetSpeedMultiplier(SpeedMultiplier * Mathf.Pow(2f, Mathf.Clamp(steps, -12, 12)));
         }
 
         private void AdvanceFocus(float dt)
@@ -208,20 +261,17 @@ namespace Planet.Interaction
             if (manual) { autoFocusing = false; return; }
 
             double3 body = BodyWorldMetres(navigationTargetIndex);
-            double3 outward = math.normalizesafe(focusStart - body, new double3(0, 0, -1));
-            double radius = simulation.DefinitionAt(navigationTargetIndex).RadiusKm * 1000.0;
-            double frameRange = Math.Max(radius * 1.2,
-                simulation.FrameDistanceFor(navigationTargetIndex) * simulation.KmPerUnit * 1000.0);
-            double3 destination = body + outward * frameRange;
-            double3 previous = positionWorldMetres;
             focusElapsed += dt;
-            float t = Mathf.Clamp01(focusElapsed / focusDuration);
-            float eased = t * t * (3f - 2f * t);
-            positionWorldMetres = math.lerp(focusStart, destination, eased);
-            velocityWorldMetresPerSecond = (positionWorldMetres - previous) / dt;
-            Vector3 forward = ToVector3(math.normalizesafe(body - positionWorldMetres, new double3(0, 0, 1)));
-            Quaternion destinationLook = Quaternion.LookRotation(forward, Vector3.up);
-            lookWorld = Quaternion.Slerp(focusStartLook, destinationLook, eased);
+            double t = Math.Min(1, focusElapsed / focusDuration);
+            double range = FlightMotion.FocusRange(focusStartRange, focusEndRange, t, focusDuration,
+                out double radialVelocity);
+            positionWorldMetres = body + focusDirection * range;
+            // Velocity is relative to the target's translating frame, not its accelerated ephemeris.
+            velocityWorldMetresPerSecond = focusDirection * radialVelocity;
+            Quaternion destinationLook = SolarSystemCamera.StableLookRotation(
+                ToVector3(-focusDirection), focusStartLook * Vector3.up, Vector3.up);
+            float turn = Mathf.SmoothStep(0, 1, (float)(focusElapsed / Math.Min(0.6, focusDuration)));
+            lookWorld = Quaternion.Slerp(focusStartLook, destinationLook, turn);
             if (t >= 1f)
             {
                 autoFocusing = false;
@@ -247,6 +297,121 @@ namespace Planet.Interaction
             }
         }
 
+        private void HandleOrbit(float dt)
+        {
+            Mouse mouse = Mouse.current;
+            if (!handleInput || mouse == null || !mouse.leftButton.isPressed || mouse.rightButton.isPressed) return;
+            OrbitAroundTarget(mouse.delta.ReadValue(), dt);
+        }
+
+        /// <summary>Left drag changes the landing direction at the current radius, within the flight owner.</summary>
+        public void OrbitAroundTarget(Vector2 mouseDelta, float dt)
+        {
+            if (!initialized || navigationTargetIndex < 0 || dt <= 0 || mouseDelta.sqrMagnitude < 1e-8f) return;
+            if (activeBodyIndex >= 0 && activeBodyIndex != navigationTargetIndex) return;
+            autoFocusing = false;
+            double3 center = BodyWorldMetres(navigationTargetIndex);
+            Quaternion bodyRotation = simulation.ViewAt(navigationTargetIndex).transform.rotation;
+            double3 offset = activeBodyIndex >= 0 ? Rotate(bodyRotation, bodyFixedMetres) : positionWorldMetres - center;
+            double range = math.length(offset);
+            if (range < 1e-6) return;
+            Quaternion facing = SolarSystemCamera.StableLookRotation(ToVector3(-offset / range),
+                lookWorld * Vector3.up, Vector3.up);
+            Quaternion desiredLook = SurfaceRoamController.ApplyLookDelta(facing, Vector3.up,
+                mouseDelta * cameraRig.dragSensitivity);
+            Quaternion rotation = desiredLook * Quaternion.Inverse(facing);
+            double angle = Quaternion.Angle(Quaternion.identity, rotation) * Math.PI / 180.0;
+            double maxAngle = FlightSpeedLimit() * dt / range;
+            if (angle > maxAngle) rotation = Quaternion.Slerp(Quaternion.identity, rotation, (float)(maxAngle / angle));
+            double3 nextOffset = Rotate(rotation, offset);
+            lookWorld = rotation * facing;
+            velocityWorldMetresPerSecond = Rotate(rotation, velocityWorldMetresPerSecond);
+            gravityVelocityWorld = Rotate(rotation, gravityVelocityWorld);
+            wheelVelocityWorld = Rotate(rotation, wheelVelocityWorld);
+            if (activeBodyIndex >= 0)
+            {
+                double3 previous = bodyFixedMetres;
+                bodyFixedMetres = Rotate(Quaternion.Inverse(bodyRotation), nextOffset);
+                velocityBodyFixedMetresPerSecond = Rotate(Quaternion.Inverse(bodyRotation), velocityWorldMetresPerSecond);
+                gravityVelocityBody = Rotate(Quaternion.Inverse(bodyRotation), gravityVelocityWorld);
+                lookBody = Quaternion.Inverse(bodyRotation) * lookWorld;
+                ResolveBodyCollision(previous);
+                RefreshBodyFrame();
+            }
+            else
+            {
+                positionWorldMetres = center + nextOffset;
+                ResolveApproachCollision();
+                translationFrameIndex = navigationTargetIndex;
+                previousFrameCenter = center;
+            }
+        }
+
+        /// <summary>The single wheel/key input path; its impulse is already inside the terrain speed envelope.</summary>
+        public void ApplyNavigationScroll(float scroll)
+        {
+            if (!initialized || Math.Abs(scroll) <= 0.01f) return;
+            autoFocusing = false;
+            if (navigationTargetIndex < 0)
+            {
+                double3 forward = (double3)(float3)(lookWorld * Vector3.forward);
+                wheelVelocityWorld -= forward * (scroll / 120.0) *
+                    SurfaceRoamInput.SpeedForLevel(speedLevel) * SpeedMultiplier;
+                wheelVelocityWorld = FlightMotion.LimitMagnitude(wheelVelocityWorld, FlightSpeedLimit());
+                return;
+            }
+            double3 radial = activeBodyIndex == navigationTargetIndex
+                ? Rotate(simulation.ViewAt(activeBodyIndex).transform.rotation, bodyFixedMetres)
+                : positionWorldMetres - BodyWorldMetres(navigationTargetIndex);
+            double range = math.length(radial);
+            double logDelta = math.clamp(scroll * 0.002, -2.0, 2.0);
+            double3 impulse = radial / Math.Max(range, 1.0) *
+                ((Math.Exp(logDelta) - 1.0) * range / Math.Max(speedResponseSeconds, 0.01f)) * SpeedMultiplier;
+            wheelVelocityWorld += impulse;
+            wheelVelocityWorld = FlightMotion.LimitMagnitude(wheelVelocityWorld, FlightSpeedLimit());
+        }
+
+        private double FlightSpeedLimit()
+        {
+            if (!initialized || simulation == null) return double.PositiveInfinity;
+            int index = activeBodyIndex;
+            if (index < 0) index = ClosestBodyIndex(out double ignoredRatio, out double ignoredAltitude);
+            if (index < 0) return double.PositiveInfinity;
+            double radius = simulation.DefinitionAt(index).RadiusKm * 1000.0;
+            Quaternion bodyRotation = simulation.ViewAt(index).transform.rotation;
+            double3 local = activeBodyIndex >= 0 ? bodyFixedMetres :
+                Rotate(Quaternion.Inverse(bodyRotation), positionWorldMetres - BodyWorldMetres(index));
+            double range = math.length(local);
+            double3 direction = math.normalizesafe(local, new double3(0, 1, 0));
+            double ground = radius;
+            if (range < radius * 1.5)
+            {
+                var query = simulation.ViewAt(index).GetComponent<IPlanetCollisionSurfaceQuery>();
+                double surface = query != null ? query.SampleCollisionRadiusMetres(direction) : 0;
+                if (surface > 0) ground = surface;
+            }
+            double3 localVelocity = activeBodyIndex >= 0 ? velocityBodyFixedMetresPerSecond :
+                Rotate(Quaternion.Inverse(bodyRotation), velocityWorldMetresPerSecond);
+            // Brake one response interval ahead, including outstanding wheel inertia before the gate.
+            double approach = Math.Min(0, math.dot(localVelocity, direction));
+            double height = Math.Max(0, range - ground + approach * Math.Max(speedResponseSeconds, 0.01f));
+            return SurfaceRoamSpeed.FlightSpeedLimit(height, radius) * SpeedMultiplier;
+        }
+
+        private void HandleNavigationScroll(float dt)
+        {
+            if (!handleInput) return;
+            Mouse mouse = Mouse.current;
+            Keyboard kb = Keyboard.current;
+            float scroll = mouse != null ? mouse.scroll.ReadValue().y : 0f;
+            if (kb != null)
+            {
+                if (kb.pageUpKey.isPressed || kb.zKey.isPressed) scroll -= 1100f * dt;
+                if (kb.pageDownKey.isPressed || kb.xKey.isPressed) scroll += 1100f * dt;
+            }
+            ApplyNavigationScroll(scroll);
+        }
+
         private void AdvanceFlight(float dt)
         {
             Mouse mouse = Mouse.current;
@@ -255,15 +420,9 @@ namespace Planet.Interaction
             double3 axes = kb == null ? double3.zero : SurfaceRoamInput.FlyLocalAxes(
                 kb.wKey.isPressed, kb.aKey.isPressed, kb.sKey.isPressed, kb.dKey.isPressed,
                 kb.qKey.isPressed, kb.eKey.isPressed, rmb);
-            double speed = SurfaceRoamInput.SpeedForLevel(speedLevel);
-            if (activeBodyIndex >= 0)
-            {
-                double altitude = CurrentDisplayedClearance();
-                double radius = simulation.DefinitionAt(activeBodyIndex).RadiusKm * 1000.0;
-                double ceiling = SurfaceRoamSpeed.CeilingAltitudeMetres(radius);
-                speed = Math.Min(speed, SurfaceRoamSpeed.TargetSpeedMetresPerSecond(
-                    altitude, ceiling, SurfaceRoamSpeed.CeilingSpeedForRadius(radius)));
-            }
+            double speed = SurfaceRoamInput.SpeedForLevel(speedLevel) * SpeedMultiplier;
+            double speedLimit = FlightSpeedLimit();
+            speed = Math.Min(speed, speedLimit);
 
             double3 targetVelocity = double3.zero;
             if (math.lengthsq(axes) > 0)
@@ -272,36 +431,24 @@ namespace Planet.Interaction
                 targetVelocity = math.normalizesafe((double3)(float3)direction) * speed;
             }
 
-            float scroll = handleInput && mouse != null ? mouse.scroll.ReadValue().y : 0f;
-            if (handleInput && kb != null && activeBodyIndex < 0 && navigationTargetIndex >= 0)
-            {
-                if (kb.pageUpKey.isPressed || kb.zKey.isPressed) scroll -= 1100f * dt;
-                if (kb.pageDownKey.isPressed || kb.xKey.isPressed) scroll += 1100f * dt;
-            }
-            if (Mathf.Abs(scroll) > 0.01f)
-            {
-                if (navigationTargetIndex < 0 || activeBodyIndex >= 0)
-                    speedLevel = SurfaceRoamInput.AdjustSpeedLevel(speedLevel, scroll / 120f);
-                else
-                {
-                    double3 radial = positionWorldMetres - BodyWorldMetres(navigationTargetIndex);
-                    double range = math.length(radial);
-                    double logDelta = math.clamp(scroll * 0.002, -2.0, 2.0);
-                    wheelVelocityWorld = radial / Math.Max(range, 1.0) *
-                        ((Math.Exp(logDelta) - 1.0) * range / Math.Max(speedResponseSeconds, 0.01f));
-                }
-            }
-            if (navigationTargetIndex >= 0 && activeBodyIndex < 0) targetVelocity += wheelVelocityWorld;
+            targetVelocity += wheelVelocityWorld;
+            targetVelocity = FlightMotion.LimitMagnitude(targetVelocity, speedLimit);
             wheelVelocityWorld = math.lerp(wheelVelocityWorld, double3.zero,
                 1.0 - Math.Exp(-dt / Math.Max(speedResponseSeconds, 0.01f)));
+            double currentSpeed = activeBodyIndex >= 0 ? math.length(velocityBodyFixedMetresPerSecond) :
+                math.length(velocityWorldMetresPerSecond);
+            double accel = Math.Max(60.0, Math.Max(speed, Math.Max(math.length(targetVelocity), currentSpeed)) /
+                Math.Max(speedResponseSeconds, 0.01f));
 
             if (activeBodyIndex >= 0)
             {
                 Quaternion bodyRotation = simulation.ViewAt(activeBodyIndex).transform.rotation;
                 double3 targetBodyVelocity = Rotate(Quaternion.Inverse(bodyRotation), targetVelocity);
-                double accel = Math.Max(60.0, math.max(speed, math.length(velocityBodyFixedMetresPerSecond)) /
-                    Math.Max(speedResponseSeconds, 0.01f));
-                StepVelocity(ref velocityBodyFixedMetresPerSecond, targetBodyVelocity, accel, dt);
+                double3 controlledVelocity = velocityBodyFixedMetresPerSecond - gravityVelocityBody;
+                StepVelocity(ref controlledVelocity, targetBodyVelocity, accel, dt);
+                double3 gravity = GravityAcceleration(activeBodyIndex, bodyFixedMetres);
+                gravityVelocityBody += gravity * dt;
+                velocityBodyFixedMetresPerSecond = controlledVelocity + gravityVelocityBody;
                 double3 previous = bodyFixedMetres;
                 bodyFixedMetres += velocityBodyFixedMetresPerSecond * dt;
                 ResolveBodyCollision(previous);
@@ -310,9 +457,16 @@ namespace Planet.Interaction
             else
             {
                 BrakeForApproach(ref targetVelocity);
-                double accel = Math.Max(60.0, math.max(math.length(targetVelocity),
-                    math.length(velocityWorldMetresPerSecond)) / Math.Max(speedResponseSeconds, 0.01f));
-                StepVelocity(ref velocityWorldMetresPerSecond, targetVelocity, accel, dt);
+                double3 controlledVelocity = velocityWorldMetresPerSecond - gravityVelocityWorld;
+                StepVelocity(ref controlledVelocity, targetVelocity, accel, dt);
+                int gravityBody = ClosestBodyIndex(out double gravityRatio, out double ignoredHeight);
+                double3 gravity = gravityBody >= 0 && gravityRatio < 0.5
+                    ? Rotate(simulation.ViewAt(gravityBody).transform.rotation,
+                        GravityAcceleration(gravityBody, Rotate(Quaternion.Inverse(simulation.ViewAt(gravityBody).transform.rotation),
+                            positionWorldMetres - BodyWorldMetres(gravityBody))))
+                    : double3.zero;
+                gravityVelocityWorld += gravity * dt;
+                velocityWorldMetresPerSecond = controlledVelocity + gravityVelocityWorld;
                 double3 previous = positionWorldMetres;
                 positionWorldMetres += velocityWorldMetresPerSecond * dt;
                 if (!EnterAlongMovement(previous, dt))
@@ -321,6 +475,20 @@ namespace Planet.Interaction
                     ResolveApproachCollision();
                 }
             }
+        }
+
+        private double3 GravityAcceleration(int bodyIndex, double3 offsetBf)
+        {
+            if (!gravityEnabled) return double3.zero;
+            var surface = simulation.ViewAt(bodyIndex).GetComponent<PlanetSurfaceView>();
+            double mass = surface != null && surface.definition != null ? surface.definition.physical.massKilograms : 0;
+            return FlightMotion.GravityAcceleration(offsetBf, mass);
+        }
+
+        private static void RemoveIntoSurface(ref double3 velocity, double3 normal)
+        {
+            double inward = math.dot(velocity, normal);
+            if (inward < 0) velocity -= normal * inward;
         }
 
         private void BrakeForApproach(ref double3 desiredVelocity)
@@ -351,6 +519,7 @@ namespace Planet.Interaction
                 double3 normal = math.normalizesafe(positionWorldMetres - center);
                 double inward = math.dot(velocityWorldMetresPerSecond, normal);
                 if (inward < 0) velocityWorldMetresPerSecond -= normal * inward;
+                RemoveIntoSurface(ref gravityVelocityWorld, normal);
             }
         }
 
@@ -399,6 +568,7 @@ namespace Planet.Interaction
             positionWorldMetres = body + Rotate(rotation, normal * floor);
             double inward = math.dot(velocityWorldMetresPerSecond, Rotate(rotation, normal));
             if (inward < 0) velocityWorldMetresPerSecond -= Rotate(rotation, normal) * inward;
+            RemoveIntoSurface(ref gravityVelocityWorld, Rotate(rotation, normal));
         }
 
         private void ResolveBodyCollision(double3 previous)
@@ -413,6 +583,7 @@ namespace Planet.Interaction
                 bodyFixedMetres = resolved;
                 double into = math.dot(velocityBodyFixedMetresPerSecond, hitNormal);
                 if (into < 0) velocityBodyFixedMetresPerSecond -= hitNormal * into;
+                RemoveIntoSurface(ref gravityVelocityBody, hitNormal);
             }
             double length = math.length(bodyFixedMetres);
             if (length <= 0) return;
@@ -425,6 +596,7 @@ namespace Planet.Interaction
             bodyFixedMetres = normalBf * floor;
             double inward = math.dot(velocityBodyFixedMetresPerSecond, normalBf);
             if (inward < 0) velocityBodyFixedMetresPerSecond -= normalBf * inward;
+            RemoveIntoSurface(ref gravityVelocityBody, normalBf);
         }
 
         private void UpdateNearGate()
@@ -459,9 +631,9 @@ namespace Planet.Interaction
             Quaternion inverse = Quaternion.Inverse(body.transform.rotation);
             bodyFixedMetres = Rotate(inverse, positionWorldMetres - BodyWorldMetres(index));
             velocityBodyFixedMetresPerSecond = Rotate(inverse, velocityWorldMetresPerSecond);
+            gravityVelocityBody = Rotate(inverse, gravityVelocityWorld);
             lookBody = inverse * lookWorld;
             activeBodyIndex = index;
-            wheelVelocityWorld = double3.zero;
         }
 
         private void LeaveBodyFrame()
@@ -480,6 +652,7 @@ namespace Planet.Interaction
             Quaternion rotation = body.transform.rotation;
             positionWorldMetres = BodyWorldMetres(activeBodyIndex) + Rotate(rotation, bodyFixedMetres);
             velocityWorldMetresPerSecond = Rotate(rotation, velocityBodyFixedMetresPerSecond);
+            gravityVelocityWorld = Rotate(rotation, gravityVelocityBody);
             lookWorld = rotation * lookBody;
         }
 
@@ -560,6 +733,8 @@ namespace Planet.Interaction
             if (activeBodyIndex >= 0)
                 SurfaceRoamHudState.Publish(true, CurrentDisplayedClearance(), math.length(velocityBodyFixedMetresPerSecond));
             else SurfaceRoamHudState.Clear();
+            SurfaceRoamHudState.GravityEnabled = gravityEnabled;
+            SurfaceRoamHudState.SpeedMultiplier = SpeedMultiplier;
         }
 
         private void ApplyProjection(double distanceMetres, int bodyIndex, double metresPerUnit)

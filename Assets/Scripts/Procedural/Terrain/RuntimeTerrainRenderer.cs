@@ -19,6 +19,11 @@ namespace Planet.Procedural.Terrain
         [Range(0, TerrainLattice.MaxLevel)] public int maxLevel = TerrainLattice.MaxLevel;
         [Range(0.5f, 12f)] public float pixelTolerance = 3;
         [Min(0.1f)] public float uploadBudgetMilliseconds = 2;
+        [Header("Ground neighbourhood")]
+        public TerrainNeighbourhoodPolicy neighbourhood = TerrainNeighbourhoodPolicy.Default;
+        [Range(192, 2048)] public int nearActiveChunks = 1024;
+        [Range(256, 4096)] public int nearResidentChunks = 1536;
+        public int ResidentBudget { get; private set; }
 
         public int ResidentCount { get { return nodes.Count; } }
         public int VisibleCount { get; private set; }
@@ -203,6 +208,8 @@ namespace Planet.Procedural.Terrain
         private Task<HashSet<TerrainNodeKey>> selectionJob;
         private CancellationTokenSource cancellation = new CancellationTokenSource();
         private int pendingCount;
+        private int activeBudget;
+        private double observerClearance;
         private Camera localCamera;
         private int localTerrainLayer = 31;
         private bool streamingRequested, collisionRequested;
@@ -302,6 +309,11 @@ namespace Planet.Procedural.Terrain
             if (Time.realtimeSinceStartup >= nextIdentity)
             { nextIdentity = Time.realtimeSinceStartup + 0.5f; RefreshSource(); }
             if (!ready || !streamingRequested) return;
+            double3 cameraDirection = math.normalizesafe(view.positionBfMetres, new double3(0, 1, 0));
+            observerClearance = math.abs(math.length(view.positionBfMetres) - math.length(source.Position(cameraDirection, 1)));
+            bool groundNeighbourhood = view.localCameraActive && source.solid && observerClearance <= neighbourhood.overviewAltitudeMetres * 1.2;
+            activeBudget = groundNeighbourhood ? math.max(maxActiveChunks, nearActiveChunks) : maxActiveChunks;
+            ResidentBudget = groundNeighbourhood ? math.max(maxResidentChunks, nearResidentChunks) : maxResidentChunks;
             if (!receivedView)
             {
                 Camera camera = Camera.main;
@@ -331,12 +343,13 @@ namespace Planet.Procedural.Terrain
             if (focused && selectionJob == null && Time.realtimeSinceStartup >= nextSelection && Workers.Wait(0))
             {
                 nextSelection = Time.realtimeSinceStartup + 0.3f;
-                int leafBudget = math.clamp(maxActiveChunks, 6, math.max(6, (maxResidentChunks - 12) * 3 / 4));
+                int leafBudget = math.clamp(activeBudget, 6, math.max(6, (ResidentBudget - 12) * 3 / 4));
                 var snapshot = source; var cameraSnapshot = view; bool focusedSnapshot = focused;
                 int level = maxLevel; double tolerance = pixelTolerance; var previous = new HashSet<TerrainNodeKey>(splits);
+                var policy = neighbourhood;
                 selectionJob = Task.Run(() =>
                 {
-                    try { return RuntimeTerrainSelection.Select(snapshot, cameraSnapshot, leafBudget, level, tolerance, focusedSnapshot, previous); }
+                    try { return RuntimeTerrainSelection.Select(snapshot, cameraSnapshot, leafBudget, level, tolerance, focusedSnapshot, previous, policy); }
                     finally { Workers.Release(); }
                 });
             }
@@ -348,6 +361,8 @@ namespace Planet.Procedural.Terrain
             foreach (var key in wanted) if (!nodes.ContainsKey(key)) { pendingCount++; queue.Add(key); }
             queue.Sort((a, b) =>
             {
+                int priority = RequestPriority(b).CompareTo(RequestPriority(a));
+                if (priority != 0) return priority;
                 int ancestorOrder = a.level.CompareTo(b.level);
                 return ancestorOrder != 0 ? ancestorOrder : NodeDistanceSquared(a).CompareTo(NodeDistanceSquared(b));
             });
@@ -357,6 +372,15 @@ namespace Planet.Procedural.Terrain
                 job = Task.Run(() => { try { return RuntimeTerrainChunk.Build(snapshot, key, token); } finally { Workers.Release(); } });
             }
             SyncColliders(timer);
+        }
+
+        private int RequestPriority(TerrainNodeKey key)
+        {
+            if (key.level == 0) return 3;
+            double3 direction = math.normalizesafe(view.positionBfMetres, new double3(0, 1, 0));
+            double distance = TerrainNeighbourhoodPolicy.SurfaceDistanceToNode(direction, key, source.radius);
+            int required = neighbourhood.RequiredLevel(source.radius, observerClearance, distance);
+            return key.level <= required ? 2 : TerrainLattice.NodeAt(direction, key.level).Equals(key) ? 1 : 0;
         }
 
         private double NodeDistanceSquared(TerrainNodeKey key)
@@ -428,7 +452,7 @@ namespace Planet.Procedural.Terrain
 
         private void Evict()
         {
-            int limit = math.max(16, maxResidentChunks);
+            int limit = math.max(16, ResidentBudget);
             while (nodes.Count >= limit)
             {
                 TerrainNodeKey oldest = default; bool found = false; int age = int.MaxValue;
@@ -589,7 +613,7 @@ namespace Planet.Procedural.Terrain
                 double range = math.clamp(math.length(collisionVelocityBf) * 2.0, 128.0, 10000.0);
                 if (!underfoot && !forward && !replacingParent &&
                     math.distance(node.data.origin, collisionPlayerBf) > range) continue;
-                if (node.colliderGo == null && built < 1 && collisionNodes.Count < 64 &&
+                if (node.colliderGo == null && built < 1 && collisionNodes.Count < 192 &&
                     timer.Elapsed.TotalMilliseconds < uploadBudgetMilliseconds)
                 {
                     CreateCollider(node);

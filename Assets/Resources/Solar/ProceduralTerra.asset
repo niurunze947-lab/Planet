@@ -35,7 +35,7 @@ MonoBehaviour:
     terrainMinimumMetres: -7200
     terrainMaximumMetres: 5802.7915
     waterCoverage: 0.5638129
-    visualReliefScale: 20
+    visualReliefScale: 1
     mountainFrequency: 12
     mountainHeightMetres: 6200
     mountainOctaves: 6

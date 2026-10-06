@@ -220,6 +220,19 @@
 
 ---
 
+## 2026-10-07
+
+- 聚焦改为对数距离缓动，恢复选中目标的左键环绕；滚轮统一推进，小键盘独立调整速度倍率，
+  避免近地切换输入含义。操作见 [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) §6。
+- 增加可切换的中心引力，其速度累积与飞行输入阻尼分离；位姿与碰撞仍由同一控制器处理，
+  契约见 [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §3。
+- 近地地形先满足不依赖朝向的区域精度基准，再细化脚下和视野，兼顾远景一致性与流送预算；
+  策略见 [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §16。
+- 地球显示起伏回归真实高度；玩家进入大气层时，星空按高度和太阳位置连续过渡到
+  昼夜天空，夜间保留星光。渲染契约见 [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) §5。
+
+---
+
 ## 待补
 
 - [ ] **统一两套分块层级**：`Solar/Space/SurfaceChunkGrid`（6 面 × 2^level，上限 20）与

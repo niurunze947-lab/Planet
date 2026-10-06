@@ -90,6 +90,23 @@ namespace Planet.Interaction
         }
 
         /// <summary>
+        /// One altitude envelope for wheel approach and free flight on both sides of the near gate.
+        /// Retains the surface curve, then grows quadratically into space with matching value/slope.
+        /// </summary>
+        public static double FlightSpeedLimit(double altitudeMetres, double radiusMetres)
+        {
+            double ceilingAltitude = Math.Max(1.0, CeilingAltitudeMetres(radiusMetres));
+            double ceilingSpeed = CeilingSpeedForRadius(radiusMetres);
+            double height = Math.Max(0, altitudeMetres);
+            double beyond = Math.Max(0, height - ceilingAltitude);
+            // A one-second response per fraction of remaining height keeps orbital descent usable;
+            // the surface floor and the outer quadratic remain continuous.
+            double nearSlope = Math.Max(0.35, (ceilingSpeed - GroundMaxMetresPerSecond) / ceilingAltitude);
+            return GroundMaxMetresPerSecond + nearSlope * height +
+                nearSlope * beyond * beyond / ceilingAltitude;
+        }
+
+        /// <summary>
         /// Linear-acceleration step (weak inertia). Moves <paramref name="currentSpeed"/>
         /// toward <paramref name="targetSpeed"/> by at most accel·dt.
         /// </summary>

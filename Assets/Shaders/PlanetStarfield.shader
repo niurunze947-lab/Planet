@@ -37,6 +37,11 @@ Shader "Planet/StarfieldPhysical"
             half _Rotation;
             // Global, runtime-only EV offset. The lighting controller never edits the sky asset.
             float _PlanetSkyExposureEV;
+            // Runtime observer data. No shared sky material asset is modified.
+            float4 _PlanetAtmosphereParams; // air column, daylight, twilight, enabled
+            float3 _PlanetAtmosphereUp;
+            float3 _PlanetAtmosphereSun;
+            float4 _PlanetAtmosphereColor;
 
             struct Attributes
             {
@@ -84,6 +89,25 @@ Shader "Planet/StarfieldPhysical"
                 // by the exposure required to display the visible planet surface, so the whole
                 // sky remains spatially coherent instead of one half being painted grey.
                 half3 result = starColor * _Tint.rgb * exp2(_Exposure + _PlanetSkyExposureEV);
+
+                if (_PlanetAtmosphereParams.w > 0.5)
+                {
+                    float up = dot(direction, _PlanetAtmosphereUp);
+                    float horizon = pow(1.0 - saturate(abs(up)), 3.0);
+                    float airMass = lerp(1.0, 5.0, horizon);
+                    float day = _PlanetAtmosphereParams.y;
+                    float twilight = _PlanetAtmosphereParams.z;
+                    float opacity = 1.0 - exp(-_PlanetAtmosphereParams.x * airMass *
+                        (0.045 + 7.0 * day + 0.45 * twilight));
+                    float3 zenith = _PlanetAtmosphereColor.rgb * 0.72;
+                    float3 daySky = lerp(zenith, sqrt(max(zenith, 0.0)) * 0.9, horizon);
+                    float towardSun = saturate(dot(direction, _PlanetAtmosphereSun));
+                    float3 sky = daySky * day + float3(0.001, 0.002, 0.006) * (1.0 - day);
+                    sky += float3(0.7, 0.19, 0.035) * twilight * horizon *
+                        (0.12 + 0.88 * pow(towardSun, 4.0));
+                    sky += float3(0.5, 0.43, 0.3) * pow(towardSun, 32.0) * day * 0.3;
+                    result = lerp(result, sky, opacity);
+                }
 
                 return half4(result, 1.0h);
             }

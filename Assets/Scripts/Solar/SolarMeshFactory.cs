@@ -5,8 +5,8 @@ namespace Planet.Solar
 {
     /// <summary>
     /// Procedural meshes for the white-model solar system. Everything is generated at runtime
-    /// (like PlanetMeshGenerator does for Earth and Moon) so the repository carries
-    /// no binary mesh assets, and the shapes stay reproducible from the code alone.
+    /// so the repository carries no binary mesh assets, and the shapes stay reproducible
+    /// from the code alone.
     /// Internal to Planet.Solar — other assemblies must not depend on these helpers;
     /// scene consumers go through <see cref="CelestialBody"/> instead.
     /// </summary>

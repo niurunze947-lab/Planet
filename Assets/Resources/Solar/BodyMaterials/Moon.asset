@@ -96,4 +96,4 @@ MonoBehaviour:
     ringColor: {r: 0.85, g: 0.79, b: 0.66, a: 1}
     ringOpacity: 0.8
     interpretation: Dark basaltic maria and cratered highlands. Statistical crater
-      field, not the LRO map used in PlanetDemo.
+      field, not an observed LRO map.

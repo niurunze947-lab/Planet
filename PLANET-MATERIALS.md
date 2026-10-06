@@ -1,12 +1,8 @@
 # Planet — SolarSystem 天体材质
 
-> 正式场景：`Assets/Scenes/SolarSystem.unity`。更新：2026-10-05。
-> 本轮将 21 个天体接入 `PLANET-PROCEDURAL.md` 的定义、纯函数采样和派生缓存链。
+> 正式场景：`Assets/Scenes/SolarSystem.unity`。
+> 21 个天体接入 [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) 的定义、纯函数采样和派生缓存链。
 > 天体大小、扁率、自转和极点沿用 `SolarSystemCatalog`；可见光外观是程序化近似，不能作为探测地图。
-
-后续更新：Sun 使用 [独立恒星框架](PLANET-STELLAR.md)，太阳焦点下渲染动态温度场／光球，
-其他焦点仅用纯色发光体；旧 Sun 定义／静态贴图保留兼容。Earth 另接入 [视距纹理 LOD](PLANET-TEXTURE-LOD.md)。
-下表的其他天体外观保持同一解释；关于静态太阳的旧描述以恒星文档为准。
 
 ## 1. 天体与外观
 
@@ -15,8 +11,8 @@
 | Sun 太阳 | 暖白发光光球、临边昏暗、颗粒纹理、示意黑子 | 颗粒属于统计纹理；没有日冕、日珥、黑子周期或真实辐亮度 |
 | Mercury 水星 | 灰褐岩石、密集撞击坑、较亮坑缘 | 不使用夸张彩色矿物图；不复原卡洛里盆地地理位置 |
 | Venus 金星 | 不透明浅乳黄硫酸云顶、低对比云纹、薄边缘散射 | 可见光看不到固体地表；不是雷达地形图，也不是紫外增强图 |
-| Earth 地球 | 保留 Terra 的大陆、海洋、生态、冰帽、云和大气 | 程序化大陆，不是真实世界地图；地形显示仍为 4× |
-| Moon 月球 | 暗玄武岩月海、亮高地、撞击坑 | 统计地貌；PlanetDemo 的 LRO 贴图仍用于参考 |
+| Earth 地球 | 保留 Terra 的大陆、海洋、生态、冰帽、云和大气 | 程序化大陆，不是真实世界地图；垂直起伏是显示夸张，当前倍数见 [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §5 |
+| Moon 月球 | 暗玄武岩月海、亮高地、撞击坑 | 统计地貌，不复原真实月海地理 |
 | Mars 火星 | 铁氧化物红褐尘土、暗玄武岩区、极区霜冻、薄尘大气 | 没有精确奥林帕斯山／水手谷、季节冰帽或沙尘暴 |
 | Jupiter 木星 | 氨云带／区、涡纹、南纬约 22° 的示意大红斑、主尘环 | 云顶是可见表面；大红斑经度和形状不是当前观测预测 |
 | Io 木卫一 | 黄／乳黄硫磺与二氧化硫沉积、红褐火山沉积环、暗火山口 | 不以撞击坑为主要地貌；没有喷发羽流、夜面熔岩亮度或浓大气 |
@@ -35,43 +31,20 @@
 | Ceres 谷神星 | 暗水合矿物、撞击坑、示意碳酸盐／盐亮斑 | 亮斑受 Occator 启发，不是 Dawn 的实测地形；没有冰火山活动 |
 
 主带和柯伊伯带的数千粒子仍是恒定张角的浏览标记，其真实尺寸在当前视角不能形成可分辨表面。
+Sun 与 Earth 另接专门链路——Sun 的焦点内光球与温度场见 [PLANET-STELLAR.md](PLANET-STELLAR.md)，Earth 的近景纹理档位见 [PLANET-TEXTURE-LOD.md](PLANET-TEXTURE-LOD.md)；本表只保留两者的可见光解释。
 
 ## 2. 权威与派生资源
 
-- Earth 保留 `Assets/Resources/Solar/ProceduralTerra*` 的资产路径和 GUID。
-- 其他 20 个天体各有 `Assets/Resources/Solar/BodyMaterials/<Name>.asset` 定义、`<Name>Surface.mat` 和 `<Name>_Albedo.cubemap`。
-- 有大气的天体另有 `<Name>Atmosphere.mat`。气态行星的“表面”是云顶光学层，因此不额外叠一层地球白云。
-- 五组环各有 `<Name>Ring.mat` 与 `<Name>_RingProfile.asset`；同一径向颜色／透明度纹理供环渲染和表面环影使用。
-- Albedo 是 256² × 6 的线性 RGBA32 Cubemap；Earth 云密度仍为 128² × 6。环纹理是 2048 × 1、线性 RGBA32、无 mip。
-- Earth 网格保留每面 96 段；其他天体每面 64 段，即 25,350 顶点／49,152 三角形。新天体地形显示采用 1× 起伏。
-
-`SolarSystemAppearanceCatalog` 仅创建首次预设；后续构建保留定义资产里人工调整的外观。
-半径、扁率、三轴形状、自转周期和极点同步 Catalog，避免轨道系统与表面使用两个不同的物理半径。
-质量不参与外观；Makemake 等测量不足的数值不能视为精确物理数据。
-
-`PlanetDefinition.appearance` 加入内容指纹，生成器版本提升至 4。旧缓存自动失效。
-烘焙成功后用 `CopySerialized` 覆盖已有资源并保留 GUID；构建第二颗天体不会覆盖第一颗的贴图。
-写入指纹元数据后重新导入该派生资源，确保 importer 的内存状态同步，否则紧接着再次构建可能读到旧指纹。
-修改定义后通过构建菜单重建：运行时不持续监听资产字段变化。
+**权威**是 `Assets/Resources/Solar/BodyMaterials/<Name>.asset`（`PlanetDefinition`）：Earth 沿用原 Terra 的 `ProceduralTerra*` 资产路径与 GUID，Sun 的光球定义是 `Stellar/SunStellar.asset`。**派生**是同级目录的 `<Name>Surface.mat` 与 `<Name>_Albedo.cubemap`，以及按定义字段决定是否生成的 `<Name>Atmosphere.mat`、`<Name>Ring.mat` 和 `<Name>_RingProfile.asset`；Earth 的档位在 `EarthLod/`。Albedo 为 256²×6 线性 RGBA32 Cubemap、Earth 云密度为 128²×6；环纹理为 2048×1、线性 RGBA32、无 mip，同一径向颜色／透明度纹理供环渲染与表面环影共用。气态行星的“表面”就是云顶光学层，因此不生成云层特征、不额外叠一层地球式白云。
+`SolarSystemAppearanceCatalog` **只创建首次预设**：已有定义资产是外观的唯一权威，后续构建只同步 Catalog 的半径、扁率、三轴形状、自转周期与极点，使轨道系统与表面共用同一个物理半径，人工调整过的外观不被覆盖；质量不参与外观。地形网格 Earth 每面 96 段、其余天体每面 64 段。
+`appearance` 与 `physical`／`generation`／`palette`／`features` 一起进入 `PlanetDefinition.ContentFingerprint()`：改序列化参数即改指纹、旧缓存自动失效；但只改采样数学（噪声、阈值、公式）而参数不变时，必须提升 `PlanetDefinition.GeneratorVersion`。派生资源一律用 `EditorUtility.CopySerialized` **覆盖**以保留 GUID，写完指纹元数据后必须**重新导入该派生资源**，否则紧接着再构建会读到旧指纹。构建不监听资产字段变化，改完定义要手动跑构建菜单。
 
 ## 3. 采样与着色
 
-`PlanetSurfaceKind` 区分类地地表、撞击岩壳、干燥岩壳、硫磺火山、裂纹冰壳、气巨星、冰巨星、
-不透明雾霾与发光光球。Terrestrial 保留原 Earth 采样数学；其他类型由 blittable 的
-`PlanetAppearanceSampler` 按体固单位方向计算。这里没有图像生成、外部贴图或共享随机状态。
-
-撞击坑的凹陷、坑缘与颜色共用同一个三维 cellular 场。裂纹使用 cellular 边界距离，
-气带以地心纬度叠加连续三维湍流，区域和大斑使用球面方向投影，避免经度 UV 接缝。
-这些是可复现的统计场，不能表达撞击年代、喷发过程、流体动力学或地理测绘信息。
-
-三轴形状现在参与 `SurfacePosition` 和参考法线，不再在进入程序化路径后丢失 Haumea 的拉伸。
-光学表面高度（如金星云顶约 70 km、Titan 雾霾可见层约 80 km）只增加可见壳层半径，
-不当作岩石地形高度。气态行星与太阳的高度查询返回参考层上的零起伏，不代表固体地面。
-
-`Planet/ProceduralSurface` 增加发光与临边昏暗分支、参考形状法线、环遮光和可选经纬网。
-`Planet/ProceduralRing` 采用径向颜色／光学透明度与稳定的解析球体遮挡，避免读取大尺度 URP 阴影图。
-环的位置与大小仍由 Catalog 提供；`CelestialBody` 的程序化分支继续构建环，1× 与 400× 同比缩放。
-`L` 控制全局经纬参考网；浏览材质默认不叠网格。发光太阳也参与星空测光，减少近景亮太阳旁过亮的星图。
+`PlanetSurfaceKind` 共九类：类地地表、撞击岩壳、干燥岩壳、硫磺火山、裂纹冰壳、气巨星、冰巨星、不透明雾霾与发光光球。Terrestrial 保留原 Earth 采样数学，其余由 blittable 的 `PlanetAppearanceSampler` 在体固单位方向上纯函数求值——没有图像生成、外部贴图或共享随机状态。
+形态场共用：撞击坑的凹陷、坑缘与颜色来自同一个三维 cellular 场，裂纹取 cellular 边界距离，气带以地心纬度叠加连续三维湍流，区域与大斑按球面方向投影以避免经度 UV 接缝。这些是可复现的统计场，不能表达撞击年代、喷发过程、流体动力学或地理测绘信息。
+三轴形状参与 `SurfacePosition` 与参考法线，进入程序化路径后不再丢失 Haumea 的拉伸。`opticalSurfaceHeightMetres`（金星云顶、Titan 雾霾等）只抬高**可见壳层**半径，不当作岩石地形高度；光学壳层（气巨星、冰巨星、不透明雾霾、光球）的高度查询恒返回参考层上的零起伏，不代表固体地面。
+`Planet/ProceduralSurface` 承担发光与临边昏暗分支、参考形状法线、环遮光和可选经纬网；`Planet/ProceduralRing` 用径向颜色／光学透明度加解析球体遮挡，不读大尺度 URP 阴影图。环的位置与大小仍由 Catalog 提供，`CelestialBody` 的程序化分支继续构建环并随 1×／400× 同比缩放。`L` 控制全局经纬参考网（浏览材质默认不叠网格），发光太阳也参与星空测光，减少近景亮太阳旁过亮的星图。
 
 ## 4. 框架缺口与对策
 
@@ -86,21 +59,15 @@
 | 实测表面与未分辨天体 | 每个定义保存 `interpretation`，区分观测特征、示意位置和未知地理 | 如果要求地图级复原，需要接入 NASA/USGS 数据而非继续调噪声；未知区域保留不确定性 |
 | 大气光学 | 沿用物理高度壳层与视角路径近似，按天体调颜色和密度 | 波长相关 Rayleigh/Mie、多层散射、云自阴影和正确透射需要大气积分／查表模型 |
 
-大气厚度、颜色和 opacity 的光学强度是外观近似，不是依据压强、粒径与吸收截面推导的辐射传输。
-现在仍用朝焦点的平行光和固定强度；日食、多天体分别照明、太阳距离平方衰减不在本轮材质中实现。
-环影按参考面求交，忽略细小地形起伏；太阳黑子与已命名特征的位置不随观测日期更新。
+大气厚度、颜色与 opacity 是外观近似，不是由压强、粒径与吸收截面推导的辐射传输；光照仍是朝焦点的平行光加固定强度，日食、多天体分别照明与太阳距离平方衰减都不在本轮实现。环影按参考面求交、忽略细小地形起伏，太阳黑子与已命名特征的位置不随观测日期更新。
 
 ## 5. 构建与验证
 
-打开 SolarSystem，退出 Play，执行 **Tools → Planet → Build Solar System Materials**。
-菜单按编辑器更新分批构建天体，完成后保存场景与资产；无需新建场景。
-**Rebuild Solar System Scene** 同样接入全部天体材质。单 Earth 的两个旧菜单保留用于 Terra 示例。
-
-代码入口：`Assets/Editor/SolarSystemMaterialBuilder.cs`。运行中的状态为 `IsBuilding`、`BuildStatus` 和 `LastError`。
-完成后的测试结果和截图将在本节记录。
+打开 SolarSystem、退出 Play 模式（Play 下构建直接抛异常），执行 **Tools → Planet → Build Solar System Materials**；菜单按编辑器更新分批构建天体，完成后保存场景与资产。**Rebuild Solar System Scene** 同样接入全部天体材质；Earth 的 Terra 示例仍走 **Build Procedural Planet Example**／**Refresh Procedural Planet Visuals**，菜单全表见 [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) §6。
+代码入口 `Assets/Editor/SolarSystemMaterialBuilder.cs`，运行状态为 `IsBuilding`、`BuildStatus`、`LastError`。
+验证在 Test Runner 的 EditMode 下跑 `Assets/Tests/EditMode/Planet.Procedural.Tests.asmdef` 里的 `PlanetAppearanceTests`：逐 surface kind 校验采样有限且确定（含两极）、立方体面共享边的位置／法线／颜色一致、光学壳层无虚构地形起伏、三轴形状与椭球法线，以及改动 `appearance` 必然改变内容指纹。
 
 ## 6. 特征依据
 
-外观解释参考 NASA 的 [Solar System](https://science.nasa.gov/solar-system/) 与各天体事实页，
-及妊神星环掩星论文 [Ortiz et al., Nature 550, 219–223 (2017)](https://doi.org/10.1038/nature24051)。
+外观解释参考 NASA 的 [Solar System](https://science.nasa.gov/solar-system/) 与各天体事实页，及妊神星环掩星论文 [Ortiz et al., Nature 550, 219–223 (2017)](https://doi.org/10.1038/nature24051)。
 这些来源描述天体类别、光谱成分和特征；本轮生成的贴图没有来自探测器的地理坐标数据。

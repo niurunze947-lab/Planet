@@ -65,7 +65,7 @@ namespace Planet.Solar
                     a.baseColor = C(0.29f, 0.28f, 0.27f); a.secondaryColor = C(0.62f, 0.60f, 0.56f);
                     a.craterStrength = 1f; a.craterFrequency = 22f; a.craterDepthMetres = 2300f;
                     a.regionFrequency = 2.4f; a.reliefMetres = 1900f;
-                    a.interpretation = "Dark basaltic maria and cratered highlands. Statistical crater field, not the LRO map used in PlanetDemo.";
+                    a.interpretation = "Dark basaltic maria and cratered highlands. Statistical crater field, not an observed LRO map.";
                     break;
                 case "Mars":
                     d.physical.massKilograms = 6.4171e23;

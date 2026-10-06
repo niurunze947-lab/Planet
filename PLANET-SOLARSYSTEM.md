@@ -1,52 +1,41 @@
-# Planet — 真实比例太阳系与程序化星球示例
+# Planet — 真实比例太阳系
 
-`Assets/Scenes/SolarSystem.unity`：从**太阳**到**柯伊伯带**、按真实比例搭建的太阳系，
-每个天体的**自转**与**公转**全部由代码按开普勒轨道根数推算。
-21 个天体均挂载定义驱动的程序化 Cube Sphere 与独立材质；Earth 另有海洋、生态、云与大气。
-外观、环和未实现的天文特征见 [PLANET-MATERIALS.md](PLANET-MATERIALS.md)；尺度坐标层见
-[PLANET-SPACE.md](PLANET-SPACE.md)；程序集边界与契约的权威版本见
-[DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §2–§3。更新：2026-10-05。
-Earth 纹理分级见 [PLANET-TEXTURE-LOD.md](PLANET-TEXTURE-LOD.md)；Sun 独立光球框架及其他焦点下的
-纯色发光回退见 [PLANET-STELLAR.md](PLANET-STELLAR.md)。两者只读取公开的观察契约，不修改输入／轨道。
-行星几何使用 [离线 Mesh LOD](PLANET-PROCEDURAL.md)：非焦点天体只保留 16 段参考网格，焦点按
-离地比例切换 32／64／96 段；网格在编辑器中烘焙，Play 不重建几何。
+`Assets/Scenes/SolarSystem.unity`：从**太阳**到**柯伊伯带**按真实比例搭建的太阳系，
+每个天体的**自转**与**公转**全部由代码按开普勒轨道根数推算，场景由代码生成而非手工摆放。
 
-- 场景文件：`Assets/Scenes/SolarSystem.unity`（已加入 Build Settings）
-- 代码目录：`Assets/Scripts/Solar/`（独立程序集 **`Planet.Solar`**，见 §9）、`Assets/Scripts/Procedural/`
-- 着色器：程序化地表／光球、环、云、大气、轨道和星空，均在 `Assets/Shaders/`
-- 材质与定义：`Assets/Resources/Solar/`；天空与大气材质在 `Assets/Settings/`
-- 程序化星球框架：见 **[PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md)**（Earth 地表 / 云 / 大气的实现）
-- 编辑器工具：菜单 **Tools ▸ Planet**
+- 场景文件：`Assets/Scenes/SolarSystem.unity`（Build index 2）
+- 代码：`Assets/Scripts/Solar/`（程序集 `Planet.Solar`，边界见
+  [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §2）
+- 着色器：`Assets/Shaders/`；定义与派生资源：`Assets/Resources/Solar/`
+- 上游：[PROJECT-OVERVIEW.md](PROJECT-OVERVIEW.md)
+
+外观、环与未实现的天文特征见 [PLANET-MATERIALS.md](PLANET-MATERIALS.md)；
+尺度坐标层见 [PLANET-SPACE.md](PLANET-SPACE.md)；Earth 的纹理分级见
+[PLANET-TEXTURE-LOD.md](PLANET-TEXTURE-LOD.md)；太阳的独立光球框架与纯色发光回退见
+[PLANET-STELLAR.md](PLANET-STELLAR.md)。
+后两者只读取公开的观察契约，不修改输入与轨道。
 
 ---
 
 ## 1. 比例：为什么是 1 场景单位 = 1,000,000 km
 
 Unity 的浮点坐标只有约 7 位有效数字。地球轨道 1 AU ≈ 1.496×10⁸ km，柯伊伯带外缘 50 AU
-≈ 7.48×10⁹ km。若 1 单位 = 1 km，坐标会到 7.5×10⁹，float 在小数点后已无精度可言，抖动会
-肉眼可见。
+≈ 7.48×10⁹ km。若 1 单位 = 1 km，坐标会到 7.5×10⁹，float 在小数点后已无精度可言，抖动肉眼可见。
 
-选定 `kmPerUnit = 1,000,000` 后：
+选定 `kmPerUnit = 1,000,000` 后：太阳半径 0.6963 单位、地球半径 0.006371 单位、
+地球轨道 149.60 单位、柯伊伯带外缘 7,480 单位。
 
-| 天体 | 真实值 | 场景单位 |
-|---|---|---|
-| 太阳半径 | 696,340 km | 0.6963 |
-| 地球半径 | 6,371 km | 0.006371 |
-| 地球轨道 | 1 AU | 149.60 |
-| 海王星轨道 | 30.07 AU | 4,498 |
-| 柯伊伯带 | 30 – 50 AU | 4,488 – 7,480 |
+**比例本身没有被压缩**：海王星就在真实的 30.07 AU 处，没有为了好看把它拉近。
+**太阳在地球处的视直径算得 0.533°，真实 0.532°**——这就是比例正确的直接证据。
 
-**比例本身没有被压缩**：海王星就在真实的 30.07 AU 处，没有为了好看把它拉近。太阳在
-地球上看起来的张角算出来是 **0.533°**，与真实的 0.532° 一致——这就是比例正确的直接证据。
-
-代价是行星本身会变成亚像素：从 2 AU 外看，地球直径只有 0.002°（约 0.04 像素）。
+代价是行星本身会变成亚像素：从 2 AU 外看，地球直径只有约 0.04 像素。
 这是真实比例必然的结果，不是 bug。应对手段有三条，都在场景里：
 
 - **轨道线**：行星永远在自己轨道的椭圆上，这是找位置的主要依据。
 - **`G` 键**：把天体半径放大 400×（HUD 会标注"非真实比例"），用于确认"确实有东西在那里"。
 - **数字键 1–0 / `Tab`**：直接飞到天体上，近到能看清为止。
 
-### 浮动原点（floating origin）
+### 浮动原点
 
 所有轨道计算都在 `double` 下以 **km** 为单位进行，只在提交给 `Transform` 的最后一步才转成
 `float` 的场景单位，并减去当前焦点天体的位置：
@@ -57,29 +46,20 @@ Unity 的浮点坐标只有约 7 位有效数字。地球轨道 1 AU ≈ 1.496×
 
 焦点天体因此恒定在原点，相机始终在原点附近，float 精度全部用在"看得见的这一段"上。
 
-> **踩过的坑**：最初把原点写成"向焦点位置做指数平滑"，这在 5 天/秒时只有 4 个单位的稳态
-> 误差，看不出问题；但误差 = 速度 × 时间常数，一旦把时间流速提到 36,500 天/秒，误差涨到
-> 30,000 单位，行星直接飞出画面。正确写法是把原点拆成"刚性跟随 + 衰减残差"
-> （`SolarSystemSimulation.UpdateOrigin`）：原点严格等于焦点位置加一个衰减到 0 的偏移，
-> 切换焦点时偏移从当前差值起步，于是既不跳变也不滞后。
+原点必须拆成「**刚性跟随 + 只衰减不反馈的残差**」：直接对焦点位置做指数平滑会引入
+`速度 × 时间常数` 的稳态误差，时间流速越高越致命。机制与实测见
+[PLANET-SPACE.md](PLANET-SPACE.md) §2.2，事故记录见
+[PLANET-PITFALLS.md](PLANET-PITFALLS.md) §1。
 
-### 宇宙尺度坐标阶梯与地表流式 LOD
+### 尺度坐标层解决的问题
 
-上面的浮动原点解决的是"看得见的这一段"，但**没有解决"地表厘米级细节"**：
-单位球形式的地球顶点步长实测 **0.4657 m**（float32 在 0.006371 场景单位处的步长），
-放不下 1 cm 的石头。这一层由 `Assets/Scripts/Solar/Space/` 承担，详见
-**[PLANET-SPACE.md](PLANET-SPACE.md)**：
+浮动原点解决的是"看得见的这一段"，但**没有解决"地表厘米级细节"**：单位球形式的地球顶点步长
+实测 0.4657 m（float32 在地球半径处的步长），放不下 1 cm 的石头。这一层由
+`Assets/Scripts/Solar/Space/` 承担：四级架树、Cube-Sphere 分块网格、屏幕空间误差 LOD、
+每帧硬预算的流式加载、按投影像素分档的远场策略。**完整说明见 [PLANET-SPACE.md](PLANET-SPACE.md)**。
 
-- **四级架树** Galactic → Stellar → Planetary → Surface，宇宙侧 `double` 米、
-  地表侧 `float` 米相对**分块自己的原点**；唯一规则是「在 double 里减，最后一步才降到 float」
-- **`maxLevel = 20` 的 Cube-Sphere 分块网格**：地球 L20 = 9.544 m 块 / 59.65 cm 网格间距 /
-  953.7 nm 顶点步长，比单位球表示细 **524,288 倍**；同级接缝实测 **0 ULP**
-- **屏幕空间误差 LOD + 每帧硬预算的流式加载**：每帧最多 2 块 / 4 ms，最近优先，带逐出迟滞
-- **远场策略**：按投影像素分四档，只切 `MeshRenderer`；轨道线静态，切焦点不重算顶点
-- 审计：菜单 **Tools ▸ Planet ▸ Audit Space Scale**；回归：`Planet.Solar.Tests`（59 项）
-
-本层**不实现大气散射**：它只提供 `surfaceClearanceRatio` 这个 `viewHeight` 契约，
-让介质随相机高程连续变化，从而**消除地表 / 太空场景切换的断点**。
+本层**不实现大气散射**：它只提供 `viewHeight` 的位置部分，让介质随相机高程连续变化，
+从而**消除地表 / 太空场景切换的断点**。
 
 ---
 
@@ -88,11 +68,7 @@ Unity 的浮点坐标只有约 7 位有效数字。地球轨道 1 AU ≈ 1.496×
 `Assets/Scripts/Solar/Astro.cs` 与 `SolarSystemCatalog.cs`。
 
 轨道根数取 **JPL/Standish《Keplerian Elements for Approximate Positions of the Major Planets》
-Table 1（1800–2050 适用）**，含 6 个根数各自的长期变化率：
-
-```
-a, e, i, L, ϖ, Ω   +   ȧ, ė, i̇, L̇, ϖ̇, Ω̇
-```
+Table 1（1800–2050 适用）**，含 6 个根数各自的长期变化率 `ȧ, ė, i̇, L̇, ϖ̇, Ω̇`。
 
 求解流程（`KeplerianElements.PositionAu`）：
 
@@ -101,9 +77,8 @@ a, e, i, L, ϖ, Ω   +   ȧ, ė, i̇, L̇, ϖ̇, Ω̇
 3. 轨道平面内坐标 `x' = a(cos E − e)`，`y' = a√(1−e²)·sin E`；
 4. 用 `ω = ϖ − Ω`、`i`、`Ω` 三次旋转转到黄道坐标。
 
-月球用 **Meeus《Astronomical Algorithms》** 的简化根数（a = 384,400 km，i = 5.145°，
-e = 0.0549，周期 27.3216 天）。卫星（木卫一至四、土卫六、海卫一、冥卫一）用圆轨道近似，
-周期取实测值。
+月球用 **Meeus《Astronomical Algorithms》** 的简化根数。卫星（木卫一至四、土卫六、海卫一、
+冥卫一）用圆轨道近似，周期取实测值。
 
 ### 数值验证（场景中实测）
 
@@ -115,54 +90,30 @@ e = 0.0549，周期 27.3216 天）。卫星（木卫一至四、土卫六、海�
 | 每季度推进角度不均匀 | 92.00° / 88.17° / 88.00° / 91.83°，近日点快、远日点慢（✓ 开普勒第二定律） |
 | 太阳在地球处的视直径 | 计算值 0.533°，真实 0.532° |
 | 地球自转周期 | 23.9344696 h，自转 360.000° 后 mod 360 回到 0.00° |
-| 木星、土星、天王星、海王星 J2000 日心距 | 4.966 / 9.172 / 19.922 / 30.117 AU，与逐项手算一致 |
+| 四颗巨行星 J2000 日心距 | 4.966 / 9.172 / 19.922 / 30.117 AU，与逐项手算一致 |
 
-### 转轴倾角（不是"相对黄道"）
+### 转轴倾角不是"相对黄道"
 
-HUD 里显示的 **转轴倾角** 是自转轴与**该天体自身轨道面法线**的夹角，而不是与黄道北极的夹角。
-两者差别很大：火星轨道倾角 1.85°，按黄道算会得到 26.71°，按自身轨道面算才是教科书上的
-25.19°。这里有个真实的坑：IAU 极点并不总是自转矢量本身。
+HUD 里显示的**转轴倾角**是自转轴与**该天体自身轨道面法线**的夹角，而不是与黄道北极的夹角。
+两者差别很大：火星轨道倾角 1.85°，按黄道算会得到 26.71°，按自身轨道面算才是教科书上的 25.19°。
 
-- **金星、天王星**：公布的极点落在黄道北侧，但两者都是逆向自转，所以极点其实是自转矢量的
-  **反向**，必须翻转：金星 2.64° → **177.36°**，天王星 82.24° → **97.76°**。
-- **冥王星**：公布的极点本身就指向黄道**南**侧（黄纬 −22.8°），它就是自转矢量，再翻一次会得到
-  荒谬的 60°，而正确答案是 **122.5°**。
-
-所以规则是「逆向自转 **且** 极点位于黄道北侧」才翻转。用同一个公式就同时对上了金星、天王星、
-冥王星三个方向各异的特例。
-
-实测倾角（与教科书值对照）：
-
-| 天体 | 本场景（相对自身轨道面） | 相对黄道面 | 教科书值 |
-|---|---|---|---|
-| 水星 | 0.01° | 7.01° | 0.034° |
-| 金星 | 177.36° | 178.76° | 177.36° |
-| 地球 | 23.44° | 23.44° | 23.44° |
-| 火星 | **25.19°** | 26.71° | 25.19° |
-| 木星 | 3.12° | 2.21° | 3.13° |
-| 土星 | **26.73°** | 28.05° | 26.73° |
-| 天王星 | 97.76° | 97.72° | 97.77° |
-| 海王星 | 27.85° | 28.03° | 28.32° |
-| 冥王星 | 119.61° | 67.19° | 122.53° |
-
-冥王星那 2.9° 的差来自 IAU 极点与轨道根数各自的历元不同，不是公式的问题；木星、海王星同量级。
-**火星那一行是这套算法的意义所在**：按黄道算会得到 26.71°，只有按它自己的轨道面算才是教科书上
-的 25.19°。
+**IAU 极点并不总是自转矢量本身。** 规则是「逆向自转**且**极点位于黄道北侧」才翻转：
+金星 2.64° → 177.36°，天王星 82.24° → 97.76°；而冥王星公布的极点本身就指向黄道南侧，
+它就是自转矢量，再翻一次会得到荒谬的结果。三个方向各异的特例用同一条规则就都对上了
+（推导与实测对照见 [PLANET-PITFALLS.md](PLANET-PITFALLS.md) §5）。
 
 ### 自转与公转是怎么驱动的
 
-```csharp
-// 公转
-Vec3d au = def.Orbit.PositionAu(julianDate);      // 日心黄道坐标，AU
-_posKm[i] = au * OrbitalMechanics.AuKm;
+自转角度是**时间的一次函数**（不是每帧累加），所以拖时间轴不会积累误差，
+暂停 / 恢复 / 跳到任意日期都能得到同一个姿态：
 
-// 自转：绕自身极轴，按恒星日推进
+```csharp
+Vec3d au = def.Orbit.PositionAu(julianDate);   // 日心黄道坐标，AU
+_posKm[i] = au * OrbitalMechanics.AuKm;        // 公转
+
 double spinDeg = 360.0 * (julianDate - J2000) / (RotationHours / 24.0);
 transform.rotation = poleRotation * Quaternion.AngleAxis((float)spinDeg, Vector3.up);
 ```
-
-自转角度是**时间的一次函数**（不是每帧累加），所以拖时间轴不会积累误差，暂停/恢复/跳到任意
-日期都能得到同一个姿态。
 
 ### 坐标系：右手黄道 → 左手 Unity
 
@@ -180,85 +131,60 @@ transform.rotation = poleRotation * Quaternion.AngleAxis((float)spinDeg, Vector3
 | 分组 | 内容 |
 |---|---|
 | `Bodies/` | 21 个 `CelestialBody`：太阳、八大行星、月球、木卫一至四、土卫六、海卫一、冥卫一、谷神星、冥王星、妊神星、鸟神星 |
-| `Orbits/` | 12 条 `OrbitPath`（九大行星 + 3 颗矮行星的完整椭圆）+ 2 条 `CircleLine`（30 AU / 50 AU 柯伊伯带边界） |
-| `Asteroid Belt 2.1-3.3 AU` | `BeltField`，2200 个粒子，真实轨道根数 |
-| `Kuiper Belt 30-50 AU` | `BeltField`，5000 个粒子，真实轨道根数 |
+| `Orbits/` | 12 条 `OrbitPath`（行星 + 矮行星的完整椭圆）+ 2 条 `CircleLine`（30 AU / 50 AU 柯伊伯带边界） |
+| `Asteroid Belt` / `Kuiper Belt` | 两个 `BeltField`，粒子带真实轨道根数 |
 | `Sun Light` | 一盏平行光，从太阳指向当前焦点天体 |
 | `Main Camera` | `SolarSystemCamera` + `SolarSystemHud` + URP `UniversalAdditionalCameraData` |
-| `Global Volume` | `Assets/Settings/SolarSystemPost.asset`（Bloom 0.85 / ACES / Vignette 0.22） |
+| `Global Volume` | `Assets/Settings/SolarSystemPost.asset` |
+| `SolarSpaceContext` | 尺度坐标层组件（[PLANET-SPACE.md](PLANET-SPACE.md)） |
+| `SolarSystemVisualCoordinator` | 把相机契约接到纹理 LOD、恒星与地表地形消费者的单向适配器 |
 
-### Earth：统一程序化星球尺度框架
+### Earth
 
-Earth 使用 `ProceduralTerra.asset`：地表、海洋、生态、云与大气全部由程序化采样生成，没有贴图。
-**框架本身的实现说明见 [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md)**，这里只列本场景当前的取值。
-
-| 项目 | 当前示例 |
-|---|---|
-| 物理半径 / 扁率 | 6,371,000 m / 1÷298.257 |
-| 种子 | 271828 |
-| 网格 | 6 面，每面 96 段；56,454 顶点，110,592 三角形 |
-| 几何起伏 | 高度函数真实位移；星球尺度显示夸张为 4×，查询仍返回米制高度 |
-| 地形粗采样范围 | −7,200 m … +5,802.79 m |
-| 海平面 | −438.55 m，`seaLevelFraction = 0.52` |
-| 采样水覆盖率 | 约 56.4%，按粗网格采样统计，不是面积积分的精确值 |
-| 大气高度 | 80,000 m；壳层赤道半径比 1.012557 |
-| 云壳半径比 | 外层 1.009；使用密度 Cubemap 与视角光程近似 |
+使用 `ProceduralTerra.asset`：地表、海洋、生态、云与大气全部由程序化采样生成，没有贴图。
+**框架实现见 [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md)**，当前取值见该文档 §5；
+近景纹理分级见 [PLANET-TEXTURE-LOD.md](PLANET-TEXTURE-LOD.md)。
 
 `features` 分别提供 `hasOcean`、`hasAtmosphere`、`hasClouds`、`hasEcology`、`hasIceCaps`；
-水位与地形函数分离，改水位不会移动山脉。水体、生物群系与配色的完整规则见框架文档 §7 / §8。
+水位与地形函数分离，改水位不会移动山脉。
 
-`CelestialBody` 把**自己的场景缩放**序列化在组件上（`sceneRadiusUnits`，单位是场景单位），
-而不是每帧从目录推算：目录给出物理半径（km），编辑器烘焙做**一次**换算
-`sceneRadiusUnits = RadiusKm ÷ kmPerUnit`，运行时只读这个值再乘 `G` 的放大倍率，
-并经 `IPlanetRadiusProvider` 供壳层读取；因而 1× 和 `G` 的 400× 模式下，壳层与表面比例相同。
-换算的出处记在 `bakedKmPerUnit` 里，比例对不上时会在运行时警告，可用
-`Tools ▸ Planet ▸ Validate Body Scales` 离线审计。规则详见
-[DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §4.1。
+`CelestialBody` 把**自己的场景缩放**序列化在组件上，而不是每帧从目录推算；
+换算的出处记在 `bakedKmPerUnit` 里，比例对不上时会在运行时警告。
+规则详见 [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §4.1。
 
-其余 20 个天体分别具有独立 `PlanetDefinition`、Albedo Cubemap 和材质，位于
-`Assets/Resources/Solar/BodyMaterials/`。默认每面 64 段，25,350 顶点／49,152 三角形；
-岩石、撞击坑、冰裂纹、气带、雾霾与太阳光球通过不同表面类型采样。气态行星不套用生态或表面海洋。
-Venus/Titan 以不透明可见层隐藏地表；Haumea 保留三轴形状。太阳、巨行星与冰质卫星的解释范围见材质文档。
+其余 20 个天体各有独立的 `PlanetDefinition`、Albedo Cubemap 和材质，位于
+`Assets/Resources/Solar/BodyMaterials/`。气态行星不套用生态或表面海洋；
+Venus/Titan 以不透明可见层隐藏地表；Haumea 保留三轴形状。解释范围见
+[PLANET-MATERIALS.md](PLANET-MATERIALS.md)。
 
 ### 两条碎带是真的在转
 
 每个粒子都带真实的 `a`、`e`、`i`、`Ω`、`ϖ`、`M₀`，用**和行星同一套**开普勒求解器推进，
-周期由开普勒第三定律 `P(年) = a(AU)^1.5` 给出。于是内圈会比外圈跑得快，碎带会自己剪切开——
-这是手摆的装饰粒子做不到的。
+周期由开普勒第三定律给出。于是内圈比外圈跑得快，碎带会自己剪切开——这是手摆的装饰粒子
+做不到的。分布实测：主带 a ∈ [2.06, 3.27] AU，柯伊伯带 a ∈ [30.00, 50.00] AU 且在 26 AU
+以内一个粒子都没有。
 
-实测分布：主带 a ∈ [2.06, 3.27] AU（均值 2.68，e ≤ 0.22）；柯伊伯带 a ∈ [30.00, 50.00] AU
-（均值 40.95，e ≤ 0.20，**26 AU 以内一个粒子都没有**）。
-
-**唯一刻意的夸张是标记点的大小**，不是它们的位置。100 km 的小行星在真实比例下是 1×10⁻⁴
-场景单位，永远不可能被看见。所以标记点按"相对相机的固定张角"缩放（默认 0.0012 rad ≈ 2.5 像素），
-并带 ±55% 的随机尺寸抖动，免得密集成一片死白的贴图。位置仍然严格按比例。
+**唯一刻意的夸张是标记点的大小，不是它们的位置。** 100 km 的小行星在真实比例下是
+1×10⁻⁴ 场景单位，永远不可能被看见，所以标记点按"相对相机的固定张角"缩放并带随机尺寸抖动。
+求解节奏的自适应优化见 [PLANET-SPACE.md](PLANET-SPACE.md) §6.2。
 
 ### 材质与经纬参考网
 
-所有天体使用 `Planet/ProceduralSurface`；太阳走自发光与临边昏暗分支，环使用 `Planet/ProceduralRing`。
-`Planet/ClayGrid` 与旧白模材质保留作为缺少程序化定义时的回退资源。
+所有天体使用 `Planet/ProceduralSurface`；太阳走自发光与临边昏暗分支，环使用
+`Planet/ProceduralRing`。`Planet/ClayGrid` 与旧白模材质保留作为缺少程序化定义时的回退资源。
+
 浏览默认关闭经纬网；按 `L` 切换程序化表面的全局角度经纬参考网。
 网格使用 `fwidth` 抗锯齿——这个场景从 0.006 单位的天体跨到 7,480 单位的柯伊伯带，
 固定世界宽度的线在某一端必然是错的。
 
 ### 土星环的卡西尼缝
 
-土星环不是一整片。`RingSet` 存的是分段的内外半径（单位 km），`SolarMeshFactory.Rings` 按
-这些分段生成多个同心圆环：
+土星环不是一整片。`RingSet` 存的是**分段的内外半径**（单位 km），`SolarMeshFactory.Rings`
+按这些分段生成多个同心圆环：D / C / B 环、卡西尼缝、A 环（内含约 325 km 的恩克缝与
+约 42 km 的开勒缝）、罗希缝、F 环。只画一个实心圆环，土星看起来就是个盘子。
 
-| 环 | 半径 (km) |
-|---|---|
-| D | 66,900 – 74,500 |
-| C | 74,500 – 92,000 |
-| B | 92,000 – 117,580 |
-| *卡西尼缝* | *117,580 – 122,170*（宽 4,590 km） |
-| A | 122,170 – 136,775 |
-| *恩克缝（A 环内）* | *133,426.5 – 133,751.5*（约 325 km） |
-| *开勒缝（A 环内）* | *136,484 – 136,526*（约 42 km） |
-| *罗希缝* | *136,775 – 140,180* |
-| F | 140,180 – 140,580 |
-
-只画一个 74,500–140,220 的实心圆环，土星看起来就是个盘子。
+分段半径表是目录数据的一部分，见 `SolarSystemCatalog`；环的渲染与遮光近似见
+[PLANET-MATERIALS.md](PLANET-MATERIALS.md) §3–§4。
 
 ---
 
@@ -269,19 +195,22 @@ Venus/Titan 以不透明可见层隐藏地表；Haumea 保留三轴形状。太�
 | `1` … `9`, `0` | 依次飞向太阳、水星、金星、地球、火星、木星、土星、天王星、海王星、冥王星 |
 | `Tab` / `Shift+Tab` | 下一个 / 上一个天体（21 个全在这条链上，含卫星与矮行星） |
 | `F` | 重新取景 |
-| 滚轮 / `PgUp` `PgDn` | 缩放（对数） |
+| 滚轮 / `PgUp` `PgDn`（或 `Z` `X`） | 缩放（对数） |
 | 左键拖动 | 环绕 |
+| `Esc` | 停止自动环绕 |
 | `空格` | 暂停 / 继续 |
-| `-` / `=` | 时间流速减半 / 加倍（0.002 – 2,000,000 天每秒） |
-| `\` | 时间流速复位到 5 天/秒 |
-| `N` | 跳到当前真实日期 |
-| `R` | 回到 J2000 历元并继续 |
+| `-` / `=` | 时间流速减半 / 加倍 |
+| `\` | 时间流速复位到默认值 |
+| `N` / `R` | 跳到当前真实日期 / 回到 J2000 历元（并取消暂停） |
 | `G` | 天体半径放大 400×（仅为可见，非真实比例） |
 | `L` | 经纬网格开 / 关 |
 | `H` | 显示 / 隐藏 HUD |
 
-HUD 显示：模拟日期、时间流速、焦点天体的半径/扁率/自转周期/转轴倾角/轨道半长轴/偏心率/
-轨道倾角/公转周期，以及比例尺和当前视距；右上角常驻柯伊伯带面板。
+近地后由 `Planet.Interaction` 接管缩放与 body-fixed 漫游，键位与阈值见
+[DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §3.1。
+
+HUD 显示模拟日期、时间流速、焦点天体的半径/扁率/自转周期/转轴倾角/轨道半长轴/偏心率/
+轨道倾角/公转周期，以及比例尺和当前视距。
 
 ---
 
@@ -291,177 +220,85 @@ HUD 显示：模拟日期、时间流速、焦点天体的半径/扁率/自转�
 
 - 焦点天体上的光照是**准确的**：太阳在任何比水星更远的地方张角都小于 1°，平行光完全够用，
   昼夜分界线、极昼极夜、土星环的受光面都对。
-- **广角俯视时不对**：整个太阳系同框时，海王星和地球收到的是同一个方向的光。真实情况是光
-  从中心向外辐射。
-- 阴影被**关闭**（`LightShadows.None`）：1×10¹⁰ km 的场景里，级联阴影贴图没有意义。因此
-  没有行星落在卫星上的食。环投在天体表面、天体遮住环的太阳光改由解析求交计算，
-  不读取级联阴影图；当前遮挡球体忽略扁率／三轴形状，环影忽略细小地形。
+- **广角俯视时不对**：整个太阳系同框时，海王星和地球收到的是同一个方向的光，
+  而真实情况是光从中心向外辐射。
+- 阴影被**关闭**：1×10¹⁰ km 的场景里级联阴影贴图没有意义，因此没有行星落在卫星上的食。
+  环投在天体表面、天体遮住环的太阳光改由**解析求交**计算；当前遮挡球体忽略扁率／三轴形状，
+  环影忽略细小地形。
 
-这些都是为了"每个天体单独看的时候是对的"而做的取舍，并已在场景中注释说明。
+这些都是为了「每个天体单独看的时候是对的」而做的取舍。
 
-程序化地表也不读取太阳系的 URP 级联阴影贴图；云层 ShadowCaster 关闭，避免大场景范围与
-天体半径不匹配造成闪烁和半圆直线分割。云影由共享密度 Cubemap 沿主光方向偏移采样。
+程序化地表同样**不读取 URP 级联阴影贴图**；云影由共享密度 Cubemap 沿主光方向偏移采样。
 地形法线影响光照，但地形遮挡式自阴影、食和完整体积云尚未实现。
 
-### 星空曝光和经度接缝
+### 星空曝光
 
-`PlanetLightingController` 缓存 96 个球面方向样本，读取统一地表采样器的反照率与法线，按
-可见投影权重、太阳颜色和强度估计地表亮度，再结合星球屏幕大小平滑更新 `_PlanetSkyExposureEV`。
-相机移动、暂停后的环绕和焦点变化都会继续更新。该 EV 只控制星图整体曝光，是表面测光近似，
-不是 URP 全画面的自动曝光。运行时不会写回共享天空材质。
+`PlanetLightingController` 缓存球面方向样本，读取统一地表采样器的反照率与法线，
+按可见投影权重、太阳颜色和强度估计地表亮度，据此平滑更新星图的全局曝光 EV——
+星球越亮、占屏越大，星空整体越暗。
 
-星空没有半天空灰色覆盖或方向性底色。采样在 `atan2` 的 ±180° 接缝处先修正 UV 导数到最短
-周期差，再使用 `tex2Dgrad`；仍保持贴图 `U=Repeat / V=Clamp`，避免接缝错误 mip 黑线。
+这是**表面测光近似**，不是 URP 全画面的自动曝光，且运行时**不会写回**共享天空盒材质资产。
+相机移动、暂停后的环绕和焦点变化都会继续更新。完整的相机曝光设计见
+[PLANET-STELLAR.md](PLANET-STELLAR.md) §5。
 
----
+### 星空天空盒
 
-## 6. 编辑器工具（菜单 Tools ▸ Planet）
+贴图 `Assets/Textures/Sky/starmap_2020_4k.exr`（4096×2048，OpenEXR half-float，线性）：
+NASA SVS《Deep Star Maps 2020》ID 4851，Hipparcos-2 + Tycho-2 + Gaia DR2；
+**工程里唯一一张 HDR 贴图**，材质 `Assets/Settings/Skybox_Starfield.mat`，
+shader `Planet/StarfieldPhysical`。必须用 EXR 而非 PNG：恒星亮度跨多个数量级，
+8 位 sRGB 会把暗星压成纯黑、亮星削顶，银河细节全丢。
 
-| 菜单项 | 作用 |
-|---|---|
-| **Rebuild Solar System Scene** | 从 `SolarSystemCatalog` 重新生成整个场景并保存 |
-| **Rebuild White-Model Materials** | 重新生成 `Assets/Resources/Solar/` 里的五个材质 |
-| **Build Solar System Materials** | 为 21 个天体生成或复用独立程序化定义与缓存、材质，并保存正式场景 |
-| **Bake Body Scales** | 把 `SolarSystemCatalog.RadiusKm ÷ kmPerUnit` 一次性烘焙进 21 个 `CelestialBody.sceneRadiusUnits` 并保存场景；改目录或 `kmPerUnit` 后必须重跑 |
-| **Validate Body Scales** | 只读审计：列出与目录不符、未烘焙、或按另一个 `kmPerUnit` 烘焙过的星球 |
-| **Audit Space Scale** | 只读审计：坐标阶梯、尾数天花板、远场分档、地表分块阶梯、分块网格不变量、碎带、轨道线；报告七节写入 `Library/SpaceScaleAudit.txt`（见 [PLANET-SPACE.md](PLANET-SPACE.md) §9） |
-| **Open Solar System Scene** | 打开场景 |
-| **Capture Solar System Poses** | 按 `SolarSystemPoses` 的 11 个机位出图到 `Assets/Screenshots/`（需在 Play 模式） |
-| **Reimport Solar Screenshots** | 出图后手动触发资源导入 |
-| **Build Procedural Planet Example** | 重算 Earth 地形统计，生成或复用地表 / 云 Cubemap，更新材质和场景 |
-| **Refresh Procedural Planet Visuals** | 复用已生成 Cubemap，刷新壳层、光照与材质并保存；在编辑模式使用 |
+导入设置：`RGBAHalf`、**sRGB 关闭**、`maxTextureSize` 4096、mipmap 开启、`textureType = Default`、
+`alphaSource = None`。两条**契约**：
 
-场景是**代码生成**的，不是手工摆的。改比例、加天体、调分辨率都改 `SolarSystemCatalog` /
-`SolarSystemFactory` 里的数字，然后重跑菜单，不会出现"场景和 HUD 数字对不上"的情况。
+1. **逐轴 wrap，不能用单值 `wrapMode`。** 经度 −180° 与 +180° 是同一条子午线，U 必须 `Repeat`；
+   纬度到极点就结束了，**V 环绕会在天极拉出接缝**，必须 `Clamp`；W 未使用，同样 `Clamp`。
+   单值字段会在重新导入时被 Unity 覆盖回默认值，所以必须逐轴设 `wrapModeU/V/W` 后
+   `SaveAndReimport()`。该组合与用哪套 shader 无关——同一张贴图它都成立。
+2. **经度接缝要在采样端修。** `atan2` 在 ±π 处跳过一个整周期，普通 `tex2D` 的隐式求导会把这个
+   差值当成巨大的纹理足迹，选到最模糊的 mip，形成一条竖向暗线。写法是：① 在 `frac` 包装**之前**
+   求 UV 的屏幕导数；② 对经度导数取最短周期差 `delta -= round(delta)`；③ 用 `tex2Dgrad` 采样，
+   纬度钳制到边缘纹素中心。**没有**对星图做接缝模糊带处理，也没有修改源 EXR。
 
-> **踩过的坑 1**：`CapturePoses` 里最初在一个循环里同步跑完 11 个机位。碎带标记走的是
-> `Graphics.DrawMeshInstanced`，它的提交会**保留到帧末**——于是 11 个机位、11 个不同浮动原点
-> 的同一片碎带全部叠在一帧里画出来，画面变成一圈圈同心甜甜圈。现在改为每个编辑器 tick 只处理
-> 一个机位（`EditorApplication.update`）。
->
-> **踩过的坑 2**：`CapturePoses` 末尾原本调了 `AssetDatabase.Refresh()`，它会重载域并把编辑器
-> **踢出 Play 模式**，于是后续所有 `Instance` 都变成 null。现在刷新拆成独立的菜单项。
->
-> **踩过的坑 3**：`OrbitPath` 起初把线宽存在字段里、等自己的 `Update()` 抄给 `LineRenderer`。
-> 而编辑器的 **Run In Background 默认关闭**——Unity 窗口失去焦点时主循环根本不跑
-> （实测 Play 模式开了 9 分钟只跑了 **2 帧**），`Update()` 从没执行，所有轨道线停留在第一帧
-> 算出的宽度（相机还在原点时的 1×10⁻⁵），也就是**完全看不见**。现在线宽由模拟直接写进
-> `LineRenderer`（`OrbitPath.SetWidth`），并且项目已开启 **Run In Background**。
+半包围这个故障**结构上不可能再出现**：老材质用内置 `Skybox/Panoramic`，它有一个
+`_ImageType` 开关（180°/360° 两种铺法），半包围就是它被设成 180° 造成的。现在的
+`Planet/StarfieldPhysical` 直接用视线方向求经纬度（`longitude = atan2(x, z)`、`latitude = asin(y)`），
+整个天球由同一个公式覆盖，不存在一个能把它关掉一半的开关。
+
+验证方式：用一台 `cullingMask = 0`、只渲染天空盒的相机朝六个轴向渲染 96×96 面板，
+统计非黑像素比例——修复前 `-Z` / `-X` / `-Y` 三块全黑，修复后六个方向都布满银河与恒星。
+
+> 若需要天文级准确取向：原始星图以 0h 赤经为中心、赤经向左递增。当前只作背景板使用，
+> 未做相对黄道的姿态对齐（`_Rotation` 保持 0）。整体曝光由 `PlanetLightingController` 驱动，
+> **运行时不会写回**共享天空盒材质资产。
 
 ---
 
-## 7. 截图
+## 6. 编辑器菜单（Tools ▸ Planet）
 
-`Assets/Screenshots/`：
+本节是**菜单全表的唯一 owner**。菜单按优先级排序，加新菜单时在此登记。
 
-| 文件 | 内容 |
-|---|---|
-| `solar_01-earth.png` | 地球近景（昼半球、终止线、经纬网格） |
-| `solar_02-earth-moon.png` | 地月系（真实 384,400 km 间距） |
-| `solar_03-sun.png` | 太阳近景 |
-| `solar_04-jupiter.png` | 木星系全景 |
-| `solar_05-saturn.png` | 土星与环（卡西尼缝、26.73° 转轴倾角） |
-| `solar_06-uranus.png` | 天王星（97.8° 躺倒自转） |
-| `solar_07-pluto-charon.png` | 冥王星–冥卫一 |
-| `solar_08-inner-system.png` | 内太阳系（水星→火星轨道） |
-| `solar_09-full-system.png` | 全系至柯伊伯带（55.9 AU 视距） |
-| `solar_10-system-top.png` | 黄道俯视 |
-| `solar_11-inner-halved.png` | 内太阳系，日期 +半年（用于对照公转） |
-| `solar_hud_saturn.png` | 带 HUD 的土星，验证面板数值 |
-| `procedural_earth_shells_fixed-1.png` | 程序化昼面：正确比例的大气 / 云层、连续地表光照和整体天空曝光 |
-| `skybox_seam_fixed.png` | 相机正对 ±180° 经度接缝的纯天空验证 |
-
-2026-10-04 验证：1× / 400× 下大气比均为 1.012557、云比均为 1.009；同一地形姿态下昼面
-约 −2.39 EV，夜面约 +1.33 EV。四个相关 Shader 和脚本编译没有错误。
-24 段验证网格的 292 组重复边界顶点，位置 / 法线差均为零；坐标往返最大误差约 1.3×10⁻⁹ m。
-海洋 / 云 / 生态关闭与水位不改变地形的检查通过。本机完整构建 11.48 秒，缓存构建 0.93 秒。
-固定暂停姿态连续三次渲染最大 RGB 差为 0/255，未复现阴影闪烁。
-
----
-
-## 8. 与 `PlanetDemo.unity` 的关系
-
-| | `PlanetDemo.unity` | `SolarSystem.unity` |
+| 菜单项 | 脚本 | 作用 |
 |---|---|---|
-| 定位 | **渲染精度参考**：星系视角下星球应当精细到什么程度 | **正式工程场景**：功能开发与验证都以此为准 |
-| 内容 | 贴图地球 + 月球特写 | 21 个程序化天体与五组环 |
-| 视觉 | 8K 贴图、法线、地形起伏 | 独立地表、冰壳、气层、光球和大气；Earth 的海洋／云；可选经纬参考网 |
-| 尺度 | 局部（趣味比例） | 太阳 → 柯伊伯带（真实比例） |
-| 说明 | [PLANET-DEMO.md](PLANET-DEMO.md) | 本文件 |
+| **Rebuild Solar System Scene** | `SolarSystemBuilder` | 从 `SolarSystemCatalog` 重新生成整个场景（含全部天体材质接线与秤重烘焙）并保存 |
+| **Rebuild White-Model Materials** | `SolarSystemBuilder` | 重新生成 `Assets/Resources/Solar/` 里的回退白模 / 轨道材质 |
+| **Open Solar System Scene** | `SolarSystemBuilder` | 打开正式场景 |
+| **Build Procedural Planet Example** | `PlanetFrameworkBuilder` | 走完 `PlanetDefinition → 采样 → Cubemap → 材质 → 场景` 整条链并保存 |
+| **Refresh Procedural Planet Visuals** | `PlanetFrameworkBuilder` | 复用已有 Cubemap，只刷新材质与壳层参数并保存场景；**编辑模式专用** |
+| **Build Solar System Materials** | `SolarSystemMaterialBuilder` | 分批构建全部天体的定义／独立缓存／材质，完成后保存场景；保留已有定义的手工外观调整 |
+| **Bake Body Scales** | `BodyScaleBaker` | 把 `RadiusKm ÷ kmPerUnit` 一次性烘焙进星球的 `sceneRadiusUnits`；改目录或 `kmPerUnit` 后必须重跑 |
+| **Build Earth Texture LODs** | `EarthTextureLodBuilder` | 烘焙 Earth 的四档纹理（[PLANET-TEXTURE-LOD.md](PLANET-TEXTURE-LOD.md)） |
+| **Build Stellar Framework** | `StellarFrameworkBuilder` | 生成独立恒星定义、温度 LUT 与两个材质，并迁移 Sun 接线（[PLANET-STELLAR.md](PLANET-STELLAR.md)） |
+| **Validate Body Scales** | `BodyScaleBaker` | 只读审计：列出与目录不符、未烘焙、或按另一个 `kmPerUnit` 烘焙过的星球 |
+| **Build Planet Mesh LODs** | `PlanetMeshLodBuilder` | 生成离线 Cube Sphere Mesh 档位资产。**正式场景已改用运行时分块地形，该路径只在 `useRuntimeChunks = false` 的原型里作为回退**（[PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §16） |
+| **Audit Space Scale** | `SpaceScaleAuditor` | 只读尺度审计，报告七节写入 `Library/SpaceScaleAudit.txt`（[PLANET-SPACE.md](PLANET-SPACE.md) §9） |
+| **Capture Solar System Poses** | `SolarSystemBuilder` | 按 `SolarSystemPoses` 的机位出图到 `Assets/Screenshots/`（需在 Play 模式） |
+| **Reimport Solar Screenshots** | `SolarSystemBuilder` | 出图后手动触发资源导入 |
 
-两个场景共用星空天空盒与 URP 设置，互不依赖；参考场景**不接入程序化框架**。
+场景是**代码生成**的：改比例、加天体、调分辨率都改 `SolarSystemCatalog` / `SolarSystemFactory`
+里的数字，然后重跑菜单，不会出现"场景和 HUD 数字对不上"的情况。
 
----
-
-## 9. 程序集边界与对外接口
-
-星系运行时（`Assets/Scripts/Solar/`）编译进**独立程序集 `Planet.Solar`**
-（`Assets/Scripts/Solar/Planet.Solar.asmdef`），不再与 `Assembly-CSharp` 混编。
-目的只有一个：**让不同工作树合并时，不会因为新增的引用或被引用而互相绊住。**
-
-### 依赖方向（单向，无环）
-
-```
-Assembly-CSharp / Assembly-CSharp-Editor   （胶水层：PlanetLightingController、编辑器工具）
-        │                        │
-        ▼                        ▼
-   Planet.Solar  ──────────►  Planet.Procedural
-        （只经由 IPlanetRadiusProvider 与 PlanetSurfaceView 接触）
-```
-
-`Planet.Solar.asmdef` 的引用列表是**穷举**的，只有四项：
-
-| 引用 | 谁在用 |
-|---|---|
-| `Planet.Procedural` | `CelestialBody` 实现 `IPlanetRadiusProvider`，并驱动 `PlanetSurfaceView` |
-| `Unity.InputSystem` | `SolarSystemCamera`、`SolarSystemSimulation` 的时间控制 |
-| `Unity.RenderPipelines.Core.Runtime` | `SolarSystemFactory` 的 `Volume` / `VolumeProfile` |
-| `Unity.RenderPipelines.Universal.Runtime` | `SolarSystemFactory` 的相机 / 灯光 URP 附加数据 |
-
-`autoReferenced: true`，所以 `Assembly-CSharp` 与 `Assembly-CSharp-Editor` **不需要改任何 asmdef**
-就能继续调用星系程序集——这是刻意的：**新增的 asmdef 越少，工作树合并时的冲突点越少。**
-
-### 对外契约：其他程序只应调用这些
-
-| 调用方 | 允许使用的成员 |
-|---|---|
-| `PlanetLightingController`（`Assembly-CSharp`，**唯一的运行时外部调用方**） | `SolarSystemSimulation.Instance` / `.FocusDefinition` / `.FocusView` / `.FocusRadiusUnits` / `.ViewCamera`、`Body.IsSun` |
-| 编辑器工具（`Assembly-CSharp-Editor`） | `SolarSystemFactory.BuildAll`、`SolarMaterials`、`SolarSystemPoses`、`CelestialBody` 的 `bodyName` / `BuildVisuals` / `RadiusUnits` / `sceneRadiusUnits` / `bakedKmPerUnit` / `BakeScale`；`SolarSystemSimulation` 的 `Build` / `RefreshPositions` / `SpaceContext`；`SolarSpaceContext` 的 `Initialize` / `RefreshFrames` / `ClassifyBody` / `Origin` / `Tree` / `SurfaceGrid` |
-| 交互层 | `SolarSystemCamera` 的视距查询与设置、`SolarSystemSimulation` 的焦点查询；不得读取网格或材质缓存 |
-| 星球侧（`Planet.Procedural` → 星系） | **无**。地表分块所需的方向与半径换算由 `CubeFaceMath` / `ChunkLocalGeometry` 在星系侧自行实现，`Planet.Solar` 只引用 `Planet.Procedural` 的 `PlanetCubeFace` 枚举 |
-
-`SolarMeshFactory` 是 `internal`，仅 `Planet.Solar` 内部使用。其他未列入契约的类型即使目前为
-`public`，也视为程序集内部实现；需要新的数据源时，先在主线确定接口，再由调用方注入或把最小
-接口放入 `Planet.Procedural`，不要在 `Planet.Solar` 中直接引用下游程序集。
-
-**2026-10-04 起，`Solar/Space/` 的全部类型也按同样规则视为程序集内部实现**，对外只开放
-上表列出的那几项（审计工具与测试用）。特别地：`Planet.Solar` **不得**引用 `Unity.Mathematics`
-——`CubeFaceMath.ReferenceRadiusMetres` 之所以存在，就是为了避免重复
-`Planet.Procedural` 里那个吃 `double3` 的版本；引用它会直接 `CS0012`（实测过）。
-
-编辑器工具（`Assets/Editor/`）**故意留在 `Assembly-CSharp-Editor`**，不另立 asmdef：它们不参与
-构建产物，而多一个 asmdef 就多一个合并冲突点。
-
-### 与星球框架的接口只有两处
-
-完整的跨程序集接口清单在 [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §2，本节只讲
-**为什么**是这两处、以及它们为什么必须保持这么窄。
-
-`CelestialBody` 是星系程序集与程序化星球框架之间**唯一**的接触点，它只用到
-`IPlanetRadiusProvider`（由 `CelestialBody` **实现**，供壳层反查半径）与 `PlanetSurfaceView`
-的四个成员（`definition` / `BuildSurface(float)` / `SetRadius(float)` / `SurfaceTransform`）。
-
-半径**只朝一个方向流动**：`CelestialBody` 发布 `RadiusUnits`，大气壳与云壳各自在
-`ApplyProperties()` 里自取。`CelestialBody.ApplyState` **不再**反向推送
-`PlanetAtmosphere` / `PlanetCloudLayer` —— 那会要求星系程序集引用壳层组件，而 `PlanetAtmosphere`
-位于 `Planet.Procedural` 程序集，Solar 程序集不需要引用具体渲染实现。
-
-**2026-10-04 起，缩放由星球自己持有。** `CelestialBody.sceneRadiusUnits` 是序列化的场景半径，
-`RadiusUnits` 变成它的只读派生量（× `bodySizeExaggeration`），
-`ApplyState(position, radiusUnits, spin)` 相应简化为 `ApplyState(position, spin)` ——
-模拟只负责摆放和自转，半径不再每帧由它推送。对壳层与相机**没有影响**：它们读的
-`IPlanetRadiusProvider.RadiusUnits` 语义不变，只是现在有了稳定、可在 Inspector 里看到的值。
-
-> **给其他工作树的提醒**：只要不动上面这两个接口，`Planet.Procedural` 内部怎么改都不会波及
-> 星系程序集。若确实需要改动 `IPlanetRadiusProvider`，或 `PlanetSurfaceView` 这四个成员，
-> 或者星系程序集需要**新的数据源**，请先在主工作树把接口定下来再动分支。
+**出图工具的两条约束**（原因见 [PLANET-PITFALLS.md](PLANET-PITFALLS.md) §7）：
+`CapturePoses` 必须**一个编辑器 tick 只处理一个机位**，且末尾**不能**调 `AssetDatabase.Refresh()`
+——前者会让多个浮动原点的同一片碎带叠在一帧，后者会把编辑器踢出 Play 模式。

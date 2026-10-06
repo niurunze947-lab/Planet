@@ -75,6 +75,8 @@ public sealed class RuntimeTerrainTests
             double3 pa = a.origin + (double3)(float3)a.vertices[y * side + side - 1];
             double3 pb = b.origin + (double3)(float3)b.vertices[y * side];
             Assert.That(math.distance(pa, pb), Is.LessThan(0.00001));
+            Assert.AreEqual(a.colors[y * side + side - 1], b.colors[y * side],
+                "Macro color interpolation must agree at shared chunk vertices.");
         }
         Assert.That(Vector3.Distance(a.vertices[0], a.vertices[1]), Is.InRange(0.001f, 0.1f));
         foreach (var vertex in a.vertices) Assert.IsTrue(math.all(math.isfinite((float3)vertex)));

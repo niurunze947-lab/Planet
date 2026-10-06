@@ -21,7 +21,7 @@ MonoBehaviour:
     shapeScale: {x: 1, y: 1, z: 1}
     northPoleRightAscensionDegrees: 0
     northPoleDeclinationDegrees: 90
-    seaLevelMetres: -438.54868
+    seaLevelMetres: -623.4168
     atmosphereHeightMetres: 80000
   generation:
     seed: 271828
@@ -29,18 +29,18 @@ MonoBehaviour:
     continentThreshold: 0.08
     domainWarp: 0.32
     continentOctaves: 6
-    oceanDepthMetres: 7200
-    plateauHeightMetres: 1600
-    seaLevelFraction: 0.52
-    terrainMinimumMetres: -7200
-    terrainMaximumMetres: 5802.7915
+    oceanDepthMetres: 10235.143
+    plateauHeightMetres: 2274.4762
+    seaLevelFraction: 0.48058632
+    terrainMinimumMetres: -10235.143
+    terrainMaximumMetres: 9764.857
     waterCoverage: 0.5638129
     visualReliefScale: 1
     mountainFrequency: 12
-    mountainHeightMetres: 6200
+    mountainHeightMetres: 8813.595
     mountainOctaves: 6
     detailFrequency: 140
-    detailHeightMetres: 220
+    detailHeightMetres: 312.74048
     slopeSampleDistanceMetres: 2200
     temperatureOffset: 0
     moistureOffset: 0.02

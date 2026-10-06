@@ -13,6 +13,54 @@ using UnityEngine.TestTools;
 public sealed class UnifiedFlightPlayTests
 {
     [UnityTest]
+    public IEnumerator OceanIsSeparateAndObserverCanExploreBelowSeaLevel()
+    {
+        yield return SceneManager.LoadSceneAsync("SolarSystem");
+        var sim = SolarSystemSimulation.Instance;
+        sim.paused = true;
+        var flight = sim.ViewCamera.GetComponent<UnifiedFlightController>();
+        if (flight == null) flight = sim.ViewCamera.gameObject.AddComponent<UnifiedFlightController>();
+        flight.handleInput = false;
+        yield return null;
+        var earth = sim.FocusView;
+        var surface = earth.GetComponent<Planet.Procedural.PlanetSurfaceView>();
+        Assert.IsNotNull(surface.OceanTransform);
+        Assert.AreNotSame(surface.SurfaceTransform, surface.OceanTransform);
+        Assert.IsNull(surface.OceanTransform.GetComponent<Collider>());
+        var terrain = surface.TerrainRenderer;
+        var source = terrain.Source;
+        double3 direction = new double3(1, 0, 0);
+        bool wet = false;
+        for (int i = 0; i < 128; i++)
+        {
+            direction = math.normalize(new double3(math.cos(i), i / 64.0 - 1, math.sin(i)));
+            if (source.Height(direction, 1) < source.macro.seaLevelMetres - 1000) { wet = true; break; }
+        }
+        Assert.IsTrue(wet);
+        double3 below = source.Position(direction, 0.005) + direction * 500;
+        Vec3d rotated = SolarSystemSimulation.RotateMetres(earth.transform.rotation, new Vec3d(below.x, below.y, below.z));
+        Vec3d center = sim.PositionWorldMetresAt(sim.FocusIndex);
+        flight.SetPose(new double3(center.x + rotated.x, center.y + rotated.y, center.z + rotated.z), Quaternion.identity, double3.zero);
+        yield return null;
+        Assert.IsTrue(flight.InNearSurface);
+        Assert.Less(math.length(flight.PositionBodyFixedMetres), math.length(source.OceanPosition(direction)) - 400);
+        float deadline = Time.realtimeSinceStartup + 120;
+        bool renderedWater = false;
+        while (!renderedWater && Time.realtimeSinceStartup < deadline)
+        {
+            yield return null;
+            foreach (var renderer in surface.SurfaceTransform.GetComponentsInChildren<MeshRenderer>())
+                if (renderer.enabled && renderer.sharedMaterial == surface.OceanMaterial) renderedWater = true;
+        }
+        Assert.IsTrue(renderedWater, "The active quadtree must stream a separate water surface.");
+        Assert.IsFalse(surface.OceanTransform.GetComponent<MeshRenderer>().enabled, "Far ocean hands over with terrain coverage.");
+        Assert.Greater(Shader.GetGlobalVector("_PlanetAtmosphereParams").x, 0);
+        flight.SetPose(new double3(1e13, 2e13, 3e13), Quaternion.identity, double3.zero);
+        yield return null;
+        Assert.AreEqual(Vector4.zero, Shader.GetGlobalVector("_PlanetAtmosphereParams"));
+    }
+
+    [UnityTest]
     public IEnumerator NumpadControlsMultiplierWhileWheelAndTimeKeysStayIndependent()
     {
         yield return SceneManager.LoadSceneAsync("SolarSystem");
@@ -340,28 +388,40 @@ public sealed class UnifiedFlightPlayTests
         flight.OrbitAroundTarget(new Vector2(0.001f, 0), 0.02f);
         yield return null;
         float deadline = Time.realtimeSinceStartup + 240;
-        while ((!terrain.CollisionCoverageReady || terrain.PendingWork > 0) && Time.realtimeSinceStartup < deadline)
+        while ((!terrain.CollisionCoverageReady || terrain.FinestVisibleLevel < 16) && Time.realtimeSinceStartup < deadline)
             yield return null;
         Assert.IsTrue(terrain.CollisionCoverageReady);
         double startHeight = SurfaceRoamHudState.PlayerToSurfaceDistanceMetres;
+        double3 wheelStart = flight.PositionBodyFixedMetres;
         for (int i = 0; i < 20; i++)
         {
             flight.ApplyNavigationScroll(-120);
             yield return new WaitForSeconds(0.15f);
         }
         Assert.Less(SurfaceRoamHudState.PlayerToSurfaceDistanceMetres, startHeight - 10,
-            "Near scroll must move the explorer, not silently change fly speed.");
+            "Near scroll must advance. Displacement=" + math.distance(wheelStart, flight.PositionBodyFixedMetres) +
+            " near=" + flight.InNearSurface + " target=" + flight.NavigationTargetIndex +
+            " cap=" + flight.MovementSpeedLimitMetresPerSecond + " ready=" + terrain.CollisionCoverageReady);
 
         // Gravity must reach the displayed mesh without being cancelled by input damping.
         flight.CancelNavigation();
         flight.SetGravityEnabled(true);
         deadline = Time.realtimeSinceStartup + 240;
-        while ((SurfaceRoamHudState.PlayerToSurfaceDistanceMetres > 2 || terrain.PendingWork > 0) &&
+        while ((SurfaceRoamHudState.PlayerToSurfaceDistanceMetres > 2 || !terrain.CollisionCoverageReady) &&
             Time.realtimeSinceStartup < deadline) yield return null;
         Assert.IsTrue(terrain.CollisionCoverageReady);
         Assert.GreaterOrEqual(SurfaceRoamHudState.PlayerToSurfaceDistanceMetres, 0.49);
         Assert.Less(SurfaceRoamHudState.PlayerToSurfaceDistanceMetres, 2);
-        Assert.Less(math.length(flight.VelocityBodyFixedMetresPerSecond), 1);
+        double contactSeconds = 0;
+        while (contactSeconds < 1)
+        {
+            yield return null;
+            contactSeconds += Mathf.Min(Time.deltaTime, 0.1f);
+            Assert.GreaterOrEqual(SurfaceRoamHudState.PlayerToSurfaceDistanceMetres, 0.49,
+                "Gravity may slide along the slope but must not enter the solid surface.");
+        }
+        Assert.IsTrue(math.all(math.isfinite(flight.VelocityBodyFixedMetresPerSecond)),
+            "Contact must leave a finite velocity while allowing tangent sliding.");
         Assert.LessOrEqual(terrain.ResidentCount, terrain.ResidentBudget);
         ScreenCapture.CaptureScreenshot("Logs/gravity-neighbourhood-contact.png");
         yield return null;

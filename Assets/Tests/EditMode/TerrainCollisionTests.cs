@@ -8,6 +8,38 @@ using UnityEngine;
 public sealed class TerrainCollisionTests
 {
     [Test]
+    public void OceanAndSeabedHaveSeparateGeometryAndOnlySeabedProvidesCollision()
+    {
+        var definition = ScriptableObject.CreateInstance<PlanetDefinition>();
+        Mesh ocean = null, collision = null;
+        try
+        {
+            definition.physical.seaLevelMetres = 10000;
+            definition.generation.visualReliefScale = 1;
+            var source = new RuntimeTerrainSource(definition);
+            var key = TerrainLattice.NodeAt(new double3(1, 0.2, 0.3), 18);
+            var chunk = RuntimeTerrainChunk.Build(source, key, CancellationToken.None);
+            ocean = chunk.UploadOceanMesh(); collision = chunk.UploadCollisionMesh();
+            Assert.IsNotNull(ocean);
+            for (int i = 0; i < collision.vertexCount; i++)
+            {
+                double3 ground = chunk.origin + (double3)(float3)collision.vertices[i];
+                double3 water = chunk.oceanOrigin + (double3)(float3)ocean.vertices[i];
+                Assert.Greater(math.length(water) - math.length(ground), 1000);
+                Assert.AreEqual(source.macro.seaLevelMetres,
+                    math.length(water) - source.ReferenceRadius(math.normalize(water)), 0.001);
+                Assert.AreEqual(chunk.samples[i].x,
+                    math.length(ground) - source.ReferenceRadius(math.normalize(ground)), 0.002);
+            }
+            definition.features.hasOcean = false;
+            Assert.IsNull(RuntimeTerrainChunk.Build(new RuntimeTerrainSource(definition), key,
+                CancellationToken.None).UploadOceanMesh());
+        }
+        finally
+        { Object.DestroyImmediate(ocean); Object.DestroyImmediate(collision); Object.DestroyImmediate(definition); }
+    }
+
+    [Test]
     public void ColliderReusesDisplayedVerticesAndExcludesAllSkirts()
     {
         var definition = ScriptableObject.CreateInstance<PlanetDefinition>();

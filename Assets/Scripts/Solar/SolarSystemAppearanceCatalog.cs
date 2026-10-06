@@ -58,6 +58,11 @@ namespace Planet.Solar
                     a.surfaceKind = PlanetSurfaceKind.Terrestrial;
                     d.features = new PlanetFeatureOptions(); d.physical.atmosphereHeightMetres = 80000f;
                     d.generation.seed = 271828; d.generation.visualReliefScale = 1f;
+                    // Calibrated from the same terrain sampler: roughly 20 km trough-to-peak.
+                    d.generation.oceanDepthMetres = 10235.143f;
+                    d.generation.plateauHeightMetres = 2274.4762f;
+                    d.generation.mountainHeightMetres = 8813.595f;
+                    d.generation.detailHeightMetres = 312.74048f;
                     a.interpretation = "Existing procedural Terra with ocean, ecology, ice, clouds and atmosphere; not Earth's observed continental map.";
                     break;
                 case "Moon":

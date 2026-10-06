@@ -230,6 +230,9 @@
   策略见 [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §16。
 - 地球显示起伏回归真实高度；玩家进入大气层时，星空按高度和太阳位置连续过渡到
   昼夜天空，夜间保留星光。渲染契约见 [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) §5。
+- 地形与海面拆为独立物体，移除海床压平，海岸线来自水面与实体地形相交；地球物理
+  高程校准到约 20 km 总落差。海面与四叉树覆盖一起流送，碰撞只取地形；机制见
+  [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §8。
 
 ---
 

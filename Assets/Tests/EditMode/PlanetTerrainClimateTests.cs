@@ -88,7 +88,7 @@ public sealed class PlanetTerrainClimateTests
     }
 
     [Test]
-    public void ExaggerationMovesLandVerticesButNotWaterOrPhysicalQueries()
+    public void ExaggerationMovesSolidTerrainIncludingSeabedButNotOceanOrPhysicalQueries()
     {
         definition.physical.seaLevelMetres = -500;
         definition.generation.visualReliefScale = 1;
@@ -96,7 +96,8 @@ public sealed class PlanetTerrainClimateTests
         definition.generation.visualReliefScale = 40;
         var exaggerated = definition.CreateSampler();
         var d = new float3(1, 0, 0);
-        Assert.AreEqual(physical.SurfacePosition(d, -2000), exaggerated.SurfacePosition(d, -2000));
+        Assert.Less(exaggerated.SurfacePosition(d, -2000).x, physical.SurfacePosition(d, -2000).x);
+        Assert.AreEqual(physical.OceanPosition(d), exaggerated.OceanPosition(d));
         Assert.That(exaggerated.SurfacePosition(d, 3000).x, Is.GreaterThan(physical.SurfacePosition(d, 3000).x + 0.02f));
         for (int i = 0; i < 128; i++)
         {

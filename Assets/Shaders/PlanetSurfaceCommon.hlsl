@@ -3,7 +3,8 @@
             CBUFFER_START(UnityPerMaterial)
                 half4 _OceanTint;
                 half4 _RimColor;
-                half _SeaLevel;
+                float _SeaLevel;
+                half _SeparateOcean;
                 half _OceanEnabled;
                 half _CloudShadowEnabled;
                 half _WaterCoverage;
@@ -20,6 +21,7 @@
                 float _UseVertexAlbedo;
                 float4x4 _ChunkBodyToWorld;
                 float _ChunkUnitsPerMetre;
+                float _LocalClipDistance;
                 float4 _ReferenceAxes;
                 half _EmissionStrength;
                 half _LimbDarkening;

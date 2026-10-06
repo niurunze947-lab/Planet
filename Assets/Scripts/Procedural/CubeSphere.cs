@@ -81,9 +81,7 @@ namespace Planet.Procedural
                     float3 d = Direction((PlanetCubeFace)face, uv);
                     PlanetSurfaceSample sample = sampler.Evaluate(d);
                     data.positions[index] = sampler.SurfacePosition(d, sample.heightMetres);
-                    // Water normals ignore the seabed gradient. Same rule is used by the surface shader.
-                    float3 radialNormal = sampler.ReferenceNormal(d);
-                    data.normals[index] = math.normalize(math.lerp(sample.normal, radialNormal, sample.ocean));
+                    data.normals[index] = sample.normal;
                     data.directions[index] = d;
                     data.faceUV[index] = (uv + 1f) * 0.5f;
                     // x = physical height, y = slope, z = smooth ocean mask, w = water content.

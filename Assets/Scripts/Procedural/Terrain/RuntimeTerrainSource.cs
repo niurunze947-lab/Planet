@@ -67,10 +67,35 @@ namespace Planet.Procedural.Terrain
             return h + detail.Evaluate(direction * radius, spacing) * coast;
         }
 
+        public float3 MacroAlbedo(double3 direction, double spacing, Dictionary<float3, float3> cache)
+        {
+            if (spacing >= 2 * radius / MacroSegments) return macro.EvaluateAlbedoOnly((float3)direction);
+            var face = TerrainLattice.DominantFace(direction);
+            double2 grid = (math.clamp(TerrainLattice.FaceUv(face, direction), -1.0, 1.0) + 1) * (0.5 * MacroSegments);
+            int2 cell = math.clamp((int2)math.floor(grid), 0, MacroSegments - 1);
+            float2 t = (float2)(grid - cell);
+            return math.lerp(math.lerp(AlbedoVertex(face, cell.x, cell.y, cache), AlbedoVertex(face, cell.x + 1, cell.y, cache), t.x),
+                math.lerp(AlbedoVertex(face, cell.x, cell.y + 1, cache), AlbedoVertex(face, cell.x + 1, cell.y + 1, cache), t.x), t.y);
+        }
+
+        private float3 AlbedoVertex(PlanetCubeFace face, int x, int y, Dictionary<float3, float3> cache)
+        {
+            const long step = TerrainLattice.LatticeSize / MacroSegments;
+            float3 d = (float3)TerrainLattice.Direction(face, x * step, y * step);
+            if (cache.TryGetValue(d, out float3 color)) return color;
+            color = macro.EvaluateAlbedoOnly(d); cache[d] = color;
+            return color;
+        }
+
         public double DisplayDisplacement(double height)
         {
-            return (macro.hasOcean ? macro.seaLevelMetres + math.max(0, height - macro.seaLevelMetres) * reliefScale
+            return (macro.hasOcean ? macro.seaLevelMetres + (height - macro.seaLevelMetres) * reliefScale
                 : height * reliefScale) + opticalHeight;
+        }
+
+        public double3 OceanPosition(double3 direction)
+        {
+            return direction * (ReferenceRadius(direction) + macro.seaLevelMetres);
         }
 
         public double3 Position(double3 direction, double spacing, Dictionary<float3, float> cache = null)

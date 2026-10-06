@@ -186,6 +186,11 @@ namespace Planet.Procedural.Terrain
             public GameObject localGo;
             public MeshRenderer localRenderer;
             public MaterialPropertyBlock localBlock = new MaterialPropertyBlock();
+            public Mesh oceanMesh;
+            public GameObject oceanGo, localOceanGo;
+            public MeshRenderer oceanRenderer, localOceanRenderer;
+            public MaterialPropertyBlock oceanBlock = new MaterialPropertyBlock();
+            public MaterialPropertyBlock localOceanBlock = new MaterialPropertyBlock();
         }
         private static readonly SemaphoreSlim Workers = new SemaphoreSlim(2, 2);
         private readonly Dictionary<TerrainNodeKey, Node> nodes = new Dictionary<TerrainNodeKey, Node>();
@@ -193,7 +198,6 @@ namespace Planet.Procedural.Terrain
         private HashSet<TerrainNodeKey> desired = new HashSet<TerrainNodeKey>();
         private HashSet<TerrainNodeKey> wanted = new HashSet<TerrainNodeKey>();
         private readonly HashSet<TerrainNodeKey> splits = new HashSet<TerrainNodeKey>();
-        private readonly List<TerrainNodeKey> queue = new List<TerrainNodeKey>();
         private PlanetSurfaceView owner;
         private RuntimeTerrainSource source;
         private string identity;
@@ -291,7 +295,11 @@ namespace Planet.Procedural.Terrain
             shown = value;
             if (!value) foreach (var node in visible) if (node.renderer != null) node.renderer.enabled = false;
             if (!value) foreach (var node in nodes.Values)
+            {
                 if (node.localRenderer != null) node.localRenderer.enabled = false;
+                if (node.oceanRenderer != null) node.oceanRenderer.enabled = false;
+                if (node.localOceanRenderer != null) node.localOceanRenderer.enabled = false;
+            }
         }
 
         private void RefreshSource()
@@ -357,30 +365,41 @@ namespace Planet.Procedural.Terrain
             CompleteJob();
             SelectCoverage();
             Evict();
-            pendingCount = 0; queue.Clear();
-            foreach (var key in wanted) if (!nodes.ContainsKey(key)) { pendingCount++; queue.Add(key); }
-            queue.Sort((a, b) =>
+            SyncColliders(timer);
+            // Only one chunk can start per frame. Sorting all pending chunks recomputed surface
+            // distances O(n log n) times and could consume the entire upload budget forever.
+            pendingCount = 0;
+            TerrainNodeKey next = default;
+            int bestPriority = -1;
+            double bestDistance = double.PositiveInfinity;
+            foreach (var key in wanted)
             {
-                int priority = RequestPriority(b).CompareTo(RequestPriority(a));
-                if (priority != 0) return priority;
-                int ancestorOrder = a.level.CompareTo(b.level);
-                return ancestorOrder != 0 ? ancestorOrder : NodeDistanceSquared(a).CompareTo(NodeDistanceSquared(b));
-            });
-            if (job == null && queue.Count > 0 && timer.Elapsed.TotalMilliseconds < uploadBudgetMilliseconds && Workers.Wait(0))
+                if (nodes.ContainsKey(key)) continue;
+                pendingCount++;
+                if (job != null) continue;
+                int priority = RequestPriority(key);
+                if (priority < bestPriority || (priority == bestPriority && key.level > next.level)) continue;
+                double distance = NodeDistanceSquared(key);
+                if (priority > bestPriority || key.level < next.level || distance < bestDistance)
+                { next = key; bestPriority = priority; bestDistance = distance; }
+            }
+            if (job == null && pendingCount > 0 && Workers.Wait(0))
             {
-                var key = queue[0]; var snapshot = source; var token = cancellation.Token;
+                var key = next; var snapshot = source; var token = cancellation.Token;
                 job = Task.Run(() => { try { return RuntimeTerrainChunk.Build(snapshot, key, token); } finally { Workers.Release(); } });
             }
-            SyncColliders(timer);
         }
 
         private int RequestPriority(TerrainNodeKey key)
         {
             if (key.level == 0) return 3;
             double3 direction = math.normalizesafe(view.positionBfMetres, new double3(0, 1, 0));
-            double distance = TerrainNeighbourhoodPolicy.SurfaceDistanceToNode(direction, key, source.radius);
+            // Refinement is an atomic group of four. Prioritizing only the intersecting child
+            // leaves its siblings behind every finer request, pinning the parent for minutes.
+            TerrainNodeKey parent = key.Parent;
+            double distance = TerrainNeighbourhoodPolicy.SurfaceDistanceToNode(direction, parent, source.radius);
             int required = neighbourhood.RequiredLevel(source.radius, observerClearance, distance);
-            return key.level <= required ? 2 : TerrainLattice.NodeAt(direction, key.level).Equals(key) ? 1 : 0;
+            return parent.level < required ? 2 : TerrainLattice.NodeAt(direction, parent.level).Equals(parent) ? 1 : 0;
         }
 
         private double NodeDistanceSquared(TerrainNodeKey key)
@@ -411,7 +430,15 @@ namespace Planet.Procedural.Terrain
             renderer.receiveShadows = false; renderer.lightProbeUsage = LightProbeUsage.Off;
             renderer.reflectionProbeUsage = ReflectionProbeUsage.Off;
             renderer.enabled = false;
-            nodes.Add(data.key, new Node { data = data, mesh = mesh, go = go, renderer = renderer });
+            var node = new Node { data = data, mesh = mesh, go = go, renderer = renderer };
+            if (data.oceanVertices != null && owner.OceanMaterial != null)
+            {
+                node.oceanMesh = data.UploadOceanMesh();
+                node.oceanGo = new GameObject("Ocean " + data.key) { hideFlags = HideFlags.HideAndDontSave, layer = gameObject.layer };
+                node.oceanGo.transform.SetParent(root, false);
+                node.oceanRenderer = AddOceanRenderer(node.oceanGo, node.oceanMesh);
+            }
+            nodes.Add(data.key, node);
             BuiltCount++;
         }
 
@@ -421,6 +448,8 @@ namespace Planet.Procedural.Terrain
             foreach (var node in nodes.Values)
             {
                 if (node.localRenderer != null) node.localRenderer.enabled = false;
+                if (node.oceanRenderer != null) node.oceanRenderer.enabled = false;
+                if (node.localOceanRenderer != null) node.localOceanRenderer.enabled = false;
                 if (node.colliderGo != null) node.colliderGo.GetComponent<MeshCollider>().enabled = false;
             }
             visible.Clear(); FinestVisibleLevel = 0;
@@ -433,6 +462,12 @@ namespace Planet.Procedural.Terrain
                 node.go.transform.localPosition = (float3)(node.data.origin / source.radius);
                 node.go.transform.localRotation = Quaternion.identity;
                 node.go.transform.localScale = Vector3.one / (float)source.radius;
+                if (node.oceanGo != null)
+                {
+                    node.oceanGo.transform.localPosition = (float3)(node.data.oceanOrigin / source.radius);
+                    node.oceanGo.transform.localScale = Vector3.one / (float)source.radius;
+                    node.oceanRenderer.enabled = shown;
+                }
                 if (node.colliderGo != null) node.colliderGo.GetComponent<MeshCollider>().enabled = true;
             }
             VisibleCount = visible.Count;
@@ -511,6 +546,7 @@ namespace Planet.Procedural.Terrain
                 // Chunk normals already contain resolved relief; a global normal cubemap would erase it.
                 node.block.SetFloat("_NormalEnabled", 0);
                 node.renderer.SetPropertyBlock(node.block);
+                PrepareOcean(node, cameraView, false);
                 PrepareLocalNode(node, cameraView);
             }
         }
@@ -543,13 +579,56 @@ namespace Planet.Procedural.Terrain
             localBlock.SetFloat("_ChunkEnabled", 1);
             localBlock.SetMatrix("_ChunkBodyToWorld", Matrix4x4.Rotate(transform.rotation));
             localBlock.SetFloat("_ChunkUnitsPerMetre", 1);
+            localBlock.SetFloat("_LocalClipDistance", 4500);
             localBlock.SetFloat("_UseVertexAlbedo", node.data.spacing < 20000 ? 1 : 0);
             localBlock.SetFloat("_NormalEnabled", 0);
             node.localRenderer.SetPropertyBlock(localBlock);
+            PrepareOcean(node, cameraView, true);
+        }
+
+        private MeshRenderer AddOceanRenderer(GameObject go, Mesh mesh)
+        {
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var renderer = go.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = owner.OceanMaterial;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.receiveShadows = false; renderer.enabled = false;
+            return renderer;
+        }
+
+        private void PrepareOcean(Node node, PlanetViewState cameraView, bool local)
+        {
+            if (node.oceanMesh == null) return;
+            double3 offset = Rotate(transform.rotation, node.data.oceanOrigin - cameraView.positionBfMetres);
+            if (local && node.localOceanGo == null)
+            {
+                node.localOceanGo = new GameObject("Local Ocean " + node.data.key)
+                    { hideFlags = HideFlags.HideAndDontSave, layer = localTerrainLayer };
+                node.localOceanRenderer = AddOceanRenderer(node.localOceanGo, node.oceanMesh);
+            }
+            if (local) node.localOceanGo.transform.SetPositionAndRotation((float3)offset, transform.rotation);
+            else offset *= unitsPerMetre;
+            var block = local ? node.localOceanBlock : node.oceanBlock;
+            block.SetVector("_ChunkOriginCR", new Vector4((float)offset.x, (float)offset.y, (float)offset.z, 1));
+            block.SetFloat("_ChunkEnabled", 1);
+            block.SetMatrix("_ChunkBodyToWorld", Matrix4x4.Rotate(transform.rotation));
+            block.SetFloat("_ChunkUnitsPerMetre", local ? 1f : (float)unitsPerMetre);
+            block.SetFloat("_OceanProjection", local ? 2 : 0);
+            var renderer = local ? node.localOceanRenderer : node.oceanRenderer;
+            renderer.enabled = shown; renderer.SetPropertyBlock(block);
+            if (local)
+            {
+                node.oceanBlock.SetFloat("_OceanProjection", 1);
+                node.oceanRenderer.SetPropertyBlock(node.oceanBlock);
+            }
         }
 
         private void DestroyNode(Node node)
         {
+            if (Application.isPlaying)
+            { Destroy(node.localOceanGo); Destroy(node.oceanGo); Destroy(node.oceanMesh); }
+            else
+            { DestroyImmediate(node.localOceanGo); DestroyImmediate(node.oceanGo); DestroyImmediate(node.oceanMesh); }
             collisionNodes.Remove(node.data.key);
             if (node.localGo != null)
             {

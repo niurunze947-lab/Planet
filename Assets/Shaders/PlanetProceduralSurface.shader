@@ -11,6 +11,8 @@ Shader "Planet/ProceduralSurface"
         _CloudDensityCube ("Cloud Density", Cube) = "black" {}
         _SeaLevel ("Sea Level (m)", Float) = 0
         _OceanEnabled ("Ocean Enabled", Float) = 1
+        _SeparateOcean ("Separate ocean geometry", Float) = 0
+        _LocalClipDistance ("Local camera composition distance", Float) = 0
         _CloudShadowEnabled ("Cloud Shadows Enabled", Float) = 1
         _WaterCoverage ("Water Coverage", Range(0, 1)) = 0.65
         _CloudShadowStrength ("Cloud Shadow Strength", Range(0, 1)) = 0.32
@@ -94,6 +96,7 @@ Shader "Planet/ProceduralSurface"
 
             half4 Frag(Varyings input) : SV_Target
             {
+                if (_LocalClipDistance > 0) clip(_LocalClipDistance - length(input.viewVectorWS));
                 half3 directionOS = normalize(input.directionOS);
                 half3 radialNormal = normalize(input.sphereNormalWS);
                 half3 terrainNormal = normalize(input.normalWS);
@@ -108,7 +111,7 @@ Shader "Planet/ProceduralSurface"
                 // computed from sea level minus terrain height, so it remains correct when the
                 // terrain range or water inventory changes.
                 half ocean = saturate(input.surfaceData.z);
-                ocean *= _OceanEnabled;
+                ocean *= _OceanEnabled * (1.0h - _SeparateOcean);
                 half3 normal = normalize(lerp(terrainNormal, radialNormal, ocean));
                 half3 viewDirection = normalize(input.viewVectorWS);
                 // Planetary bodies are far outside the useful range of URP shadow cascades in
@@ -127,6 +130,11 @@ Shader "Planet/ProceduralSurface"
                 half direct = twilight * (0.16h + 0.84h * reliefDiffuse);
                 half sunFacing = saturate(dot(radialNormal, lightDirection));
                 half3 albedo = lerp(SAMPLE_TEXTURECUBE(_AlbedoCube, sampler_AlbedoCube, directionOS).rgb, input.color, _UseVertexAlbedo);
+                // The old globe albedo includes blue ocean. The solid seafloor is sediment/rock;
+                // water color and specular now belong exclusively to the separate ocean renderer.
+                if (_SeparateOcean > 0.5 && input.surfaceData.x < _SeaLevel)
+                    albedo = lerp(half3(0.32, 0.27, 0.17), half3(0.075, 0.09, 0.085),
+                        saturate((_SeaLevel - input.surfaceData.x) / 1500.0));
                 // Optional, antialiased angular reference grid, controlled by the existing L key.
                 float2 angles = float2(atan2(directionOS.z, directionOS.x), asin(clamp(directionOS.y, -1, 1)));
                 float2 gridCoord = angles * (12.0 / PI);

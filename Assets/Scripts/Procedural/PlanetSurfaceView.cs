@@ -43,6 +43,11 @@ namespace Planet.Procedural
         private RuntimeTerrainRenderer _terrain;
         private bool _bodyVisible = true;
         private bool _nearTerrainActive;
+        private Transform _ocean;
+        private Mesh _oceanMesh;
+        private Material _oceanMaterial;
+        public Transform OceanTransform { get { return _ocean; } }
+        public Material OceanMaterial { get { return _oceanMaterial; } }
 
         public Transform SurfaceTransform { get { return _surface; } }
         public Mesh Mesh { get { return _mesh; } }
@@ -59,6 +64,7 @@ namespace Planet.Procedural
         private void OnDisable()
         {
             if (_terrain != null) _terrain.enabled = false;
+            ReleaseOcean();
             if (_runtimeMaterial != null)
             {
                 if (Application.isPlaying) Destroy(_runtimeMaterial);
@@ -92,7 +98,9 @@ namespace Planet.Procedural
                     _mesh = next;
                     _fingerprint = farFingerprint;
                     _builtResolution = farResolution;
+                    ReleaseOcean();
                 }
+                BuildOcean();
                 _surface.localScale = Vector3.one * _radiusUnits;
                 _surface.localPosition = Vector3.zero;
                 _surface.localRotation = Quaternion.identity;
@@ -153,6 +161,7 @@ namespace Planet.Procedural
             _surface.localScale = Vector3.one * _radiusUnits;
             _surface.localPosition = Vector3.zero;
             _surface.localRotation = Quaternion.identity;
+            BuildOcean();
         }
 
         public void SetRadius(float radiusUnits)
@@ -160,6 +169,7 @@ namespace Planet.Procedural
             _radiusUnits = Mathf.Max(radiusUnits, 1e-6f);
             if (_surface != null) _surface.localScale = Vector3.one * _radiusUnits;
             if (_terrain != null) _terrain.SetRadius(_radiusUnits);
+            if (_ocean != null) _ocean.localScale = Vector3.one * _radiusUnits;
         }
 
         /// <summary>
@@ -222,6 +232,8 @@ namespace Planet.Procedural
             if (_surface != null) _surface.GetComponent<MeshRenderer>().enabled =
                 visible && (!_nearTerrainActive || _terrain == null || !_terrain.CoverageReady);
             if (_terrain != null) _terrain.SetVisible(visible && _nearTerrainActive && _terrain.CoverageReady);
+            if (_ocean != null) _ocean.GetComponent<MeshRenderer>().enabled =
+                visible && (!_nearTerrainActive || _terrain == null || !_terrain.CoverageReady);
         }
 
         /// <summary>Prewarm near terrain behind the globe, then switch once root coverage exists.</summary>
@@ -233,6 +245,7 @@ namespace Planet.Procedural
             bool chunksVisible = _bodyVisible && active && _terrain.CoverageReady;
             _terrain.SetVisible(chunksVisible);
             _surface.GetComponent<MeshRenderer>().enabled = _bodyVisible && !chunksVisible;
+            if (_ocean != null) _ocean.GetComponent<MeshRenderer>().enabled = _bodyVisible && !chunksVisible;
         }
 
         public void CopyVisualProperties(MaterialPropertyBlock target)
@@ -292,11 +305,54 @@ namespace Planet.Procedural
 
         private void ApplyAppearance(Material material)
         {
+            if (material.HasProperty("_SeparateOcean")) material.SetFloat("_SeparateOcean", definition.features.hasOcean ? 1 : 0);
             Vector3 axes = definition.physical.shapeScale;
             axes.y *= 1f - definition.physical.flattening;
             if (material.HasProperty("_ReferenceAxes")) material.SetVector("_ReferenceAxes", new Vector4(axes.x, axes.y, axes.z, 0f));
             if (material.HasProperty("_EmissionStrength")) material.SetFloat("_EmissionStrength", definition.appearance.emissionStrength);
             if (material.HasProperty("_LimbDarkening")) material.SetFloat("_LimbDarkening", definition.appearance.limbDarkening);
+        }
+
+        private void BuildOcean()
+        {
+            if (!definition.features.hasOcean) { ReleaseOcean(); return; }
+            if (_ocean != null) return;
+            Material template = Resources.Load<Material>("Solar/OceanSurface");
+            if (template == null || _mesh == null) return;
+            _oceanMaterial = new Material(template) { name = "Ocean " + definition.displayName, hideFlags = HideFlags.DontSave };
+            _oceanMaterial.SetFloat("_SeaLevel", definition.physical.seaLevelMetres);
+            _oceanMaterial.SetColor("_ShallowColor", definition.palette.shallowOcean);
+            _oceanMaterial.SetColor("_DeepColor", definition.palette.deepOcean);
+            var directions = new System.Collections.Generic.List<Vector3>();
+            var samples = new System.Collections.Generic.List<Vector4>();
+            _mesh.GetUVs(1, directions); _mesh.GetUVs(2, samples);
+            var vertices = new Vector3[directions.Count];
+            var normals = new Vector3[directions.Count];
+            PlanetSurfaceSampler sampler = definition.CreateSampler();
+            for (int i = 0; i < vertices.Length; i++)
+            {
+                vertices[i] = sampler.OceanPosition((Unity.Mathematics.float3)directions[i]);
+                normals[i] = sampler.ReferenceNormal((Unity.Mathematics.float3)directions[i]);
+            }
+            _oceanMesh = new Mesh { name = definition.displayName + "_Ocean", hideFlags = HideFlags.DontSave,
+                indexFormat = _mesh.indexFormat };
+            _oceanMesh.vertices = vertices; _oceanMesh.normals = normals;
+            _oceanMesh.SetUVs(2, samples); _oceanMesh.triangles = _mesh.triangles; _oceanMesh.RecalculateBounds();
+            _ocean = new GameObject("Ocean") { hideFlags = HideFlags.DontSave }.transform;
+            _ocean.SetParent(transform, false); _ocean.localScale = Vector3.one * _radiusUnits;
+            _ocean.gameObject.AddComponent<MeshFilter>().sharedMesh = _oceanMesh;
+            var renderer = _ocean.gameObject.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = _oceanMaterial;
+            renderer.shadowCastingMode = ShadowCastingMode.Off; renderer.receiveShadows = false;
+        }
+
+        private void ReleaseOcean()
+        {
+            if (Application.isPlaying)
+            { if (_ocean != null) Destroy(_ocean.gameObject); Destroy(_oceanMesh); Destroy(_oceanMaterial); }
+            else
+            { if (_ocean != null) DestroyImmediate(_ocean.gameObject); DestroyImmediate(_oceanMesh); DestroyImmediate(_oceanMaterial); }
+            _ocean = null; _oceanMesh = null; _oceanMaterial = null;
         }
     }
 }

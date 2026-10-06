@@ -31,6 +31,18 @@ public sealed class ObserverAtmosphereSkyTests
         Assert.IsNotNull(asset);
         Assert.AreEqual(1f, asset.generation.visualReliefScale);
         var source = new RuntimeTerrainSource(asset);
+        double min = double.PositiveInfinity, max = double.NegativeInfinity;
+        var sampler = asset.CreateSampler();
+        const int resolution = 128;
+        for (int face = 0; face < 6; face++)
+        for (int y = 0; y <= resolution; y++)
+        for (int x = 0; x <= resolution; x++)
+        {
+            var d = CubeSphere.Direction((PlanetCubeFace)face, new float2(2f * x / resolution - 1, 2f * y / resolution - 1));
+            double h = sampler.EvaluateHeight(d);
+            min = System.Math.Min(min, h); max = System.Math.Max(max, h);
+        }
+        Assert.That(max - min, Is.InRange(19500, 20500), "Earth's physical trough-to-peak range must be about 20 km.");
         double3 direction = math.normalize(new double3(1, 0.2, 0.3));
         double physicalHeight = source.Height(direction, 1);
         Assert.AreEqual(physicalHeight + asset.appearance.opticalSurfaceHeightMetres,

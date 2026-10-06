@@ -205,7 +205,7 @@ namespace Planet.Procedural
             return math.saturate(baseDensity * math.lerp(1f, surfaceFactor, cloudTerrainInfluence));
         }
 
-        /// <summary>Normalized mesh position, with seabed clamped to the same physical sea level everywhere.</summary>
+        /// <summary>Normalized solid terrain position, including the seabed below the separate ocean.</summary>
         public float3 SurfacePosition(float3 direction, float heightMetres)
         {
             float3 d = math.normalizesafe(direction, new float3(0f, 1f, 0f));
@@ -217,9 +217,16 @@ namespace Planet.Procedural
         public float DisplacementMetres(float heightMetres)
         {
             float relief = hasOcean
-                ? seaLevelMetres + math.max(0f, heightMetres - seaLevelMetres) * visualReliefScale
+                ? seaLevelMetres + (heightMetres - seaLevelMetres) * visualReliefScale
                 : heightMetres * visualReliefScale;
             return relief + appearance.opticalHeight;
+        }
+
+        public float3 OceanPosition(float3 direction)
+        {
+            float3 d = math.normalizesafe(direction, new float3(0, 1, 0));
+            float reference = math.rsqrt(math.csum(d * d / (referenceAxes * referenceAxes)));
+            return d * (reference + seaLevelMetres / radiusMetres);
         }
 
         public float3 ReferenceNormal(float3 direction)

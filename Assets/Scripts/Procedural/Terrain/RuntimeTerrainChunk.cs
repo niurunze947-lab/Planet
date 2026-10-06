@@ -16,6 +16,25 @@ namespace Planet.Procedural.Terrain
         public Color[] colors;
         public int[] triangles;
         public double spacing;
+        public double3 oceanOrigin;
+        public Vector3[] oceanVertices, oceanNormals;
+
+        public Mesh UploadOceanMesh()
+        {
+            if (oceanVertices == null) return null;
+            int count = oceanVertices.Length;
+            var oceanSamples = new Vector4[count];
+            var oceanDirections = new Vector3[count];
+            Array.Copy(samples, oceanSamples, count);
+            Array.Copy(directions, oceanDirections, count);
+            var indices = new int[TerrainLattice.N * TerrainLattice.N * 6];
+            Array.Copy(triangles, indices, indices.Length);
+            var mesh = new Mesh { name = "Ocean " + key, hideFlags = HideFlags.DontSave };
+            mesh.vertices = oceanVertices; mesh.normals = oceanNormals;
+            mesh.SetUVs(1, oceanDirections); mesh.SetUVs(2, oceanSamples); mesh.triangles = indices;
+            mesh.RecalculateBounds();
+            return mesh;
+        }
 
         /// <summary>Ray intersection with the displayed triangles, not a different-frequency height sample.</summary>
         public bool TrySurfaceRadius(double3 direction, out double radius)
@@ -78,6 +97,7 @@ namespace Planet.Procedural.Terrain
         {
             if (!key.IsValid) throw new ArgumentOutOfRangeException(nameof(key));
             var macroCache = new Dictionary<float3, float>();
+            var colorCache = new Dictionary<float3, float3>();
             const int n = TerrainLattice.N, side = n + 1, gridCount = side * side;
             int skirtCount = 4 * side;
             var result = new RuntimeTerrainChunk
@@ -92,6 +112,13 @@ namespace Planet.Procedural.Terrain
             long step = TerrainLattice.VertexStep(key.level);
             double3 centerDirection = TerrainLattice.Direction(key.face, startX + n / 2 * step, startY + n / 2 * step);
             result.origin = source.Position(centerDirection, result.spacing, macroCache);
+            if (source.macro.hasOcean)
+            {
+                result.oceanOrigin = source.OceanPosition(centerDirection);
+                result.oceanVertices = new Vector3[gridCount];
+                result.oceanNormals = new Vector3[gridCount];
+            }
+            bool anyWater = false;
             // One halo supplies central differences. This samples height once per grid point,
             // rather than five full terrain evaluations per vertex for independently derived normals.
             const int haloSide = n + 3;
@@ -124,14 +151,21 @@ namespace Planet.Procedural.Terrain
                     double3 shapeNormal = math.normalize(d / (source.axes * source.axes));
                     double3 normal = math.normalizesafe(math.cross(alongV, alongU), shapeNormal);
                     if (math.dot(normal, d) < 0) normal = -normal;
-                    result.normals[i] = (float3)math.normalize(math.lerp(normal, shapeNormal, water));
+                    result.normals[i] = (float3)normal;
+                    if (result.oceanVertices != null)
+                    {
+                        result.oceanVertices[i] = (float3)(source.OceanPosition(d) - result.oceanOrigin);
+                        result.oceanNormals[i] = (float3)shapeNormal;
+                        anyWater |= h < source.macro.seaLevelMetres;
+                    }
                     double dhU = (heights[hIndex + 1] - heights[hIndex - 1]) / (2 * result.spacing);
                     double dhV = (heights[hIndex + haloSide] - heights[hIndex - haloSide]) / (2 * result.spacing);
                     result.samples[i] = new Vector4((float)h, (float)math.degrees(math.atan(math.sqrt(dhU * dhU + dhV * dhV))), water, 0);
-                    float3 albedo = source.macro.EvaluateAlbedoOnly((float3)d);
+                    float3 albedo = source.MacroAlbedo(d, result.spacing, colorCache);
                     result.colors[i] = new Color(albedo.x, albedo.y, albedo.z, 1);
                 }
             }
+            if (!anyWater) { result.oceanVertices = null; result.oceanNormals = null; }
             int index = 0;
             for (int y = 0; y < n; y++)
             for (int x = 0; x < n; x++)

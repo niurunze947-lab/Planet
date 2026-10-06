@@ -218,7 +218,12 @@ namespace Planet.Solar
 
             // Observer = the camera's offset from the focused body's centre, in the body frame.
             Vec3d observerInStellar = _origin.positionInFrameMetres;
-            if (_sim.ViewCamera != null)
+            if (_sim.HasObserver)
+            {
+                Vec3d observer = _sim.ObserverWorldMetres;
+                observerInStellar = new Vec3d(observer.x, -observer.z, observer.y);
+            }
+            else if (_sim.ViewCamera != null)
             {
                 Vector3 cam = _sim.ViewCamera.transform.position;
                 observerInStellar = observerInStellar + new Vec3d(
@@ -281,7 +286,13 @@ namespace Planet.Solar
                 _sim.PositionKmAt(index).z * 1000.0);
             Vec3d toBody = bodyInStellar - _origin.positionInFrameMetres;
             double distanceMetres = Math.Max(toBody.Length, 1e-6);
-            if (camera != null)
+            if (_sim.HasObserver)
+            {
+                Vec3d observer = _sim.ObserverWorldMetres;
+                Vec3d observerStellar = new Vec3d(observer.x, -observer.z, observer.y);
+                distanceMetres = Math.Max((bodyInStellar - observerStellar).Length, 1e-6);
+            }
+            else if (camera != null)
             {
                 Vector3 camWorld = camera.transform.position;
                 Vec3d camInStellar = _origin.positionInFrameMetres + new Vec3d(

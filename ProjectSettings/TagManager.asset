@@ -36,7 +36,7 @@ TagManager:
   - 
   - 
   - 
-  - 
+  - PlanetLocalTerrain
   m_SortingLayers:
   - name: Default
     uniqueID: 0

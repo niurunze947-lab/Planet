@@ -17,6 +17,54 @@ namespace Planet.Procedural.Terrain
         public int[] triangles;
         public double spacing;
 
+        /// <summary>Ray intersection with the displayed triangles, not a different-frequency height sample.</summary>
+        public bool TrySurfaceRadius(double3 direction, out double radius)
+        {
+            radius = 0;
+            direction = math.normalizesafe(direction);
+            if (!TerrainLattice.NodeAt(direction, key.level).Equals(key)) return false;
+            TerrainLattice.NodeUv(key, out double2 min, out double2 max);
+            double2 uv = TerrainLattice.FaceUv(key.face, direction);
+            double2 grid = (uv - min) / (max - min) * TerrainLattice.N;
+            int x = math.clamp((int)math.floor(grid.x), 0, TerrainLattice.N - 1);
+            int y = math.clamp((int)math.floor(grid.y), 0, TerrainLattice.N - 1);
+            int triangle = (y * TerrainLattice.N + x) * 6;
+            for (int i = 0; i < 2; i++)
+            {
+                double3 a = origin + (double3)(float3)vertices[triangles[triangle + i * 3]];
+                double3 b = origin + (double3)(float3)vertices[triangles[triangle + i * 3 + 1]];
+                double3 c = origin + (double3)(float3)vertices[triangles[triangle + i * 3 + 2]];
+                double3 normal = math.cross(b - a, c - a);
+                double denominator = math.dot(normal, direction);
+                if (math.abs(denominator) < 1e-18) continue;
+                double t = math.dot(normal, a) / denominator;
+                double3 point = direction * t;
+                double3 ab = b - a, ac = c - a, ap = point - a;
+                double aa = math.dot(ab, ab), cc = math.dot(ac, ac), cross = math.dot(ab, ac);
+                double det = aa * cc - cross * cross;
+                if (math.abs(det) < 1e-28) continue;
+                double u = (math.dot(ap, ab) * cc - math.dot(ap, ac) * cross) / det;
+                double v = (math.dot(ap, ac) * aa - math.dot(ap, ab) * cross) / det;
+                if (t > 0 && u >= -1e-5 && v >= -1e-5 && u + v <= 1.00001)
+                { radius = t; return true; }
+            }
+            return false;
+        }
+
+        public Mesh UploadCollisionMesh()
+        {
+            const int gridCount = (TerrainLattice.N + 1) * (TerrainLattice.N + 1);
+            var surfaceVertices = new Vector3[gridCount];
+            Array.Copy(vertices, surfaceVertices, gridCount);
+            var surfaceTriangles = new int[TerrainLattice.N * TerrainLattice.N * 6];
+            Array.Copy(triangles, surfaceTriangles, surfaceTriangles.Length);
+            var mesh = new Mesh { name = "Collision " + key, hideFlags = HideFlags.DontSave };
+            mesh.vertices = surfaceVertices;
+            mesh.triangles = surfaceTriangles;
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
         public Mesh Upload()
         {
             var mesh = new Mesh { name = "Terrain " + key, hideFlags = HideFlags.DontSave };

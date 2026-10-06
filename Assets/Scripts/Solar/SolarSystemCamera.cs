@@ -44,6 +44,8 @@ namespace Planet.Solar
         [Tooltip("When true the rig does not orbit the body centre; an external controller owns " +
                  "the transform (surface free-roam). Orbit look, zoom and auto-orbit are suppressed.")]
         public bool freeRoam;
+        /// <summary>One external observer owns the pose and movement; this rig only publishes view data.</summary>
+        public bool externalObserver;
 
         /// <summary>Distance the rig is easing towards; also the exact position when scripted.</summary>
         public float TargetDistance { get { return _targetDistance; } }
@@ -121,7 +123,8 @@ namespace Planet.Solar
             get
             {
                 if (_sim == null) _sim = SolarSystemSimulation.Instance;
-                return _sim != null ? _sim.FocusRadiusUnits : 0f;
+                return _sim != null ? (externalObserver && _sim.ProximityView != null
+                    ? _sim.ProximityView.RadiusUnits : _sim.FocusRadiusUnits) : 0f;
             }
         }
 
@@ -173,9 +176,9 @@ namespace Planet.Solar
         /// </summary>
         public void SetExternalViewHeight(float units)
         {
-            float clamped = ClampToSurfaceFloor(units);
-            _targetDistance = clamped;
-            distance = clamped;
+            if (float.IsNaN(units) || float.IsInfinity(units) || units < 0f) return;
+            _targetDistance = units;
+            distance = units;
             _hasTarget = true;
         }
 
@@ -223,6 +226,7 @@ namespace Planet.Solar
 
         private void Update()
         {
+            if (externalObserver) return;
             if (_sim == null) _sim = SolarSystemSimulation.Instance;
             if (_sim == null) return;
 
@@ -274,6 +278,7 @@ namespace Planet.Solar
         /// </summary>
         public void ApplyTransform()
         {
+            if (externalObserver) return;
             // Surface free-roam owns the transform: never re-centre on the body.
             if (freeRoam) return;
 

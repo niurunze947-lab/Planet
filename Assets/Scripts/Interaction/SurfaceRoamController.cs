@@ -165,6 +165,7 @@ namespace Planet.Interaction
         public void EngageRoam()
         {
             if (_roaming || orbitCamera == null) return;
+            if (orbitCamera.externalObserver) return;
 
             CapturePoseFromCamera();
 

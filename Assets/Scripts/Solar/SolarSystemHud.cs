@@ -104,16 +104,17 @@ namespace Planet.Solar
             if (surfaceRoam)
             {
                 GUILayout.Label("按住右键拖动 环视（左右扭头）  右键 + Q/W/E/A/S/D 漫游", _hint);
-                GUILayout.Label("滚轮 调速   Esc 返回轨道视角   H 隐藏本面板", _hint);
+                GUILayout.Label("滚轮 调速   Esc 取消导航目标   F 重新聚焦   H 隐藏面板", _hint);
                 GUILayout.Space(4);
                 GUILayout.Label(string.Format("到地表距离  {0}", FormatMetresAlways(surfaceAltitudeMetres)), _body);
                 GUILayout.Label(string.Format("漫游速度    {0}", FormatSpeed(SurfaceRoamHudState.FlySpeedMetresPerSecond)), _body);
-                GUILayout.Label("玩家坐标基准：地表局部系（body-fixed，不受自转影响）", _hint);
+                GUILayout.Label("地表自由飞行 · 地形碰撞 · 无重力", _hint);
             }
             else
             {
-                GUILayout.Label("1-9,0 切换天体   Tab 逐个   F 重新取景", _hint);
-                GUILayout.Label("滚轮 / PgUp,PgDn 缩放   左键拖动 环绕", _hint);
+                GUILayout.Label("1-9,0 / Tab 临时聚焦   F 重新取景   Esc 取消目标", _hint);
+                GUILayout.Label("右键环视 + Q/W/E/A/S/D 飞行", _hint);
+                GUILayout.Label("滚轮：有目标时推进，无目标时调速", _hint);
                 GUILayout.Label("空格 暂停   -/= 时间流速   \\ 复位   N 今天   R J2000", _hint);
                 GUILayout.Label("G 天体放大 400×（仅为可见，非真实比例）  L 经纬网格  H 隐藏本面板", _hint);
 
@@ -144,7 +145,9 @@ namespace Planet.Solar
         private static float CameraDistance()
         {
             var cam = Camera.main;
-            return cam != null ? cam.transform.position.magnitude : 0f;
+            if (cam == null) return 0f;
+            var rig = cam.GetComponent<SolarSystemCamera>();
+            return rig != null ? rig.CurrentViewHeightUnits : cam.transform.position.magnitude;
         }
 
         /// <summary>

@@ -33,5 +33,7 @@ namespace Planet.Procedural.Terrain
 
         /// <summary>True when a local (metre-scale) surface camera is active.</summary>
         public bool localCameraActive;
+        /// <summary>Flight velocity for terrain requests independent of the view cone.</summary>
+        public double3 velocityBfMetresPerSecond;
     }
 }

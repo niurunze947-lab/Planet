@@ -72,6 +72,7 @@ namespace Planet.Interaction
         private void Update()
         {
             if (orbitCamera == null) return;
+            if (orbitCamera.externalObserver) return;
 
             float radius = orbitCamera.FocusSurfaceRadiusUnits;
             float current = orbitCamera.CurrentViewHeightUnits;

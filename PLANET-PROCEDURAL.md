@@ -425,6 +425,12 @@ oceanMask    = Smooth(0, 120 m, waterDepth)
 
 ## 16. 几何与纹理的运行时路径
 
+统一漫游路径使用固定全球网格作为远景，`RuntimeTerrainRenderer` 只在玩家实际靠近时预热，
+完整覆盖就绪后显示并继续细化。其碰撞代理复用区块显示顶点并排除裙边，位于局部米制物理场景；
+显示碰撞查询与未夸张的物理高程接口分开。交接契约见 [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §3。
+下表保留运行时地形与历史离线 Mesh LOD 的区别；固定远景网格不是距离驱动的旧 Mesh LOD 链。
+
+
 **两条几何路径并存，正式场景走的是运行时那条。**
 
 | | 运行时分块地形（**正式场景在用**） | 离线 Mesh LOD（回退路径） |

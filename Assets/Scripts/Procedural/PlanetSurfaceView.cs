@@ -41,6 +41,8 @@ namespace Planet.Procedural
         private Material _runtimeMaterial;
         private MaterialPropertyBlock _visualTextures;
         private RuntimeTerrainRenderer _terrain;
+        private bool _bodyVisible = true;
+        private bool _nearTerrainActive;
 
         public Transform SurfaceTransform { get { return _surface; } }
         public Mesh Mesh { get { return _mesh; } }
@@ -74,15 +76,37 @@ namespace Planet.Procedural
 
             if (useRuntimeChunks)
             {
+                // A fixed globe is the complete far-field surface. Chunks replace it only after
+                // the six root faces cover the body, so streaming cannot open visual holes.
+                string farFingerprint = definition.ContentFingerprint();
+                const int farResolution = 64;
+                if (_mesh == null || _fingerprint != farFingerprint || _builtResolution != farResolution)
+                {
+                    Mesh next = CubeSphere.Generate(definition.CreateSampler(), farResolution)
+                        .CreateMesh(definition.displayName + "_FarGlobe");
+                    next.hideFlags = HideFlags.DontSave;
+                    if (_mesh != null && (_mesh.hideFlags & HideFlags.DontSave) != 0)
+                    {
+                        if (Application.isPlaying) Destroy(_mesh); else DestroyImmediate(_mesh);
+                    }
+                    _mesh = next;
+                    _fingerprint = farFingerprint;
+                    _builtResolution = farResolution;
+                }
                 _surface.localScale = Vector3.one * _radiusUnits;
                 _surface.localPosition = Vector3.zero;
                 _surface.localRotation = Quaternion.identity;
-                _surface.GetComponent<MeshFilter>().sharedMesh = null;
-                _surface.GetComponent<MeshRenderer>().enabled = false;
+                _surface.GetComponent<MeshFilter>().sharedMesh = _mesh;
+                MeshRenderer globe = _surface.GetComponent<MeshRenderer>();
+                globe.sharedMaterial = ResolveMaterial();
+                globe.shadowCastingMode = ShadowCastingMode.Off;
+                globe.receiveShadows = false;
+                globe.enabled = _bodyVisible;
                 if (_terrain == null) _terrain = GetComponent<RuntimeTerrainRenderer>();
                 if (_terrain == null) _terrain = gameObject.AddComponent<RuntimeTerrainRenderer>();
                 _terrain.enabled = true;
                 _terrain.Configure(this, _surface, _radiusUnits, ResolveMaterial());
+                _terrain.SetStreamingRequested(false);
                 return;
             }
             if (_terrain != null) _terrain.enabled = false;
@@ -194,7 +218,21 @@ namespace Planet.Procedural
 
         public void SetRenderersVisible(bool visible)
         {
-            if (_terrain != null) _terrain.SetVisible(visible);
+            _bodyVisible = visible;
+            if (_surface != null) _surface.GetComponent<MeshRenderer>().enabled =
+                visible && (!_nearTerrainActive || _terrain == null || !_terrain.CoverageReady);
+            if (_terrain != null) _terrain.SetVisible(visible && _nearTerrainActive && _terrain.CoverageReady);
+        }
+
+        /// <summary>Prewarm near terrain behind the globe, then switch once root coverage exists.</summary>
+        public void SetTerrainState(bool prewarm, bool active)
+        {
+            if (!useRuntimeChunks || _terrain == null || _surface == null) return;
+            _nearTerrainActive = active;
+            _terrain.SetStreamingRequested(prewarm);
+            bool chunksVisible = _bodyVisible && active && _terrain.CoverageReady;
+            _terrain.SetVisible(chunksVisible);
+            _surface.GetComponent<MeshRenderer>().enabled = _bodyVisible && !chunksVisible;
         }
 
         public void CopyVisualProperties(MaterialPropertyBlock target)

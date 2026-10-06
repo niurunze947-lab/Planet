@@ -19,7 +19,7 @@ namespace Planet.Solar
     ///
     /// All orbital state is kept in doubles; only the final camera-relative offset becomes a float.
     /// </summary>
-    [DisallowMultipleComponent]
+    [DisallowMultipleComponent, DefaultExecutionOrder(-100)]
     public class SolarSystemSimulation : MonoBehaviour
     {
         public static SolarSystemSimulation Instance { get; private set; }
@@ -94,15 +94,88 @@ namespace Planet.Solar
         private SolarSpaceContext _space;
         private bool _built;
         private bool _orbitsVisible = true;
+        private bool _hasObserver;
+        private Vec3d _observerWorldMetres;
+        private int _proximityIndex = -1;
+        private int _observerFrameIndex = -1;
+        private Vec3d _observerBodyFixedMetres, _observerVelocityBodyFixed;
 
         public float KmPerUnit { get { return kmPerUnit > 0f ? kmPerUnit : 1e6f; } }
         public double UnitsPerKm { get { return 1.0 / KmPerUnit; } }
         public Vec3d OriginKm { get { return _originKm; } }
+        public bool HasObserver { get { return _hasObserver; } }
+        /// <summary>Observer in double-precision Unity-axis stellar metres, independent of focus.</summary>
+        public Vec3d ObserverWorldMetres { get { return _observerWorldMetres; } }
+        public int ProximityIndex { get { return _proximityIndex; } }
+        public CelestialBody ProximityView { get { return _proximityIndex >= 0 && _views != null ? _views[_proximityIndex] : null; } }
         public int BodyCount { get { return _views != null ? _views.Length : 0; } }
         public CelestialBody ViewAt(int i) { return _views[i]; }
         public Body DefinitionAt(int i) { return _defs[i]; }
         public Vec3d PositionKmAt(int i) { return _posKm[i]; }
         public Camera ViewCamera { get { return viewCamera; } }
+
+        public void SetObserverWorldMetres(Vec3d position, int proximityIndex)
+        {
+            _observerWorldMetres = position;
+            _hasObserver = true;
+            _proximityIndex = proximityIndex >= 0 && proximityIndex < BodyCount ? proximityIndex : -1;
+        }
+
+        public void SetObserverBodyFrame(int index, Vec3d position, Vec3d velocity)
+        {
+            _observerFrameIndex = index;
+            _observerBodyFixedMetres = position;
+            _observerVelocityBodyFixed = velocity;
+        }
+
+        public Vec3d ObserverRelativeToBody(int index)
+        {
+            if (index == _observerFrameIndex) return _observerBodyFixedMetres;
+            return RotateMetres(Quaternion.Inverse(_views[index].transform.rotation),
+                _observerWorldMetres - PositionWorldMetresAt(index));
+        }
+
+        public Vec3d ObserverVelocityInBody(int index)
+        {
+            return index == _observerFrameIndex ? _observerVelocityBodyFixed : Vec3d.Zero;
+        }
+
+        public static Vec3d RotateMetres(Quaternion rotation, Vec3d value)
+        {
+            double x = rotation.x, y = rotation.y, z = rotation.z, w = rotation.w;
+            double norm = x * x + y * y + z * z + w * w;
+            if (!(norm > 1e-20)) return value;
+            double tx = 2 * (y * value.z - z * value.y);
+            double ty = 2 * (z * value.x - x * value.z);
+            double tz = 2 * (x * value.y - y * value.x);
+            return new Vec3d(value.x + (w * tx + y * tz - z * ty) / norm,
+                value.y + (w * ty + z * tx - x * tz) / norm,
+                value.z + (w * tz + x * ty - y * tx) / norm);
+        }
+
+        public void ClearObserver()
+        {
+            _hasObserver = false;
+            _observerFrameIndex = -1;
+            _proximityIndex = -1;
+            _originReady = false;
+        }
+
+        /// <summary>Reprojects this frame's bodies after observer movement, without advancing time.</summary>
+        public void RefreshObserverFrame()
+        {
+            if (!_built) return;
+            UpdateOrigin();
+            if (_space != null) _space.RefreshFrames(0.0);
+            ApplyTransforms();
+            UpdateLightAndLines();
+        }
+
+        public Vec3d PositionWorldMetresAt(int index)
+        {
+            Vec3d p = PositionKmAt(index);
+            return new Vec3d(p.x * 1000.0, p.z * 1000.0, -p.y * 1000.0);
+        }
 
         /// <summary>
         /// The frame tree binding, or null when <see cref="enableSpaceFrames"/> is off. This is the
@@ -374,6 +447,16 @@ namespace Planet.Solar
         /// </summary>
         private void UpdateOrigin()
         {
+            if (_hasObserver)
+            {
+                // The observer, not the selected HUD target, owns the render origin.
+                _originKm = new Vec3d(_observerWorldMetres.x / 1000.0,
+                    -_observerWorldMetres.z / 1000.0, _observerWorldMetres.y / 1000.0);
+                _lag = Vec3d.Zero;
+                _originReady = true;
+                _focusSwitched = false;
+                return;
+            }
             Vec3d target = _posKm[_focusIndex];
             float tau = Mathf.Max(originCatchUpSeconds, 0.01f);
 
@@ -440,7 +523,15 @@ namespace Planet.Solar
             // Line widths are held at a constant fraction of the viewing distance so an orbit is
             // legible whether you are 0.01 or 10,000 units from the Sun.
             float camDist = 0f;
-            if (viewCamera != null) camDist = viewCamera.transform.position.magnitude;
+            if (_hasObserver)
+            {
+                Vec3d p = PositionWorldMetresAt(_focusIndex);
+                double dx = _observerWorldMetres.x - p.x;
+                double dy = _observerWorldMetres.y - p.y;
+                double dz = _observerWorldMetres.z - p.z;
+                camDist = (float)(System.Math.Sqrt(dx * dx + dy * dy + dz * dz) / (KmPerUnit * 1000.0));
+            }
+            else if (viewCamera != null) camDist = viewCamera.transform.position.magnitude;
             float w = Mathf.Clamp(camDist * lineWidthPerUnit, 1e-5f, 40f);
 
             // The focused body's own orbit runs straight through it. Up close that reads as a

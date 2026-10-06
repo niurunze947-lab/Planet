@@ -54,10 +54,13 @@ Unity 不允许同一目录下存在两个 asmdef。
 | `SolarSystemCamera.handleZoomInput`、`ClampToSurfaceFloor` / `ClampCurrentDistanceToSurface` | 写 | 外部接管缩放与距离钳制 |
 | **C1** `Planet.Procedural.Terrain.PlanetViewState` | 协调器每帧推送 | 双精度体固定（BF）米制视图状态 |
 | **C2** `Planet.Procedural.Terrain.IPlanetSurfaceQuery` | 地形系统实现，经 `CelestialBody` 暴露 | 全频地表高程/半径查询 + `PendingDetailWork` 背压 |
+| 观察者状态 | `Planet.Interaction` → `Planet.Solar` | `SetObserverWorldMetres` / `SetObserverBodyFrame` 提交双精度米制状态；`ObserverRelativeToBody` / `ObserverVelocityInBody` 只读投影，焦点与近邻分离 |
+| `IPlanetCollisionSurfaceQuery` | `Planet.Procedural` → `Planet.Interaction` | 显示三角形半径、碰撞覆盖就绪、局部米制球扫掠；物理采样仍走 C2 |
+| `PlanetSurfaceView.SetTerrainState` / `RuntimeTerrainRenderer.UpdateView` / `SetCollisionObserver` | 协调器 → 地形 | 预热/显示、精确观察位置与速度、碰撞覆盖需求，均由实际玩家位置决定 |
 | **C-ratio** `Planet.Procedural.Terrain.ViewHeightRatios` | 纯函数 | 两套命名比例，定义见 §3 |
-| **C6 交互所有权** | `SolarSystemCamera` 发布开关 | `freeRoam`（true 时轨道 rig 不写 transform、不接轨道输入），由 `SurfaceRoamController` 接管 body-fixed 米制位姿。**裁面硬顶 near/far ≤ 1e5:1**，精确模式与轨道路径都必须过消杀 |
-| **C6 精确地表高度** | 只读真值 | `HasPreciseSurfaceDistance` / `SetSurfaceClearanceMetres` / `TargetSurfaceClearanceMetres` / `CameraBodyFixedMetres`。与 `freeRoam` 为**或**关系释放 `BodyFixedCameraAnchor` |
-| **交互层对外** | `Planet.Interaction` 发布 | `ViewDistanceBoundary`（纯函数：比例、速率、钳制、闸门判定、`ApplySurfaceClearanceZoomMetres`）、`SurfaceModeController.EnteredSurfaceMode` / `ExitedSurfaceMode` 事件与 `[SurfaceMode]` 日志口径。预订这些事件的资源预加载由 `planet-definition` 实现 |
+| **旧 C6 交互所有权（兼容工具路径，正式运行时已由 §3 替代）** | `SolarSystemCamera` 发布开关 | `freeRoam`（true 时轨道 rig 不写 transform、不接轨道输入），由 `SurfaceRoamController` 接管 body-fixed 米制位姿。**裁面硬顶 near/far ≤ 1e5:1**，精确模式与轨道路径都必须过消杀 |
+| **旧 C6 精确地表高度（兼容工具路径）** | 只读真值 | `HasPreciseSurfaceDistance` / `SetSurfaceClearanceMetres` / `TargetSurfaceClearanceMetres` / `CameraBodyFixedMetres`。与 `freeRoam` 为**或**关系释放 `BodyFixedCameraAnchor` |
+| **旧交互层对外（保留测试与兼容调用，正式运行时见 §3）** | `Planet.Interaction` 发布 | `ViewDistanceBoundary`（纯函数：比例、速率、钳制、闸门判定、`ApplySurfaceClearanceZoomMetres`）、`SurfaceModeController.EnteredSurfaceMode` / `ExitedSurfaceMode` 事件与 `[SurfaceMode]` 日志口径。预订这些事件的资源预加载由 `planet-definition` 实现 |
 | **显示位移** | `PlanetSurfaceSampler.DisplacementMetres(height)` | globe 与 chunk 的唯一入口。有海时围绕固定海平面夸张陆地，物理高度不乘倍率 |
 | **缓存键** | 纯函数 | 全球贴图/网格用 `ContentFingerprint()`；含 `PlanetDetailSampler` 的区块缓存用 `TerrainContentFingerprint()`（`GeneratorVersion` + `detail`） |
 
@@ -86,82 +89,60 @@ Unity 不允许同一目录下存在两个 asmdef。
 > 两套层级尚未统一——不要以为改 `ChunkStreamer` 的参数会影响画面。见
 > [PLANET-SPACE.md](PLANET-SPACE.md) §11 与 [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §16。
 
-## 3. 当前视场高度契约
+## 3. 统一观察者与近地契约
 
-三条工作树使用同一定义，单位统一为当前 Unity 场景单位：
+`UnifiedFlightController` 是运行时唯一的玩家运动所有者。自由飞行贯穿深空与地表；
+聚焦是临时导航请求，近地是坐标参考系、流送和碰撞状态，不再交接给另一套相机。
+`SolarSystemCamera.externalObserver` 启用时停止轨道输入、距离积分与 Transform 写入，
+保留只读兼容读数。旧的 ViewDistance/SurfaceRoam/BodyFixed 控制器不再由启动器挂载。
+
+### 3.1 位置、速度与帧顺序
+
+玩家持有双精度米制位置与速度。深空使用 Unity 轴向的恒星系；近地使用体固定米制，
+进入时转换已有位置、朝向和速度，离开时转换回去，均不清零或重新对准球心。
+靠近天体时可跟随其公转平移，该参考系由实际距离选择，与导航目标独立；
+自转跟随仅在近地体固定帧启用。运动按真实帧秒积分，天体公转和自转仍按模拟日期计算。
+
+顺序为：模拟轨道与姿态 → 玩家输入/运动/碰撞 → 提交观察者原点并重投影天体 →
+写相机 → 观察协调器 → 地形选择、上传和碰撞准备。物理查询读取上一帧已完成的覆盖，
+缺失部分使用同源地形的保守屏障。double 域完成减法与旋转，最后才降 float；
+禁止通过 Camera Transform 回读玩家真值。
+
+`FocusView` 只表示 HUD/导航选中的天体；`ProximityView` 表示实际靠近的天体。
+`SetObserverWorldMetres` 提交渲染原点，`ObserverRelativeToBody` 向消费者提供精确体固定观察位置，
+`SetObserverBodyFrame` 保留近地局部真值以避免恒星坐标往返。
+
+### 3.2 距离判据与输入
 
 ```text
-viewHeight            = 相机到当前焦点天体中心的距离
-surfaceRadius         = SolarSystemSimulation.FocusRadiusUnits
-surfaceClearance      = max(viewHeight - surfaceRadius, 0)
-
-clearanceOverView     = surfaceClearance / max(viewHeight, 1e-12)    // 地表模式闸门
-clearanceOverRadius   = surfaceClearance / max(surfaceRadius, 1e-6)  // 层级切换 / 资源预载滞回
+viewHeight = 玩家到所观察天体中心的实际距离
+clearanceOverView = (viewHeight - referenceRadius) / viewHeight
+clearanceOverRadius = (viewHeight - referenceRadius) / referenceRadius
 ```
 
-两套比例**都只在行星外**（`viewHeight >= surfaceRadius`，相对地表正距离）参与进入判定；
-行星内部 / 球心附近不得打开地表模式。渲染 LOD 连续性不依赖模式阈值。
+`FlightMotion` / `ViewDistanceBoundary` 的近地闸门为进入 5%、离开 8%。只用实际位置，
+不看目标距离；进入还要求位于显示地表之外，允许真实谷地或扁球表面低于平均半径。
+近地内上述距离仅供状态、LOD 和 HUD 查询，不能回写限位。实体接触由地形碰撞决定。
 
-| 用途 | 比例 | 进入 | 离开 | 状态 |
-|---|---|---|---|---|
-| 地表模式闸门（interaction） | `clearanceOverView` | ≤ **5%**（Earth ≈ 335 km 高度） | ≥ **8%** | **已实现**；2026-10-05 C6 放宽，保证闸门可达 |
-| 层级切换 / 资源预载滞回 | `clearanceOverRadius` | ≤ 0.25 | ≥ 0.35 | **已实现**；由 Earth 纹理档位与 Mesh LOD 档位消费 |
+右键环视及 QWEASD 自由飞行始终可用。数字键/Tab/F 发起临时聚焦，完成后自由飞行，
+手动移动可中断；Esc 取消导航目标。有目标且不在近地时滚轮及 PgUp/PgDn（Z/X）产生
+沿目标方向的推进速度；近地或无目标时滚轮调飞行速度。靠近过程使用停止距离制动，
+跨阈值保留速度再减速。近地飞行无重力，接触面去掉内向速度分量。
 
-**取值的唯一入口是 `SolarSystemCamera`**：`SurfaceClearanceOverView` 与 `SurfaceClearanceRatio`
-（后者即 `clearanceOverRadius`）由相机计算，消费方不得自己重算。
+### 3.3 渲染、流送与碰撞
 
-两处常量各自只有一处定义：
+远景使用固定全球网格和贴图 LOD，不常驻运行时地形。协调器按实际相对距离预热，
+完整根覆盖到齐后才切换近地可见区块。实际运行时索引为 `TerrainLattice`；
+`Solar/Space/ChunkStreamer` 仍是独立策略测试实现，不能用于配置正式地形。
 
-- `Planet.Interaction.ViewDistanceBoundary.DefaultSurfaceModeEnterRatio` / `DefaultSurfaceModeExitRatio`
-  （`0.05f`、`0.08f`），由 `SurfaceModeController` 使用；历史标定 `100/6562` 只作注释；
-- `Planet.Procedural.Terrain.ViewHeightRatios.ClearanceOverRadius`：命名与公式的权威定义；
-  层级的**具体阈值**保存在可编辑的 LOD Set 资产里（Earth 纹理档位、Mesh LOD 档位），
-  与 §3 的表同值，改表必须同时改资产。
+`IPlanetSurfaceQuery` 保留未夸张物理高程；`IPlanetCollisionSurfaceQuery` 查询显示几何、
+碰撞覆盖状态和连续球扫掠。碰撞顶点与当前区块相同，三角形排除遮缝裙边；
+父区块保留直到四个子碰撞网格准备好。碰撞代理位于独立米制 PhysicsScene，
+局部原点随玩家重定。非固体外观不创建地形碰撞。
 
-`viewHeight` 不是大气半径、云层半径或网格顶点到相机的距离。浮动原点把焦点天体放在世界原点，
-因此当前相机轨道距离就是唯一的中心距来源。未来若相机改为局部地表坐标，必须继续对外提供
-等价的中心距和半径，不能让下游重新猜测。
-
-> **这套契约同时承担「消除地表 / 太空切换断点」的职责。** 大气散射介质随相机高程**连续**计算，
-> 读的就是 `viewHeight`；位置层面的断点由 `Space/` 的原点栈消除——地表架用 `Threshold` 模式，
-> 所以不存在「切换到另一套坐标系」的那一刻，只有同一个原点体系里连续变化的相机高程。
-> 两条路径都**不产生**需要被补偿的跳变，因此介质可以一直算下去而不必分场景。
-
-### 3.1 交互输入边界（已实现）
-
-`Assets/Scripts/Interaction/`（程序集 `Planet.Interaction`）按下面的顺序做，**实测顺序不可调换**：
-
-1. 目标距离和当前距离都钳制为 `viewHeight >= surfaceRadius`，允许等于半径，不允许进入实体地表
-   （`ViewDistanceBoundary.ClampToSurface` / `SolarSystemCamera.ClampCurrentDistanceToSurface`）。
-2. 缩放使用对数距离；靠近地表只降低距离变化率，不改变距离单位。
-   `ViewDistanceBoundary.ZoomRateMultiplier` 用 smoothstep 在 `nearRate 0.08 → farRate 1.0`
-   之间过渡，远端拉远不阻尼。近地后的对数高程缩放 `h' = h · exp(δ · rate)` 见 `ApplyLogZoom`（C4）。
-3. 每帧顺序固定为「读取半径 → 处理输入 → 限制目标距离 → 平滑到当前距离 → 发布事件」。
-   **禁止**先移动相机再用碰撞体回弹；那会在浮动原点和极小天体上产生抖动。
-
-`ViewDistanceController` 通过 `SolarSystemCamera.handleZoomInput` 接管缩放输入，退出时还原；
-`BodyFixedCameraAnchor`（C5）在进入近地带后把轨道 yaw 表达在焦点天体的旋转系里，
-使地面不再从玩家脚下滑走。
-
-`IPlanetSurfaceQuery.PendingDetailWork` 背压降速**尚未接入**。
-
-### 3.2 近地转场状态机
-
-已实现的是**判定与事件**，不是模式切换：
-
-| 状态迁移 | 条件 | 当前行为 | 未来行为 |
-|---|---|---|---|
-| `SystemView` → `SurfaceMode` | `clearanceOverView <= DefaultSurfaceModeEnterRatio` 且 `viewHeight >= surfaceRadius` | 发 `SurfaceModeController.EnteredSurfaceMode` + `[SurfaceMode] ENTER` 日志 | 预加载地表 LOD、植被和碰撞资源 |
-| `SurfaceMode` → `SystemView` | `clearanceOverView >= DefaultSurfaceModeExitRatio` | 发 `ExitedSurfaceMode` + `[SurfaceMode] EXIT` 日志 | 卸载近地专属资源并恢复星系层预算 |
-
-阈值只有 §3 那一处定义，本表给符号名不给数字。
-
-事件**只表达「是否应加载星球表面细节」**，不等于 mode 已经切换，也不接管相机。
-行星内部与球心附近不触发（`ViewHeightRatios.IsOutsideSurface` 守住入口）。
-
-未来进入近地 mode 时，计划切换为以地表 down direction 为基准的玩家相对坐标、降低时间流速，
-并使用右键 + `QWEASD` 漫游。退出 mode 必须经过同一个滞回阈值，且由状态机统一发布，
-不能由滚轮、相机脚本和资源加载器各自判断。
+`ObserverRenderRig` 的米制 Overlay 相机只绘制局部地形代理（保留层 31），
+与远景相机共享观察者位置和方向，解决太阳系场景单位下近裁面吞掉贴地地形的问题。
+400 倍放大只用于远景定位，接近时恢复真实比例，近地不接受重新放大。
 
 ## 4. SolarSystem 数据规则
 

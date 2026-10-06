@@ -6,12 +6,13 @@ using System.Threading.Tasks;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.SceneManagement;
 
 namespace Planet.Procedural.Terrain
 {
     /// <summary>On-demand bounded mesh cache. At most two worker jobs globally, one per body, no Unity calls on workers.</summary>
-    [ExecuteAlways, DisallowMultipleComponent]
-    public sealed class RuntimeTerrainRenderer : MonoBehaviour, IPlanetSurfaceQuery
+    [ExecuteAlways, DisallowMultipleComponent, DefaultExecutionOrder(1100)]
+    public sealed class RuntimeTerrainRenderer : MonoBehaviour, IPlanetSurfaceQuery, IPlanetCollisionSurfaceQuery
     {
         [Range(6, 512)] public int maxActiveChunks = 384;
         [Range(16, 1024)] public int maxResidentChunks = 640;
@@ -24,10 +25,128 @@ namespace Planet.Procedural.Terrain
         public int PendingWork { get { return pendingCount; } }
         public int FinestVisibleLevel { get; private set; }
         public int BuiltCount { get; private set; }
+        public int CollisionChunkCount { get { return collisionNodes.Count; } }
         public string LastError { get; private set; }
         public RuntimeTerrainSource Source { get { return source; } }
         public double RadiusMetres { get { return ready ? source.radius : 0; } }
         public int PendingDetailWork { get { return pendingCount; } }
+        public bool CoverageReady
+        {
+            get
+            {
+                for (int face = 0; face < 6; face++)
+                    if (!nodes.ContainsKey(TerrainNodeKey.Root((PlanetCubeFace)face))) return false;
+                return true;
+            }
+        }
+        public bool CollisionCoverageReady
+        {
+            get
+            {
+                if (!collisionRequested || collisionNodes.Count == 0) return false;
+                double length = math.length(collisionPlayerBf);
+                if (!(length > 0)) return false;
+                return HasCollisionAt(collisionPlayerBf);
+            }
+        }
+        public double SampleCollisionRadiusMetres(double3 directionBf)
+        {
+            if (!ready) return 0;
+            double3 direction = math.normalizesafe(directionBf, new double3(0, 1, 0));
+            double spacing = 0.005;
+            foreach (Node node in visible)
+                if (node.data.TrySurfaceRadius(direction, out double displayedRadius)) return displayedRadius;
+            return math.length(source.Position(direction, spacing));
+        }
+
+        public bool SweepSphere(double3 fromBfMetres, double3 toBfMetres, double radiusMetres,
+            out double3 resolvedBfMetres, out double3 normalBf)
+        {
+            resolvedBfMetres = toBfMetres;
+            normalBf = double3.zero;
+            if (!ready || !source.solid) return false;
+            double3 delta = toBfMetres - fromBfMetres;
+            double distance = math.length(delta);
+            if (!(distance > 1e-7)) return false;
+            double envelope = source.radius * math.cmax(source.axes) + source.ReliefBound + radiusMetres;
+            double closestT = math.clamp(-math.dot(fromBfMetres, delta) / math.lengthsq(delta), 0, 1);
+            if (math.length(fromBfMetres + delta * closestT) > envelope) return false;
+            if (!CollisionCoverageReady || !collisionScene.IsValid())
+            {
+                // Until collision data exists, the same source's relief bound is a conservative
+                // loading barrier. Sweep the whole segment so a high-speed transit cannot tunnel.
+                double a = math.dot(delta, delta), b = math.dot(fromBfMetres, delta);
+                double c = math.dot(fromBfMetres, fromBfMetres) - envelope * envelope;
+                double discriminant = b * b - a * c;
+                if (c > 0 && b < 0 && discriminant >= 0)
+                {
+                    double t = (-b - math.sqrt(discriminant)) / a;
+                    if (t >= 0 && t <= 1)
+                    {
+                        resolvedBfMetres = math.lerp(fromBfMetres, toBfMetres, math.max(0, t - 0.02 / distance));
+                        normalBf = math.normalizesafe(resolvedBfMetres);
+                        return true;
+                    }
+                }
+                if (c <= 0 && closestT > 0)
+                {
+                    resolvedBfMetres = fromBfMetres;
+                    normalBf = -delta / distance;
+                    return true;
+                }
+                double3 directionBf = math.normalizesafe(toBfMetres, math.normalizesafe(fromBfMetres));
+                double ground = SampleCollisionRadiusMetres(directionBf) + radiusMetres;
+                if (math.length(toBfMetres) < ground)
+                {
+                    resolvedBfMetres = directionBf * ground;
+                    normalBf = directionBf;
+                    return true;
+                }
+                return false;
+            }
+            Vector3 direction = (Vector3)(float3)(delta / distance);
+            Vector3 start = (Vector3)(float3)(fromBfMetres - collisionOriginBf);
+            if (!collisionScene.GetPhysicsScene().SphereCast(start, (float)radiusMetres, direction,
+                out RaycastHit hit, (float)distance, ~0, QueryTriggerInteraction.Ignore))
+            {
+                // Keep the whole movement corridor inside committed collision coverage while
+                // streaming. Test at half the smallest resident patch width, not just endpoints.
+                double spacing = double.MaxValue;
+                foreach (Node node in collisionNodes.Values)
+                    if (visible.Contains(node)) spacing = math.min(spacing,
+                        TerrainLattice.NodeSize(source.radius, node.data.key.level) * 0.25);
+                int steps = (int)math.min(512, math.max(1, math.ceil(distance / math.max(0.05, spacing))));
+                double checkedDistance = math.min(distance, steps * math.max(0.05, spacing));
+                for (int i = 1; i <= steps; i++)
+                {
+                    double t = checkedDistance / distance * i / steps;
+                    if (HasCollisionAt(math.lerp(fromBfMetres, toBfMetres, t))) continue;
+                    resolvedBfMetres = math.lerp(fromBfMetres, toBfMetres,
+                        checkedDistance / distance * (i - 1) / steps);
+                    normalBf = -delta / distance;
+                    return true;
+                }
+                if (checkedDistance < distance)
+                {
+                    resolvedBfMetres = fromBfMetres + delta / distance * checkedDistance;
+                    normalBf = -delta / distance;
+                    return true;
+                }
+                return false;
+            }
+            resolvedBfMetres = fromBfMetres + delta / distance * math.max(0.0, hit.distance - 0.02);
+            normalBf = (double3)(float3)hit.normal;
+            return true;
+        }
+
+        private bool HasCollisionAt(double3 position)
+        {
+            double3 direction = math.normalizesafe(position, new double3(0, 1, 0));
+            foreach (var pair in collisionNodes)
+                if (visible.Contains(pair.Value) && TerrainLattice.NodeAt(direction, pair.Key.level).Equals(pair.Key))
+                    return true;
+            return false;
+        }
         public double SampleHeightMetres(double3 directionBf, double sampleSpacingMetres)
         {
             if (!ready) return 0;
@@ -57,6 +176,11 @@ namespace Planet.Procedural.Terrain
             public MeshRenderer renderer;
             public MaterialPropertyBlock block = new MaterialPropertyBlock();
             public int lastUsed;
+            public GameObject colliderGo;
+            public Mesh colliderMesh;
+            public GameObject localGo;
+            public MeshRenderer localRenderer;
+            public MaterialPropertyBlock localBlock = new MaterialPropertyBlock();
         }
         private static readonly SemaphoreSlim Workers = new SemaphoreSlim(2, 2);
         private readonly Dictionary<TerrainNodeKey, Node> nodes = new Dictionary<TerrainNodeKey, Node>();
@@ -79,6 +203,38 @@ namespace Planet.Procedural.Terrain
         private Task<HashSet<TerrainNodeKey>> selectionJob;
         private CancellationTokenSource cancellation = new CancellationTokenSource();
         private int pendingCount;
+        private Camera localCamera;
+        private int localTerrainLayer = 31;
+        private bool streamingRequested, collisionRequested;
+        private double3 collisionPlayerBf, collisionVelocityBf, collisionOriginBf;
+        private Scene collisionScene;
+        private readonly Dictionary<TerrainNodeKey, Node> collisionNodes = new Dictionary<TerrainNodeKey, Node>();
+
+        public void SetStreamingRequested(bool requested)
+        {
+            if (streamingRequested == requested) return;
+            streamingRequested = requested;
+            if (!requested)
+            {
+                bool sourceWasReady = ready;
+                Clear();
+                ready = sourceWasReady;
+            }
+        }
+
+        public void SetLocalCamera(Camera camera, int layer)
+        {
+            localCamera = camera;
+            localTerrainLayer = layer;
+        }
+
+        public void SetCollisionObserver(double3 playerBfMetres, double3 velocityBfMetresPerSecond, bool active)
+        {
+            collisionRequested = active && ready && source.solid;
+            collisionPlayerBf = playerBfMetres;
+            collisionVelocityBf = velocityBfMetresPerSecond;
+            if (!collisionRequested && collisionNodes.Count > 0) ClearColliders();
+        }
 
         private void OnEnable()
         {
@@ -127,6 +283,8 @@ namespace Planet.Procedural.Terrain
         {
             shown = value;
             if (!value) foreach (var node in visible) if (node.renderer != null) node.renderer.enabled = false;
+            if (!value) foreach (var node in nodes.Values)
+                if (node.localRenderer != null) node.localRenderer.enabled = false;
         }
 
         private void RefreshSource()
@@ -143,7 +301,7 @@ namespace Planet.Procedural.Terrain
             if (owner == null || owner.definition == null || root == null) return;
             if (Time.realtimeSinceStartup >= nextIdentity)
             { nextIdentity = Time.realtimeSinceStartup + 0.5f; RefreshSource(); }
-            if (!ready || !shown) return;
+            if (!ready || !streamingRequested) return;
             if (!receivedView)
             {
                 Camera camera = Camera.main;
@@ -188,12 +346,24 @@ namespace Planet.Procedural.Terrain
             Evict();
             pendingCount = 0; queue.Clear();
             foreach (var key in wanted) if (!nodes.ContainsKey(key)) { pendingCount++; queue.Add(key); }
-            queue.Sort((a, b) => a.level.CompareTo(b.level));
+            queue.Sort((a, b) =>
+            {
+                int ancestorOrder = a.level.CompareTo(b.level);
+                return ancestorOrder != 0 ? ancestorOrder : NodeDistanceSquared(a).CompareTo(NodeDistanceSquared(b));
+            });
             if (job == null && queue.Count > 0 && timer.Elapsed.TotalMilliseconds < uploadBudgetMilliseconds && Workers.Wait(0))
             {
                 var key = queue[0]; var snapshot = source; var token = cancellation.Token;
                 job = Task.Run(() => { try { return RuntimeTerrainChunk.Build(snapshot, key, token); } finally { Workers.Release(); } });
             }
+            SyncColliders(timer);
+        }
+
+        private double NodeDistanceSquared(TerrainNodeKey key)
+        {
+            TerrainLattice.NodeUv(key, out double2 min, out double2 max);
+            double3 center = TerrainLattice.Direction(key.face, (min + max) * 0.5) * source.radius;
+            return math.distancesq(center, view.positionBfMetres);
         }
 
         private void CompleteJob()
@@ -224,6 +394,11 @@ namespace Planet.Procedural.Terrain
         private void SelectCoverage()
         {
             foreach (var node in visible) if (node.renderer != null) node.renderer.enabled = false;
+            foreach (var node in nodes.Values)
+            {
+                if (node.localRenderer != null) node.localRenderer.enabled = false;
+                if (node.colliderGo != null) node.colliderGo.GetComponent<MeshCollider>().enabled = false;
+            }
             visible.Clear(); FinestVisibleLevel = 0;
             for (int face = 0; face < 6; face++) Cover(TerrainNodeKey.Root((PlanetCubeFace)face));
             foreach (var node in visible)
@@ -234,6 +409,7 @@ namespace Planet.Procedural.Terrain
                 node.go.transform.localPosition = (float3)(node.data.origin / source.radius);
                 node.go.transform.localRotation = Quaternion.identity;
                 node.go.transform.localScale = Vector3.one / (float)source.radius;
+                if (node.colliderGo != null) node.colliderGo.GetComponent<MeshCollider>().enabled = true;
             }
             VisibleCount = visible.Count;
         }
@@ -243,6 +419,9 @@ namespace Planet.Procedural.Terrain
             if (!nodes.TryGetValue(key, out Node node)) return;
             bool split = splits.Contains(key);
             if (split) for (int i = 0; i < 4; i++) if (!nodes.ContainsKey(key.Child(i))) { split = false; break; }
+            if (split && collisionRequested && collisionNodes.ContainsKey(key))
+                for (int i = 0; i < 4; i++)
+                    if (!collisionNodes.ContainsKey(key.Child(i))) { split = false; break; }
             if (split) for (int i = 0; i < 4; i++) Cover(key.Child(i));
             else visible.Add(node);
         }
@@ -254,7 +433,8 @@ namespace Planet.Procedural.Terrain
             {
                 TerrainNodeKey oldest = default; bool found = false; int age = int.MaxValue;
                 foreach (var pair in nodes)
-                    if (!wanted.Contains(pair.Key) && !visible.Contains(pair.Value) && pair.Value.lastUsed <= age)
+                    if (!wanted.Contains(pair.Key) && !visible.Contains(pair.Value) &&
+                        !collisionNodes.ContainsKey(pair.Key) && pair.Value.lastUsed <= age)
                     { oldest = pair.Key; age = pair.Value.lastUsed; found = true; }
                 if (!found) break;
                 DestroyNode(nodes[oldest]); nodes.Remove(oldest);
@@ -275,8 +455,12 @@ namespace Planet.Procedural.Terrain
 
         private static double3 Rotate(Quaternion rotation, double3 value)
         {
-            var m = new float3x3((quaternion)rotation);
-            return (double3)m.c0 * value.x + (double3)m.c1 * value.y + (double3)m.c2 * value.z;
+            double3 q = new double3(rotation.x, rotation.y, rotation.z);
+            double w = rotation.w;
+            double norm = math.dot(q, q) + w * w;
+            if (norm < 1e-20) return value;
+            double3 t = 2 * math.cross(q, value);
+            return value + (w * t + math.cross(q, t)) / norm;
         }
 
         private void BeforeCamera(ScriptableRenderContext context, Camera camera)
@@ -288,6 +472,7 @@ namespace Planet.Procedural.Terrain
         public void PrepareCamera(Camera camera)
         {
             if (!ready || !shown || owner == null) return;
+            if (camera == localCamera) return;
             PlanetViewState cameraView = camera == viewCamera && receivedView && view.localCameraActive ? view : ViewFromCamera(camera);
             foreach (var node in visible)
             {
@@ -302,17 +487,62 @@ namespace Planet.Procedural.Terrain
                 // Chunk normals already contain resolved relief; a global normal cubemap would erase it.
                 node.block.SetFloat("_NormalEnabled", 0);
                 node.renderer.SetPropertyBlock(node.block);
+                PrepareLocalNode(node, cameraView);
             }
         }
 
-        private static void DestroyNode(Node node)
+        private void PrepareLocalNode(Node node, PlanetViewState cameraView)
         {
+            if (localCamera == null) return;
+            double3 offsetMetres = Rotate(transform.rotation, node.data.origin - cameraView.positionBfMetres);
+            bool close = math.length(offsetMetres) < 10000.0 + TerrainLattice.NodeSize(source.radius, node.data.key.level);
+            if (!close || node.data.key.level < 8)
+            {
+                if (node.localRenderer != null) node.localRenderer.enabled = false;
+                return;
+            }
+            if (node.localGo == null)
+            {
+                node.localGo = new GameObject("Local " + node.data.key)
+                    { hideFlags = HideFlags.HideAndDontSave, layer = localTerrainLayer };
+                node.localGo.AddComponent<MeshFilter>().sharedMesh = node.mesh;
+                node.localRenderer = node.localGo.AddComponent<MeshRenderer>();
+                node.localRenderer.sharedMaterial = material;
+                node.localRenderer.shadowCastingMode = ShadowCastingMode.Off;
+                node.localRenderer.receiveShadows = false;
+            }
+            node.localGo.transform.SetPositionAndRotation((float3)offsetMetres, transform.rotation);
+            node.localRenderer.enabled = shown;
+            var localBlock = node.localBlock;
+            owner.CopyVisualProperties(localBlock);
+            localBlock.SetVector("_ChunkOriginCR", new Vector4((float)offsetMetres.x, (float)offsetMetres.y, (float)offsetMetres.z, 1));
+            localBlock.SetFloat("_ChunkEnabled", 1);
+            localBlock.SetMatrix("_ChunkBodyToWorld", Matrix4x4.Rotate(transform.rotation));
+            localBlock.SetFloat("_ChunkUnitsPerMetre", 1);
+            localBlock.SetFloat("_UseVertexAlbedo", node.data.spacing < 20000 ? 1 : 0);
+            localBlock.SetFloat("_NormalEnabled", 0);
+            node.localRenderer.SetPropertyBlock(localBlock);
+        }
+
+        private void DestroyNode(Node node)
+        {
+            collisionNodes.Remove(node.data.key);
+            if (node.localGo != null)
+            {
+                if (Application.isPlaying) Destroy(node.localGo); else DestroyImmediate(node.localGo);
+            }
+            if (node.colliderGo != null)
+            {
+                if (Application.isPlaying) { Destroy(node.colliderGo); Destroy(node.colliderMesh); }
+                else { DestroyImmediate(node.colliderGo); DestroyImmediate(node.colliderMesh); }
+            }
             if (Application.isPlaying) { Destroy(node.go); Destroy(node.mesh); }
             else { DestroyImmediate(node.go); DestroyImmediate(node.mesh); }
         }
 
         private void Clear()
         {
+            ClearColliders();
             cancellation.Cancel(); cancellation.Dispose(); cancellation = new CancellationTokenSource();
             // Old tasks own no Unity objects; cancellation is checked every row and releases the global worker slot.
             if (job != null) job.ContinueWith(t => { var ignored = t.Exception; }, TaskContinuationOptions.OnlyOnFaulted);
@@ -322,6 +552,114 @@ namespace Planet.Procedural.Terrain
             foreach (var node in nodes.Values) DestroyNode(node);
             nodes.Clear(); visible.Clear(); wanted.Clear(); desired.Clear(); splits.Clear();
             pendingCount = 0; VisibleCount = 0; ready = false;
+        }
+
+        private void SyncColliders(Stopwatch timer)
+        {
+            if (!Application.isPlaying || !collisionRequested || visible.Count == 0) return;
+            if (!collisionScene.IsValid())
+            {
+                collisionScene = SceneManager.CreateScene("PlanetCollision_" + Guid.NewGuid().ToString("N"),
+                    new CreateSceneParameters(LocalPhysicsMode.Physics3D));
+                collisionOriginBf = collisionPlayerBf;
+            }
+            if (math.distance(collisionOriginBf, collisionPlayerBf) > 64.0)
+                collisionOriginBf = collisionPlayerBf;
+
+            double3 direction = math.normalizesafe(collisionPlayerBf, new double3(0, 1, 0));
+            double3 ahead = math.normalizesafe(collisionPlayerBf + collisionVelocityBf * 2.0, collisionPlayerBf);
+            double3 aheadDirection = math.normalizesafe(ahead, direction);
+            int built = 0;
+            var candidates = new List<Node>();
+            foreach (Node parent in visible)
+            {
+                candidates.Add(parent);
+                if (!splits.Contains(parent.data.key) || !collisionNodes.ContainsKey(parent.data.key)) continue;
+                for (int i = 0; i < 4; i++)
+                    if (nodes.TryGetValue(parent.data.key.Child(i), out Node child)) candidates.Add(child);
+            }
+            candidates.Sort((a, b) => math.distancesq(a.data.origin, collisionPlayerBf)
+                .CompareTo(math.distancesq(b.data.origin, collisionPlayerBf)));
+            foreach (Node node in candidates)
+            {
+                TerrainNodeKey key = node.data.key;
+                bool underfoot = TerrainLattice.NodeAt(direction, key.level).Equals(key);
+                bool forward = TerrainLattice.NodeAt(aheadDirection, key.level).Equals(key);
+                bool replacingParent = key.level > 0 && collisionNodes.ContainsKey(key.Parent);
+                double range = math.clamp(math.length(collisionVelocityBf) * 2.0, 128.0, 10000.0);
+                if (!underfoot && !forward && !replacingParent &&
+                    math.distance(node.data.origin, collisionPlayerBf) > range) continue;
+                if (node.colliderGo == null && built < 1 && collisionNodes.Count < 64 &&
+                    timer.Elapsed.TotalMilliseconds < uploadBudgetMilliseconds)
+                {
+                    CreateCollider(node);
+                    built++;
+                }
+            }
+            foreach (Node node in collisionNodes.Values)
+                if (node.colliderGo != null)
+                    node.colliderGo.transform.position = (Vector3)(float3)(node.data.origin - collisionOriginBf);
+            Physics.SyncTransforms();
+
+            var remove = new List<TerrainNodeKey>();
+            foreach (var pair in collisionNodes)
+            {
+                bool current = visible.Contains(pair.Value);
+                bool replacing = pair.Key.level > 0 && nodes.TryGetValue(pair.Key.Parent, out Node parent) &&
+                    visible.Contains(parent) && collisionNodes.ContainsKey(pair.Key.Parent);
+                if (replacing) continue;
+                bool underfoot = TerrainLattice.NodeAt(direction, pair.Key.level).Equals(pair.Key);
+                bool forward = TerrainLattice.NodeAt(aheadDirection, pair.Key.level).Equals(pair.Key);
+                bool near = math.distance(pair.Value.data.origin, collisionPlayerBf) <
+                    math.clamp(math.length(collisionVelocityBf) * 3.0, 256.0, 15000.0);
+                if (!underfoot && !forward && !near) remove.Add(pair.Key);
+                else if (!current && !near) remove.Add(pair.Key);
+                else if (!current && HasChildrenColliders(pair.Key)) remove.Add(pair.Key);
+            }
+            foreach (TerrainNodeKey key in remove)
+            {
+                Node node = collisionNodes[key];
+                DestroyCollider(node);
+                collisionNodes.Remove(key);
+            }
+        }
+
+        private bool HasChildrenColliders(TerrainNodeKey parent)
+        {
+            for (int i = 0; i < 4; i++) if (!collisionNodes.ContainsKey(parent.Child(i))) return false;
+            return true;
+        }
+
+        private void CreateCollider(Node node)
+        {
+            Mesh mesh = node.data.UploadCollisionMesh();
+            var go = new GameObject("Collision " + node.data.key) { hideFlags = HideFlags.HideAndDontSave };
+            SceneManager.MoveGameObjectToScene(go, collisionScene);
+            go.transform.position = (Vector3)(float3)(node.data.origin - collisionOriginBf);
+            go.AddComponent<MeshCollider>().sharedMesh = mesh;
+            node.colliderGo = go;
+            node.colliderMesh = mesh;
+            collisionNodes[node.data.key] = node;
+        }
+
+        private static void DestroyCollider(Node node)
+        {
+            if (node.colliderGo == null) return;
+            Destroy(node.colliderGo);
+            Destroy(node.colliderMesh);
+            node.colliderGo = null;
+            node.colliderMesh = null;
+        }
+
+        private void ClearColliders()
+        {
+            foreach (Node node in collisionNodes.Values) DestroyCollider(node);
+            collisionNodes.Clear();
+            if (collisionScene.IsValid() && Application.isPlaying)
+            {
+                SceneManager.UnloadSceneAsync(collisionScene);
+                collisionScene = default(Scene);
+            }
         }
     }
 }

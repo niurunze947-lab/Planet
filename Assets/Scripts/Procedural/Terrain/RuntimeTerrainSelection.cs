@@ -55,7 +55,11 @@ namespace Planet.Procedural.Terrain
             double bound = edge * 0.85 + localRelief;
             double3 relative = center - view.positionBfMetres;
             double range = math.length(relative);
-            if (key.level > 1)
+            bool underfoot = TerrainLattice.NodeAt(cameraDirectionFor(view), key.level).Equals(key);
+            double protectedRange = 128.0 + math.min(10000.0, math.length(view.velocityBfMetresPerSecond) * 2.0);
+            bool collisionNeighbourhood = view.localCameraActive &&
+                (underfoot || range - bound < protectedRange);
+            if (key.level > 1 && !collisionNeighbourhood)
             {
                 // Conservative tangent-plane horizon and view cone; coarse parents remain complete coverage.
                 double observerRadius = math.length(view.positionBfMetres);
@@ -66,6 +70,11 @@ namespace Planet.Procedural.Terrain
                 if (math.dot(relative, (double3)forward) + bound < range * math.cos(diagonalFov + 0.2)) return 0;
             }
             double distance = math.max(range - bound, math.max(0.01, clearance * 0.25));
+            // Reserve the path below the observer before spending the remaining leaves on
+            // the horizon. Otherwise coarse far patches exhaust the budget at ground level.
+            if (view.localCameraActive && underfoot &&
+                spacing > math.max(0.01, clearance * 0.02))
+                return 1e20 / (key.level + 1);
             double pixelsPerMetre = math.max(1, view.pixelHeight) /
                 (2 * math.tan(math.radians(math.clamp(view.verticalFovDegrees, 1f, 170f)) * 0.5) * distance);
             double curvature = spacing * spacing / (8 * source.radius);
@@ -73,6 +82,11 @@ namespace Planet.Procedural.Terrain
             double detailError = source.solid ? source.detail.ResidualBound(spacing) * source.reliefScale : 0;
             // Error estimate plus a vertex footprint limit. Budgets cap refinement even at an extreme camera pose.
             return math.max(curvature + spacing * macroSlope + detailError, spacing / 12) * pixelsPerMetre;
+        }
+
+        private static double3 cameraDirectionFor(PlanetViewState view)
+        {
+            return math.normalizesafe(view.positionBfMetres, new double3(0, 1, 0));
         }
 
         public static HashSet<TerrainNodeKey> WithAncestors(IEnumerable<TerrainNodeKey> leaves)

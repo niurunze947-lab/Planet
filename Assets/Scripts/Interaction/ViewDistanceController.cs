@@ -78,15 +78,8 @@ namespace Planet.Interaction
         {
             var cam = Object.FindObjectOfType<SolarSystemCamera>();
             if (cam == null) return;
-
-            if (Object.FindObjectOfType<ViewDistanceController>() == null)
-                cam.gameObject.AddComponent<ViewDistanceController>();
-            if (Object.FindObjectOfType<SurfaceModeController>() == null)
-                cam.gameObject.AddComponent<SurfaceModeController>();
-            if (Object.FindObjectOfType<BodyFixedCameraAnchor>() == null)
-                cam.gameObject.AddComponent<BodyFixedCameraAnchor>();
-            if (Object.FindObjectOfType<SurfaceRoamController>() == null)
-                cam.gameObject.AddComponent<SurfaceRoamController>();
+            if (Object.FindObjectOfType<UnifiedFlightController>() == null)
+                cam.gameObject.AddComponent<UnifiedFlightController>();
         }
 
         private void OnEnable()

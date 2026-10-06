@@ -1,0 +1,7 @@
+{
+    "name": "Planet.Flight.PlayTests",
+    "references": ["Planet.Interaction", "Planet.Solar", "Planet.Procedural", "Unity.Mathematics"],
+    "optionalUnityReferences": ["TestAssemblies"],
+    "defineConstraints": ["UNITY_INCLUDE_TESTS"],
+    "autoReferenced": false
+}

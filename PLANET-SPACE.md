@@ -77,6 +77,10 @@ Milky Way (Galactic)      depth 1   ← 星系尺度，默认原点即银河系�
 
 ### 2.2 浮动原点：不许有稳态误差
 
+正式漫游运行时由玩家双精度观察位置直接提交渲染原点；焦点平滑仅保留在旧工具路径。
+近地体固定位置单独发布给地形消费者，局部碰撞与近景相机使用米制投影，见
+[DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §3。以下描述通用原点策略及旧焦点路径。
+
 `FloatingOrigin` 有两种模式：
 
 - **`RigidFollow`（默认）**：原点**就是**锚点，另加一个只衰减、不反馈的残差。

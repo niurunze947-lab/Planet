@@ -23,7 +23,7 @@
 |---|---|---|---|
 | 程序化框架 | `PlanetDefinition → PlanetSurfaceSampler → 网格 / Cubemap → PlanetSurfaceView` | **定义是唯一权威**，网格与贴图都是可重建的派生缓存；采样器按单位球方向取值，与分辨率、半径、场景尺度无关 | [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) |
 | 尺度坐标层 | 宇宙侧 `double` 米四级架树 + 地表侧 `float` 米分块本地坐标 | 唯一规则是「**在 double 里减，最后一步才降到 float**」 | [PLANET-SPACE.md](PLANET-SPACE.md) |
-| 交互层 | 视距边界、缩放接管、近地判定与 body-fixed 漫游 | 只做**判定与事件**，不接管相机模式、不加载地表资源 | [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §3 |
+| 交互层 | 统一自由飞行、临时聚焦、近地体固定运动和地形碰撞 | 玩家位姿与速度只有一个所有者，近地不切换运动控制器 | [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §3 |
 
 三个消费者建立在程序化框架之上，各自只读公开的观察契约，不修改输入与轨道：
 Earth 的近景纹理分级（[PLANET-TEXTURE-LOD.md](PLANET-TEXTURE-LOD.md)）、

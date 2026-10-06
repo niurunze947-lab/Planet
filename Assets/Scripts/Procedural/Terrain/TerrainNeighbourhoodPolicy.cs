@@ -24,18 +24,41 @@ namespace Planet.Procedural.Terrain
             }
         }
 
-        public int RequiredLevel(double radius, double clearance, double nearestSurfaceDistance)
+        public int RequiredLevel(double radius, double clearance, double nearestSurfaceDistance, bool retain = false)
         {
             double spacing = double.PositiveInfinity;
-            if (clearance <= overviewAltitudeMetres && nearestSurfaceDistance <= overviewRadiusMetres)
-                spacing = math.min(spacing, math.max(0.01, overviewSpacingMetres));
-            if (clearance <= detailAltitudeMetres && nearestSurfaceDistance <= detailRadiusMetres)
-                spacing = math.min(spacing, math.max(0.01, detailSpacingMetres));
-            if (clearance <= detailAltitudeMetres && nearestSurfaceDistance <= contactRadiusMetres)
-                spacing = math.min(spacing, math.max(0.01, contactSpacingMetres));
+            if (nearestSurfaceDistance <= overviewRadiusMetres)
+                spacing = math.min(spacing, BandSpacing(clearance, overviewAltitudeMetres, overviewSpacingMetres, retain));
+            if (nearestSurfaceDistance <= detailRadiusMetres)
+                spacing = math.min(spacing, BandSpacing(clearance, detailAltitudeMetres, detailSpacingMetres, retain));
+            if (nearestSurfaceDistance <= contactRadiusMetres)
+                spacing = math.min(spacing, BandSpacing(clearance, detailAltitudeMetres, contactSpacingMetres, retain));
             if (!math.isfinite(spacing)) return 0;
             return math.clamp((int)math.ceil(math.log2(2 * radius / (TerrainLattice.N * spacing))),
                 0, TerrainLattice.MaxLevel);
+        }
+
+        private static double BandSpacing(double height, double altitude, double spacing, bool retain)
+        {
+            if (!(altitude > 0)) return double.PositiveInfinity;
+            // Three levels enter progressively between 2x and 1x altitude, with release hysteresis.
+            double ratio = height / (altitude * (retain ? 1.15 : 1));
+            if (ratio >= 2) return double.PositiveInfinity;
+            return math.max(0.01, spacing) * math.exp2(3 * math.saturate(ratio - 1));
+        }
+
+        public static double PredictedClearance(PlanetViewState view, double clearance, double seconds)
+        {
+            double3 up = math.normalizesafe(view.positionBfMetres, new double3(0, 1, 0));
+            return math.max(0, clearance + math.min(0, math.dot(view.velocityBfMetresPerSecond, up)) * seconds);
+        }
+
+        public static double3 LookAhead(PlanetViewState view, double seconds)
+        {
+            // Limit speculative demand; current contact coverage retains higher priority.
+            double3 offset = view.velocityBfMetresPerSecond * seconds;
+            double length = math.length(offset);
+            return view.positionBfMetres + offset * math.min(1, 5000 / math.max(1, length));
         }
 
         /// <summary>UV rectangle distance on the cube, avoiding relief/radius bounds that cover the whole planet.</summary>

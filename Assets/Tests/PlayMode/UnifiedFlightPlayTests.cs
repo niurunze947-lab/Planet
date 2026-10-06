@@ -13,6 +13,50 @@ using UnityEngine.TestTools;
 public sealed class UnifiedFlightPlayTests
 {
     [UnityTest]
+    public IEnumerator DelayedCollisionCookingDoesNotFreezeLowAltitudeFlight()
+    {
+        yield return SceneManager.LoadSceneAsync("SolarSystem");
+        var sim = SolarSystemSimulation.Instance;
+        sim.paused = true;
+        var flight = sim.ViewCamera.GetComponent<UnifiedFlightController>();
+        if (flight == null) flight = sim.ViewCamera.gameObject.AddComponent<UnifiedFlightController>();
+        flight.handleInput = false;
+        yield return null;
+        var terrain = sim.FocusView.GetComponent<RuntimeTerrainRenderer>();
+        float oldBudget = terrain.uploadBudgetMilliseconds;
+        try
+        {
+            terrain.SetStreamingRequested(false);
+            terrain.uploadBudgetMilliseconds = 0; // Deliberately delay cooking; height fallback remains available.
+            double3 d = math.normalize(new double3(1, 0.15, 0.2));
+            double3 p = terrain.Source.Position(d, 0.005) + d * 700;
+            Vec3d rotated = SolarSystemSimulation.RotateMetres(sim.FocusView.transform.rotation, new Vec3d(p.x, p.y, p.z));
+            Vec3d center = sim.PositionWorldMetresAt(sim.FocusIndex);
+            double3 outward = math.normalize(new double3(rotated.x, rotated.y, rotated.z));
+            Quaternion look = Quaternion.LookRotation((Vector3)(float3)(-outward),
+                Vector3.Cross((Vector3)(float3)outward, Vector3.right).normalized);
+            flight.SetPose(new double3(center.x + rotated.x, center.y + rotated.y, center.z + rotated.z), look, double3.zero);
+            yield return null;
+            double3 start = flight.PositionBodyFixedMetres;
+            for (int i = 0; i < 20; i++)
+            {
+                flight.ApplyNavigationScroll(-120);
+                yield return new WaitForSeconds(0.1f);
+            }
+            Assert.IsFalse(terrain.CollisionCoverageReady, "The test must actually exercise missing colliders.");
+            Assert.Greater(terrain.FallbackSweepCount, 0);
+            Assert.Greater(math.length(start) - math.length(flight.PositionBodyFixedMetres), 20,
+                "Missing collision data must not fabricate a wall hundreds of metres above ground.");
+            Assert.GreaterOrEqual(SurfaceRoamHudState.PlayerToSurfaceDistanceMetres, 0.49);
+        }
+        finally
+        {
+            terrain.uploadBudgetMilliseconds = oldBudget;
+            flight.SetPose(new double3(1e13, 2e13, 3e13), Quaternion.identity, double3.zero);
+        }
+    }
+
+    [UnityTest]
     public IEnumerator OceanIsSeparateAndObserverCanExploreBelowSeaLevel()
     {
         yield return SceneManager.LoadSceneAsync("SolarSystem");

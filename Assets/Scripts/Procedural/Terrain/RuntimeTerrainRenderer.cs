@@ -31,6 +31,9 @@ namespace Planet.Procedural.Terrain
         public int FinestVisibleLevel { get; private set; }
         public int BuiltCount { get; private set; }
         public int CollisionChunkCount { get { return collisionNodes.Count; } }
+        public int CoverageRevision { get; private set; }
+        public double LastUpdateMilliseconds { get; private set; }
+        public int FallbackSweepCount { get; private set; }
         public string LastError { get; private set; }
         public RuntimeTerrainSource Source { get { return source; } }
         public double RadiusMetres { get { return ready ? source.radius : 0; } }
@@ -59,8 +62,8 @@ namespace Planet.Procedural.Terrain
             if (!ready) return 0;
             double3 direction = math.normalizesafe(directionBf, new double3(0, 1, 0));
             double spacing = 0.005;
-            foreach (Node node in visible)
-                if (node.data.TrySurfaceRadius(direction, out double displayedRadius)) return displayedRadius;
+            Node node = VisibleNodeAt(direction);
+            if (node != null && node.data.TrySurfaceRadius(direction, out double displayedRadius)) return displayedRadius;
             return math.length(source.Position(direction, spacing));
         }
 
@@ -76,81 +79,44 @@ namespace Planet.Procedural.Terrain
             double envelope = source.radius * math.cmax(source.axes) + source.ReliefBound + radiusMetres;
             double closestT = math.clamp(-math.dot(fromBfMetres, delta) / math.lengthsq(delta), 0, 1);
             if (math.length(fromBfMetres + delta * closestT) > envelope) return false;
-            if (!CollisionCoverageReady || !collisionScene.IsValid())
-            {
-                // Until collision data exists, the same source's relief bound is a conservative
-                // loading barrier. Sweep the whole segment so a high-speed transit cannot tunnel.
-                double a = math.dot(delta, delta), b = math.dot(fromBfMetres, delta);
-                double c = math.dot(fromBfMetres, fromBfMetres) - envelope * envelope;
-                double discriminant = b * b - a * c;
-                if (c > 0 && b < 0 && discriminant >= 0)
-                {
-                    double t = (-b - math.sqrt(discriminant)) / a;
-                    if (t >= 0 && t <= 1)
-                    {
-                        resolvedBfMetres = math.lerp(fromBfMetres, toBfMetres, math.max(0, t - 0.02 / distance));
-                        normalBf = math.normalizesafe(resolvedBfMetres);
-                        return true;
-                    }
-                }
-                if (c <= 0 && closestT > 0)
-                {
-                    resolvedBfMetres = fromBfMetres;
-                    normalBf = -delta / distance;
-                    return true;
-                }
-                double3 directionBf = math.normalizesafe(toBfMetres, math.normalizesafe(fromBfMetres));
-                double ground = SampleCollisionRadiusMetres(directionBf) + radiusMetres;
-                if (math.length(toBfMetres) < ground)
-                {
-                    resolvedBfMetres = directionBf * ground;
-                    normalBf = directionBf;
-                    return true;
-                }
-                return false;
-            }
             Vector3 direction = (Vector3)(float3)(delta / distance);
             Vector3 start = (Vector3)(float3)(fromBfMetres - collisionOriginBf);
-            if (!collisionScene.GetPhysicsScene().SphereCast(start, (float)radiusMetres, direction,
-                out RaycastHit hit, (float)distance, ~0, QueryTriggerInteraction.Ignore))
+            RaycastHit hit = default;
+            bool hitMesh = collisionScene.IsValid() && collisionScene.GetPhysicsScene().SphereCast(start,
+                (float)radiusMetres, direction, out hit, (float)distance, ~0, QueryTriggerInteraction.Ignore);
+            if (hitMesh)
             {
-                // Keep the whole movement corridor inside committed collision coverage while
-                // streaming. Test at half the smallest resident patch width, not just endpoints.
-                double spacing = double.MaxValue;
-                foreach (Node node in collisionNodes.Values)
-                    if (visible.Contains(node)) spacing = math.min(spacing,
-                        TerrainLattice.NodeSize(source.radius, node.data.key.level) * 0.25);
-                int steps = (int)math.min(512, math.max(1, math.ceil(distance / math.max(0.05, spacing))));
-                double checkedDistance = math.min(distance, steps * math.max(0.05, spacing));
-                for (int i = 1; i <= steps; i++)
-                {
-                    double t = checkedDistance / distance * i / steps;
-                    if (HasCollisionAt(math.lerp(fromBfMetres, toBfMetres, t))) continue;
-                    resolvedBfMetres = math.lerp(fromBfMetres, toBfMetres,
-                        checkedDistance / distance * (i - 1) / steps);
-                    normalBf = -delta / distance;
-                    return true;
-                }
-                if (checkedDistance < distance)
-                {
-                    resolvedBfMetres = fromBfMetres + delta / distance * checkedDistance;
-                    normalBf = -delta / distance;
-                    return true;
-                }
-                return false;
+                resolvedBfMetres = fromBfMetres + delta / distance * math.max(0, hit.distance - 0.02);
+                normalBf = (double3)(float3)hit.normal;
             }
-            resolvedBfMetres = fromBfMetres + delta / distance * math.max(0.0, hit.distance - 0.02);
-            normalBf = (double3)(float3)hit.normal;
-            return true;
+            // A cooked collider of one committed convex-UV patch covers this short corridor.
+            // Missing patches use the same displayed height field instead of fabricating a wall.
+            Node fromNode = VisibleNodeAt(math.normalizesafe(fromBfMetres));
+            bool covered = fromNode != null && fromNode.collider != null && fromNode.collider.enabled &&
+                ReferenceEquals(fromNode, VisibleNodeAt(math.normalizesafe(toBfMetres))) &&
+                ReferenceEquals(fromNode, VisibleNodeAt(math.normalizesafe((fromBfMetres + toBfMetres) * 0.5))) &&
+                distance < TerrainLattice.NodeSize(source.radius, fromNode.data.key.level);
+            if (covered) return hitMesh;
+            FallbackSweepCount++;
+            if (TerrainSurfaceSweep.Sweep(fromBfMetres, resolvedBfMetres, radiusMetres, envelope,
+                SampleCollisionRadiusMetres, out double3 fallback, out double3 fallbackNormal))
+            { resolvedBfMetres = fallback; normalBf = fallbackNormal; return true; }
+            return hitMesh;
         }
 
         private bool HasCollisionAt(double3 position)
         {
             double3 direction = math.normalizesafe(position, new double3(0, 1, 0));
-            foreach (var pair in collisionNodes)
-                if (visible.Contains(pair.Value) && TerrainLattice.NodeAt(direction, pair.Key.level).Equals(pair.Key))
-                    return true;
-            return false;
+            Node node = VisibleNodeAt(direction);
+            return node != null && node.collider != null && node.collider.enabled;
+        }
+
+        private Node VisibleNodeAt(double3 direction)
+        {
+            var key = TerrainLattice.NodeAt(direction, TerrainLattice.MaxLevel);
+            for (int level = TerrainLattice.MaxLevel; level >= 0; level--)
+                if (visibleKeys.Contains(key.Ancestor(level)) && nodes.TryGetValue(key.Ancestor(level), out Node node)) return node;
+            return null;
         }
         public double SampleHeightMetres(double3 directionBf, double sampleSpacingMetres)
         {
@@ -183,6 +149,7 @@ namespace Planet.Procedural.Terrain
             public int lastUsed;
             public GameObject colliderGo;
             public Mesh colliderMesh;
+            public MeshCollider collider;
             public GameObject localGo;
             public MeshRenderer localRenderer;
             public MaterialPropertyBlock localBlock = new MaterialPropertyBlock();
@@ -195,6 +162,23 @@ namespace Planet.Procedural.Terrain
         private static readonly SemaphoreSlim Workers = new SemaphoreSlim(2, 2);
         private readonly Dictionary<TerrainNodeKey, Node> nodes = new Dictionary<TerrainNodeKey, Node>();
         private readonly List<Node> visible = new List<Node>();
+        private readonly HashSet<TerrainNodeKey> visibleKeys = new HashSet<TerrainNodeKey>();
+        private readonly HashSet<TerrainNodeKey> nextKeys = new HashSet<TerrainNodeKey>();
+        private readonly List<Node> nextVisible = new List<Node>();
+        private bool coverageDirty = true, physicsDirty;
+        private readonly List<Node> collisionCandidates = new List<Node>();
+        private readonly List<TerrainNodeKey> retiredColliders = new List<TerrainNodeKey>();
+        private double3 lastCollisionObserver;
+        private float nextCollisionPlan;
+        private int plannedCoverageRevision = -1;
+        private readonly Stopwatch updateTimer = new Stopwatch();
+        private PlanetViewState selectedView;
+        private bool hasSelectedView;
+        private int selectedBudget, selectedMaxLevel;
+        private float selectedTolerance;
+        private TerrainNeighbourhoodPolicy selectedPolicy;
+        private double buildStarted, meanBuildSeconds = 0.1;
+        private double PrefetchSeconds => math.clamp(2 + meanBuildSeconds * 4, 2, 6);
         private HashSet<TerrainNodeKey> desired = new HashSet<TerrainNodeKey>();
         private HashSet<TerrainNodeKey> wanted = new HashSet<TerrainNodeKey>();
         private readonly HashSet<TerrainNodeKey> splits = new HashSet<TerrainNodeKey>();
@@ -241,7 +225,9 @@ namespace Planet.Procedural.Terrain
 
         public void SetCollisionObserver(double3 playerBfMetres, double3 velocityBfMetresPerSecond, bool active)
         {
+            bool previouslyRequested = collisionRequested;
             collisionRequested = active && ready && source.solid;
+            if (previouslyRequested != collisionRequested) coverageDirty = true;
             collisionPlayerBf = playerBfMetres;
             collisionVelocityBf = velocityBfMetresPerSecond;
             if (!collisionRequested && collisionNodes.Count > 0) ClearColliders();
@@ -282,7 +268,12 @@ namespace Planet.Procedural.Terrain
 
         public void SetRadius(float radiusUnits)
         {
-            if (owner != null && owner.definition != null) unitsPerMetre = radiusUnits / owner.definition.physical.radiusMetres;
+            if (owner != null && owner.definition != null)
+            {
+                double next = radiusUnits / owner.definition.physical.radiusMetres;
+                if (next != unitsPerMetre) coverageDirty = true;
+                unitsPerMetre = next;
+            }
         }
 
         public void UpdateView(PlanetViewState state, Camera camera, bool isFocused)
@@ -292,7 +283,9 @@ namespace Planet.Procedural.Terrain
 
         public void SetVisible(bool value)
         {
+            if (shown == value) return;
             shown = value;
+            coverageDirty = true;
             if (!value) foreach (var node in visible) if (node.renderer != null) node.renderer.enabled = false;
             if (!value) foreach (var node in nodes.Values)
             {
@@ -317,9 +310,11 @@ namespace Planet.Procedural.Terrain
             if (Time.realtimeSinceStartup >= nextIdentity)
             { nextIdentity = Time.realtimeSinceStartup + 0.5f; RefreshSource(); }
             if (!ready || !streamingRequested) return;
+            updateTimer.Restart();
             double3 cameraDirection = math.normalizesafe(view.positionBfMetres, new double3(0, 1, 0));
             observerClearance = math.abs(math.length(view.positionBfMetres) - math.length(source.Position(cameraDirection, 1)));
-            bool groundNeighbourhood = view.localCameraActive && source.solid && observerClearance <= neighbourhood.overviewAltitudeMetres * 1.2;
+            bool groundNeighbourhood = view.localCameraActive && source.solid &&
+                TerrainNeighbourhoodPolicy.PredictedClearance(view, observerClearance, PrefetchSeconds) <= neighbourhood.overviewAltitudeMetres * 2.3;
             activeBudget = groundNeighbourhood ? math.max(maxActiveChunks, nearActiveChunks) : maxActiveChunks;
             ResidentBudget = groundNeighbourhood ? math.max(maxResidentChunks, nearResidentChunks) : maxResidentChunks;
             if (!receivedView)
@@ -331,6 +326,7 @@ namespace Planet.Procedural.Terrain
             {
                 for (int face = 0; face < 6; face++) desired.Add(TerrainNodeKey.Root((PlanetCubeFace)face));
                 wanted = RuntimeTerrainSelection.WithAncestors(desired);
+                coverageDirty = true;
             }
             if (selectionJob != null && selectionJob.IsCompleted)
             {
@@ -338,8 +334,12 @@ namespace Planet.Procedural.Terrain
                 if (completed.IsFaulted) LastError = completed.Exception.GetBaseException().Message;
                 else
                 {
-                    desired = completed.Result; wanted = RuntimeTerrainSelection.WithAncestors(desired);
-                    splits.Clear(); foreach (var key in wanted) if (!desired.Contains(key)) splits.Add(key);
+                    if (!desired.SetEquals(completed.Result))
+                    {
+                        desired = completed.Result; wanted = RuntimeTerrainSelection.WithAncestors(desired);
+                        splits.Clear(); foreach (var key in wanted) if (!desired.Contains(key)) splits.Add(key);
+                        coverageDirty = true;
+                    }
                 }
             }
             if (!focused && desired.Count != 6)
@@ -347,21 +347,26 @@ namespace Planet.Procedural.Terrain
                 desired.Clear();
                 for (int face = 0; face < 6; face++) desired.Add(TerrainNodeKey.Root((PlanetCubeFace)face));
                 wanted = RuntimeTerrainSelection.WithAncestors(desired); splits.Clear();
+                coverageDirty = true; hasSelectedView = false;
             }
-            if (focused && selectionJob == null && Time.realtimeSinceStartup >= nextSelection && Workers.Wait(0))
+            if (focused && selectionJob == null && Time.realtimeSinceStartup >= nextSelection &&
+                NeedsSelection() && Workers.Wait(0))
             {
                 nextSelection = Time.realtimeSinceStartup + 0.3f;
                 int leafBudget = math.clamp(activeBudget, 6, math.max(6, (ResidentBudget - 12) * 3 / 4));
                 var snapshot = source; var cameraSnapshot = view; bool focusedSnapshot = focused;
                 int level = maxLevel; double tolerance = pixelTolerance; var previous = new HashSet<TerrainNodeKey>(splits);
                 var policy = neighbourhood;
+                double lookAheadSeconds = PrefetchSeconds;
+                selectedView = view; selectedBudget = activeBudget; selectedMaxLevel = maxLevel;
+                selectedTolerance = pixelTolerance; selectedPolicy = policy; hasSelectedView = true;
                 selectionJob = Task.Run(() =>
                 {
-                    try { return RuntimeTerrainSelection.Select(snapshot, cameraSnapshot, leafBudget, level, tolerance, focusedSnapshot, previous, policy); }
+                    try { return RuntimeTerrainSelection.Select(snapshot, cameraSnapshot, leafBudget, level, tolerance, focusedSnapshot, previous, policy, lookAheadSeconds); }
                     finally { Workers.Release(); }
                 });
             }
-            var timer = Stopwatch.StartNew();
+            var timer = updateTimer;
             CompleteJob();
             SelectCoverage();
             Evict();
@@ -383,23 +388,43 @@ namespace Planet.Procedural.Terrain
                 if (priority > bestPriority || key.level < next.level || distance < bestDistance)
                 { next = key; bestPriority = priority; bestDistance = distance; }
             }
-            if (job == null && pendingCount > 0 && Workers.Wait(0))
+            if (job == null && pendingCount > 0 && nodes.Count < ResidentBudget && Workers.Wait(0))
             {
+                buildStarted = Time.realtimeSinceStartupAsDouble;
                 var key = next; var snapshot = source; var token = cancellation.Token;
                 job = Task.Run(() => { try { return RuntimeTerrainChunk.Build(snapshot, key, token); } finally { Workers.Release(); } });
             }
+            LastUpdateMilliseconds = updateTimer.Elapsed.TotalMilliseconds;
+        }
+
+        private bool NeedsSelection()
+        {
+            if (!hasSelectedView || selectedBudget != activeBudget || selectedMaxLevel != maxLevel ||
+                selectedTolerance != pixelTolerance || !selectedPolicy.Equals(neighbourhood)) return true;
+            double moveThreshold = math.clamp(observerClearance * 0.02, 0.25, 128);
+            return math.distance(selectedView.positionBfMetres, view.positionBfMetres) > moveThreshold ||
+                math.distance(selectedView.velocityBfMetresPerSecond, view.velocityBfMetresPerSecond) > 1 ||
+                math.abs(math.dot(selectedView.rotationBf.value, view.rotationBf.value)) < 0.999f ||
+                selectedView.pixelHeight != view.pixelHeight || selectedView.aspect != view.aspect ||
+                selectedView.verticalFovDegrees != view.verticalFovDegrees;
         }
 
         private int RequestPriority(TerrainNodeKey key)
         {
-            if (key.level == 0) return 3;
+            if (key.level == 0) return 5;
             double3 direction = math.normalizesafe(view.positionBfMetres, new double3(0, 1, 0));
             // Refinement is an atomic group of four. Prioritizing only the intersecting child
             // leaves its siblings behind every finer request, pinning the parent for minutes.
             TerrainNodeKey parent = key.Parent;
+            bool underfoot = TerrainLattice.NodeAt(direction, parent.level).Equals(parent);
+            if (underfoot && TerrainLattice.Spacing(source.radius, parent.level) > math.max(0.01, observerClearance * 0.02)) return 4;
             double distance = TerrainNeighbourhoodPolicy.SurfaceDistanceToNode(direction, parent, source.radius);
-            int required = neighbourhood.RequiredLevel(source.radius, observerClearance, distance);
-            return parent.level < required ? 2 : TerrainLattice.NodeAt(direction, parent.level).Equals(parent) ? 1 : 0;
+            double height = TerrainNeighbourhoodPolicy.PredictedClearance(view, observerClearance, PrefetchSeconds);
+            int required = neighbourhood.RequiredLevel(source.radius, height, distance, true);
+            if (parent.level < required) return 3;
+            double3 ahead = math.normalizesafe(TerrainNeighbourhoodPolicy.LookAhead(view, PrefetchSeconds), direction);
+            distance = TerrainNeighbourhoodPolicy.SurfaceDistanceToNode(ahead, parent, source.radius);
+            return parent.level < neighbourhood.RequiredLevel(source.radius, height, distance, true) ? 2 : underfoot ? 1 : 0;
         }
 
         private double NodeDistanceSquared(TerrainNodeKey key)
@@ -420,7 +445,10 @@ namespace Planet.Procedural.Terrain
                 UnityEngine.Debug.LogError("[Planet terrain] " + LastError, this); return;
             }
             RuntimeTerrainChunk data = completed.Result;
+            meanBuildSeconds = math.lerp(meanBuildSeconds, Time.realtimeSinceStartupAsDouble - buildStarted, 0.15);
             if (!wanted.Contains(data.key) || nodes.ContainsKey(data.key)) return;
+            Evict();
+            if (nodes.Count >= ResidentBudget) return;
             var go = new GameObject("Chunk " + data.key) { hideFlags = HideFlags.HideAndDontSave, layer = gameObject.layer };
             go.transform.SetParent(root, false);
             Mesh mesh = data.Upload();
@@ -439,21 +467,30 @@ namespace Planet.Procedural.Terrain
                 node.oceanRenderer = AddOceanRenderer(node.oceanGo, node.oceanMesh);
             }
             nodes.Add(data.key, node);
+            coverageDirty = true;
             BuiltCount++;
         }
 
         private void SelectCoverage()
         {
-            foreach (var node in visible) if (node.renderer != null) node.renderer.enabled = false;
-            foreach (var node in nodes.Values)
+            if (!coverageDirty) return;
+            coverageDirty = false;
+            nextVisible.Clear();
+            for (int face = 0; face < 6; face++) Cover(TerrainNodeKey.Root((PlanetCubeFace)face));
+            nextKeys.Clear();
+            foreach (Node node in nextVisible) nextKeys.Add(node.data.key);
+            foreach (var node in visible)
             {
+                if (nextKeys.Contains(node.data.key)) continue;
+                node.renderer.enabled = false;
                 if (node.localRenderer != null) node.localRenderer.enabled = false;
                 if (node.oceanRenderer != null) node.oceanRenderer.enabled = false;
                 if (node.localOceanRenderer != null) node.localOceanRenderer.enabled = false;
-                if (node.colliderGo != null) node.colliderGo.GetComponent<MeshCollider>().enabled = false;
+                if (node.collider != null && node.collider.enabled) { node.collider.enabled = false; physicsDirty = true; }
             }
-            visible.Clear(); FinestVisibleLevel = 0;
-            for (int face = 0; face < 6; face++) Cover(TerrainNodeKey.Root((PlanetCubeFace)face));
+            visible.Clear(); visible.AddRange(nextVisible);
+            visibleKeys.Clear(); visibleKeys.UnionWith(nextKeys);
+            FinestVisibleLevel = 0;
             foreach (var node in visible)
             {
                 node.lastUsed = Time.frameCount; node.renderer.enabled = shown;
@@ -468,9 +505,10 @@ namespace Planet.Procedural.Terrain
                     node.oceanGo.transform.localScale = Vector3.one / (float)source.radius;
                     node.oceanRenderer.enabled = shown;
                 }
-                if (node.colliderGo != null) node.colliderGo.GetComponent<MeshCollider>().enabled = true;
+                if (node.collider != null && !node.collider.enabled) { node.collider.enabled = true; physicsDirty = true; }
             }
             VisibleCount = visible.Count;
+            CoverageRevision++;
         }
 
         private void Cover(TerrainNodeKey key)
@@ -482,7 +520,7 @@ namespace Planet.Procedural.Terrain
                 for (int i = 0; i < 4; i++)
                     if (!collisionNodes.ContainsKey(key.Child(i))) { split = false; break; }
             if (split) for (int i = 0; i < 4; i++) Cover(key.Child(i));
-            else visible.Add(node);
+            else nextVisible.Add(node);
         }
 
         private void Evict()
@@ -492,7 +530,7 @@ namespace Planet.Procedural.Terrain
             {
                 TerrainNodeKey oldest = default; bool found = false; int age = int.MaxValue;
                 foreach (var pair in nodes)
-                    if (!wanted.Contains(pair.Key) && !visible.Contains(pair.Value) &&
+                    if (!wanted.Contains(pair.Key) && !visibleKeys.Contains(pair.Key) &&
                         !collisionNodes.ContainsKey(pair.Key) && pair.Value.lastUsed <= age)
                     { oldest = pair.Key; age = pair.Value.lastUsed; found = true; }
                 if (!found) break;
@@ -653,7 +691,9 @@ namespace Planet.Procedural.Terrain
             if (selectionJob != null) selectionJob.ContinueWith(t => { var ignored = t.Exception; }, TaskContinuationOptions.OnlyOnFaulted);
             selectionJob = null;
             foreach (var node in nodes.Values) DestroyNode(node);
-            nodes.Clear(); visible.Clear(); wanted.Clear(); desired.Clear(); splits.Clear();
+            nodes.Clear(); visible.Clear(); visibleKeys.Clear(); nextVisible.Clear(); nextKeys.Clear();
+            wanted.Clear(); desired.Clear(); splits.Clear(); collisionCandidates.Clear();
+            coverageDirty = true; hasSelectedView = false; plannedCoverageRevision = -1;
             pendingCount = 0; VisibleCount = 0; ready = false;
         }
 
@@ -667,25 +707,58 @@ namespace Planet.Procedural.Terrain
                 collisionOriginBf = collisionPlayerBf;
             }
             if (math.distance(collisionOriginBf, collisionPlayerBf) > 64.0)
+            {
                 collisionOriginBf = collisionPlayerBf;
+                foreach (Node node in collisionNodes.Values)
+                    node.colliderGo.transform.position = (Vector3)(float3)(node.data.origin - collisionOriginBf);
+                physicsDirty = true;
+            }
 
             double3 direction = math.normalizesafe(collisionPlayerBf, new double3(0, 1, 0));
             double3 ahead = math.normalizesafe(collisionPlayerBf + collisionVelocityBf * 2.0, collisionPlayerBf);
             double3 aheadDirection = math.normalizesafe(ahead, direction);
             int built = 0;
-            var candidates = new List<Node>();
-            foreach (Node parent in visible)
+            bool replan = plannedCoverageRevision != CoverageRevision ||
+                (Time.realtimeSinceStartup >= nextCollisionPlan &&
+                 math.distance(lastCollisionObserver, collisionPlayerBf) > 1);
+            if (replan)
             {
-                candidates.Add(parent);
-                if (!splits.Contains(parent.data.key) || !collisionNodes.ContainsKey(parent.data.key)) continue;
-                for (int i = 0; i < 4; i++)
-                    if (nodes.TryGetValue(parent.data.key.Child(i), out Node child)) candidates.Add(child);
+                collisionCandidates.Clear();
+                foreach (Node parent in visible)
+                {
+                    collisionCandidates.Add(parent);
+                    if (!splits.Contains(parent.data.key) || !collisionNodes.ContainsKey(parent.data.key)) continue;
+                    for (int i = 0; i < 4; i++)
+                        if (nodes.TryGetValue(parent.data.key.Child(i), out Node child)) collisionCandidates.Add(child);
+                }
+                collisionCandidates.Sort((a, b) => CollisionPriority(b, direction, aheadDirection)
+                    .CompareTo(CollisionPriority(a, direction, aheadDirection)));
+                plannedCoverageRevision = CoverageRevision;
+                lastCollisionObserver = collisionPlayerBf;
+                nextCollisionPlan = Time.realtimeSinceStartup + 0.1f;
             }
-            candidates.Sort((a, b) => math.distancesq(a.data.origin, collisionPlayerBf)
-                .CompareTo(math.distancesq(b.data.origin, collisionPlayerBf)));
-            foreach (Node node in candidates)
+            // Retire obsolete/inactive parents before reserving slots for the next atomic group.
+            retiredColliders.Clear();
+            foreach (var pair in collisionNodes)
+            {
+                bool current = visibleKeys.Contains(pair.Key);
+                bool staged = pair.Key.level > 0 && visibleKeys.Contains(pair.Key.Parent) &&
+                    splits.Contains(pair.Key.Parent) && collisionNodes.ContainsKey(pair.Key.Parent);
+                bool keep = math.distance(pair.Value.data.origin, collisionPlayerBf) <
+                    math.clamp(math.length(collisionVelocityBf) * 3.0, 256.0, 15000.0) ||
+                    TerrainLattice.NodeAt(direction, pair.Key.level).Equals(pair.Key) ||
+                    TerrainLattice.NodeAt(aheadDirection, pair.Key.level).Equals(pair.Key);
+                if (!staged && (!current || !keep)) retiredColliders.Add(pair.Key);
+            }
+            foreach (var key in retiredColliders)
+            {
+                DestroyCollider(collisionNodes[key]); collisionNodes.Remove(key);
+                physicsDirty = true; plannedCoverageRevision = -1;
+            }
+            foreach (Node node in collisionCandidates)
             {
                 TerrainNodeKey key = node.data.key;
+                if (!nodes.ContainsKey(key)) continue;
                 bool underfoot = TerrainLattice.NodeAt(direction, key.level).Equals(key);
                 bool forward = TerrainLattice.NodeAt(aheadDirection, key.level).Equals(key);
                 bool replacingParent = key.level > 0 && collisionNodes.ContainsKey(key.Parent);
@@ -699,38 +772,15 @@ namespace Planet.Procedural.Terrain
                     built++;
                 }
             }
-            foreach (Node node in collisionNodes.Values)
-                if (node.colliderGo != null)
-                    node.colliderGo.transform.position = (Vector3)(float3)(node.data.origin - collisionOriginBf);
-            Physics.SyncTransforms();
-
-            var remove = new List<TerrainNodeKey>();
-            foreach (var pair in collisionNodes)
-            {
-                bool current = visible.Contains(pair.Value);
-                bool replacing = pair.Key.level > 0 && nodes.TryGetValue(pair.Key.Parent, out Node parent) &&
-                    visible.Contains(parent) && collisionNodes.ContainsKey(pair.Key.Parent);
-                if (replacing) continue;
-                bool underfoot = TerrainLattice.NodeAt(direction, pair.Key.level).Equals(pair.Key);
-                bool forward = TerrainLattice.NodeAt(aheadDirection, pair.Key.level).Equals(pair.Key);
-                bool near = math.distance(pair.Value.data.origin, collisionPlayerBf) <
-                    math.clamp(math.length(collisionVelocityBf) * 3.0, 256.0, 15000.0);
-                if (!underfoot && !forward && !near) remove.Add(pair.Key);
-                else if (!current && !near) remove.Add(pair.Key);
-                else if (!current && HasChildrenColliders(pair.Key)) remove.Add(pair.Key);
-            }
-            foreach (TerrainNodeKey key in remove)
-            {
-                Node node = collisionNodes[key];
-                DestroyCollider(node);
-                collisionNodes.Remove(key);
-            }
+            if (physicsDirty) { Physics.SyncTransforms(); physicsDirty = false; }
         }
 
-        private bool HasChildrenColliders(TerrainNodeKey parent)
+        private double CollisionPriority(Node node, double3 direction, double3 ahead)
         {
-            for (int i = 0; i < 4; i++) if (!collisionNodes.ContainsKey(parent.Child(i))) return false;
-            return true;
+            TerrainNodeKey group = node.data.key.level > 0 ? node.data.key.Parent : node.data.key;
+            double priority = TerrainLattice.NodeAt(direction, group.level).Equals(group) ? 1e18 :
+                TerrainLattice.NodeAt(ahead, group.level).Equals(group) ? 1e16 : 0;
+            return priority - math.distance(node.data.origin, collisionPlayerBf);
         }
 
         private void CreateCollider(Node node)
@@ -739,25 +789,32 @@ namespace Planet.Procedural.Terrain
             var go = new GameObject("Collision " + node.data.key) { hideFlags = HideFlags.HideAndDontSave };
             SceneManager.MoveGameObjectToScene(go, collisionScene);
             go.transform.position = (Vector3)(float3)(node.data.origin - collisionOriginBf);
-            go.AddComponent<MeshCollider>().sharedMesh = mesh;
+            node.collider = go.AddComponent<MeshCollider>();
+            node.collider.enabled = false;
+            node.collider.sharedMesh = mesh;
             node.colliderGo = go;
             node.colliderMesh = mesh;
             collisionNodes[node.data.key] = node;
+            // Staged children stay disabled until the complete group becomes committed coverage.
+            coverageDirty = true; physicsDirty = true; plannedCoverageRevision = -1;
         }
 
         private static void DestroyCollider(Node node)
         {
             if (node.colliderGo == null) return;
+            if (node.collider != null) node.collider.enabled = false;
             Destroy(node.colliderGo);
             Destroy(node.colliderMesh);
             node.colliderGo = null;
             node.colliderMesh = null;
+            node.collider = null;
         }
 
         private void ClearColliders()
         {
             foreach (Node node in collisionNodes.Values) DestroyCollider(node);
             collisionNodes.Clear();
+            collisionCandidates.Clear(); coverageDirty = true; physicsDirty = true; plannedCoverageRevision = -1;
             if (collisionScene.IsValid() && Application.isPlaying)
             {
                 SceneManager.UnloadSceneAsync(collisionScene);

@@ -72,7 +72,8 @@ namespace Planet.Procedural.Terrain
             if (!ready) return 0;
             double3 direction = math.normalizesafe(directionBf, new double3(0, 1, 0));
             Node node = CollisionNodeAt(direction);
-            if (node != null && node.data.TrySurfaceRadius(direction, out double displayedRadius)) return displayedRadius;
+            if (node != null && node.data.key.level >= CollisionLevel &&
+                node.data.TrySurfaceRadius(direction, out double displayedRadius)) return displayedRadius;
             return math.length(source.Position(direction, CollisionSpacingMetres));
         }
 
@@ -289,9 +290,11 @@ namespace Planet.Procedural.Terrain
             PlanetViewState cameraView = camera == localCamera && receivedView
                 ? view : (camera == viewCamera && receivedView && view.localCameraActive ? view : ViewFromCamera(camera));
             double3 offset = Rotate(transform.rotation, bodyFixedMetres - cameraView.positionBfMetres);
-            if (camera == localCamera) return (Vector3)(float3)offset;
-            return (Vector3)(float3)(offset * unitsPerMetre);
+            Vector3 worldOffset = (Vector3)(float3)(offset * (camera == localCamera ? 1.0 : unitsPerMetre));
+            return Quaternion.Inverse(camera.transform.rotation) * worldOffset;
         }
+
+        public double DebugRangeScale(Camera camera) { return camera == localCamera ? 1.0 : unitsPerMetre; }
 
         public void SetCollisionObserver(double3 playerBfMetres, double3 velocityBfMetresPerSecond, bool active)
         {
@@ -648,7 +651,7 @@ namespace Planet.Procedural.Terrain
                 node.block.SetFloat("_UseVertexAlbedo", node.data.spacing < 20000 ? 1 : 0);
                 // Chunk normals already contain resolved relief; a global normal cubemap would erase it.
                 node.block.SetFloat("_NormalEnabled", 0);
-                SetDetailProperties(node.block, node.data);
+                SetDetailProperties(node.block, node.data, false);
                 node.renderer.SetPropertyBlock(node.block);
                 PrepareOcean(node, cameraView, false);
                 PrepareLocalNode(node, cameraView);
@@ -686,18 +689,19 @@ namespace Planet.Procedural.Terrain
             localBlock.SetFloat("_LocalClipDistance", 4500);
             localBlock.SetFloat("_UseVertexAlbedo", node.data.spacing < 20000 ? 1 : 0);
             localBlock.SetFloat("_NormalEnabled", 0);
-            SetDetailProperties(localBlock, node.data);
+            SetDetailProperties(localBlock, node.data, true);
             node.localRenderer.SetPropertyBlock(localBlock);
             PrepareOcean(node, cameraView, true);
         }
 
-        private void SetDetailProperties(MaterialPropertyBlock block, RuntimeTerrainChunk data)
+        private void SetDetailProperties(MaterialPropertyBlock block, RuntimeTerrainChunk data, bool local)
         {
-            block.SetFloat("_ProceduralDetailEnabled", proceduralDetailEnabled && source.solid ? 1f : 0f);
-            block.SetFloat("_ProceduralDetailAmplitude", (float)(source.detail.amplitudeMetres * source.reliefScale * 0.25));
+            block.SetFloat("_ProceduralDetailEnabled", proceduralDetailEnabled && local && source.solid ? 1f : 0f);
+            block.SetFloat("_ProceduralDetailAmplitude", (float)(source.detail.amplitudeMetres * source.reliefScale));
             block.SetFloat("_ProceduralDetailBaseWavelength", (float)PlanetDetailSampler.BaseWavelengthMetres);
             block.SetFloat("_ProceduralDetailGain", (float)source.detail.gain);
             block.SetFloat("_ProceduralDetailSeed", (float)(source.detail.seed & 0x00ffffffUL));
+            block.SetFloat("_ProceduralDetailOctaves", source.detail.octaveCount);
             block.SetFloat("_ChunkSpacing", (float)data.spacing);
             SplitDetailOrigin(data.origin, out float3 high, out float3 low);
             block.SetVector("_DetailOriginHigh", new Vector4(high.x, high.y, high.z, 0));

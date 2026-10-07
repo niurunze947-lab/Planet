@@ -18,6 +18,8 @@ namespace Planet.Procedural.Terrain
         public double spacing;
         public double3 oceanOrigin;
         public Vector3[] oceanVertices, oceanNormals;
+        /// <summary>Uphill bed direction (body axes) and bed slope, for the nearshore wave train.</summary>
+        public Vector4[] oceanShore;
 
         public Mesh UploadOceanMesh()
         {
@@ -32,6 +34,12 @@ namespace Planet.Procedural.Terrain
             var mesh = new Mesh { name = "Ocean " + key, hideFlags = HideFlags.DontSave };
             mesh.vertices = oceanVertices; mesh.normals = oceanNormals;
             mesh.SetUVs(1, oceanDirections); mesh.SetUVs(2, oceanSamples); mesh.triangles = indices;
+            if (oceanShore != null)
+            {
+                var shore = new Vector4[count];
+                Array.Copy(oceanShore, shore, count);
+                mesh.SetUVs(3, shore);
+            }
             mesh.RecalculateBounds();
             return mesh;
         }
@@ -117,6 +125,7 @@ namespace Planet.Procedural.Terrain
                 result.oceanOrigin = source.OceanPosition(centerDirection);
                 result.oceanVertices = new Vector3[gridCount];
                 result.oceanNormals = new Vector3[gridCount];
+                result.oceanShore = new Vector4[gridCount];
             }
             bool anyWater = false;
             // One halo supplies central differences. This samples height once per grid point,
@@ -124,6 +133,7 @@ namespace Planet.Procedural.Terrain
             const int haloSide = n + 3;
             var positions = new double3[haloSide * haloSide];
             var heights = new double[positions.Length];
+            double parentSpacing = result.spacing * 2.0;
             for (int y = -1; y <= n + 1; y++)
             {
                 cancel.ThrowIfCancellationRequested();
@@ -131,8 +141,17 @@ namespace Planet.Procedural.Terrain
                 {
                     int i = (y + 1) * haloSide + x + 1;
                     double3 d = TerrainLattice.Direction(key.face, startX + x * step, startY + y * step);
-                    heights[i] = source.Height(d, result.spacing, macroCache);
-                    positions[i] = d * (source.ReferenceRadius(d) + source.DisplayDisplacement(heights[i]));
+                    double height;
+                    if (key.level > 0)
+                    {
+                        source.HeightBands(d, result.spacing, parentSpacing, out height, out double parentHeight, macroCache);
+                        double edgeDistance = math.min(math.min(x, n - x), math.min(y, n - y));
+                        double blend = math.saturate(edgeDistance * 0.5);
+                        height = math.lerp(parentHeight, height, blend);
+                    }
+                    else height = source.Height(d, result.spacing, macroCache);
+                    heights[i] = height;
+                    positions[i] = d * (source.ReferenceRadius(d) + source.DisplayDisplacement(height));
                 }
             }
             for (int y = 0; y <= n; y++)
@@ -157,6 +176,19 @@ namespace Planet.Procedural.Terrain
                         result.oceanVertices[i] = (float3)(source.OceanPosition(d) - result.oceanOrigin);
                         result.oceanNormals[i] = (float3)shapeNormal;
                         anyWater |= h < source.macro.seaLevelMetres;
+                        // Steepest ascent of the seabed, measured in the surface metric from the same
+                        // halo as the normals. The shoreline is its contour line, so this is the
+                        // direction the nearshore wave train travels and the slope its phase scale.
+                        double hx = heights[hIndex + 1] - heights[hIndex - 1];
+                        double hy = heights[hIndex + haloSide] - heights[hIndex - haloSide];
+                        double e = math.dot(alongU, alongU), f = math.dot(alongU, alongV), g = math.dot(alongV, alongV);
+                        double3 gradient = alongU * (g * hx - f * hy) + alongV * (e * hy - f * hx);
+                        gradient -= d * math.dot(gradient, d);
+                        double bedSlope = math.length(gradient);
+                        result.oceanShore[i] = bedSlope > 1e-9
+                            ? new Vector4((float)(gradient.x / bedSlope), (float)(gradient.y / bedSlope),
+                                (float)(gradient.z / bedSlope), (float)bedSlope)
+                            : new Vector4(0f, 0f, 0f, 0f);
                     }
                     double dhU = (heights[hIndex + 1] - heights[hIndex - 1]) / (2 * result.spacing);
                     double dhV = (heights[hIndex + haloSide] - heights[hIndex - haloSide]) / (2 * result.spacing);
@@ -165,7 +197,7 @@ namespace Planet.Procedural.Terrain
                     result.colors[i] = new Color(albedo.x, albedo.y, albedo.z, 1);
                 }
             }
-            if (!anyWater) { result.oceanVertices = null; result.oceanNormals = null; }
+            if (!anyWater) { result.oceanVertices = null; result.oceanNormals = null; result.oceanShore = null; }
             int index = 0;
             for (int y = 0; y < n; y++)
             for (int x = 0; x < n; x++)

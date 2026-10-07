@@ -340,10 +340,13 @@ public sealed class UnifiedFlightPlayTests
         flight.SetPose(new double3(center.x + offset.x, center.y + offset.y, center.z + offset.z),
             initialLook, new double3(inward.x, inward.y, inward.z));
         deadline = Time.realtimeSinceStartup + 180;
-        while ((surface.FinestVisibleLevel < 24 || surface.PendingWork > 0 ||
+        while ((surface.FinestVisibleLevel < surface.VisualMaxLevel ||
+            surface.FinestCollisionLevel < surface.CollisionLevel || surface.PendingWork > 0 ||
             math.length(flight.VelocityBodyFixedMetresPerSecond) > 0.01) &&
             Time.realtimeSinceStartup < deadline) yield return null;
-        Assert.GreaterOrEqual(surface.FinestVisibleLevel, 24);
+        Assert.GreaterOrEqual(surface.FinestVisibleLevel, surface.CollisionLevel);
+        Assert.LessOrEqual(surface.FinestVisibleLevel, surface.VisualMaxLevel);
+        Assert.GreaterOrEqual(surface.FinestCollisionLevel, surface.CollisionLevel);
         Assert.IsTrue(surface.CollisionCoverageReady);
         Assert.GreaterOrEqual(SurfaceRoamHudState.PlayerToSurfaceDistanceMetres, 0.49);
         Assert.Less(SurfaceRoamHudState.PlayerToSurfaceDistanceMetres, 2);

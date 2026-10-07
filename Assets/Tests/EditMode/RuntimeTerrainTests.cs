@@ -45,6 +45,27 @@ public sealed class RuntimeTerrainTests
         Assert.AreEqual(6, RuntimeTerrainSelection.Select(source, View(10), 96, 25, 3, false).Count);
     }
 
+    [TestCase(6371000.0, 1.0, 19)]
+    [TestCase(1000000.0, 1.0, 16)]
+    [TestCase(6371000.0, 0.5, 20)]
+    public void CollisionSpacingSelectsTheSmallestSufficientLevel(double radius, double spacing, int expected)
+    {
+        int level = TerrainLattice.LevelForSpacing(radius, spacing);
+        Assert.AreEqual(expected, level);
+        Assert.LessOrEqual(TerrainLattice.Spacing(radius, level), spacing);
+        if (level > 0) Assert.Greater(TerrainLattice.Spacing(radius, level - 1), spacing);
+    }
+
+    [Test]
+    public void VisualSelectionHonoursIndependentLevelCap()
+    {
+        var source = new RuntimeTerrainSource(definition);
+        var leaves = RuntimeTerrainSelection.Select(source, View(0.5), 512, 20, 3, true);
+        foreach (TerrainNodeKey leaf in leaves) Assert.LessOrEqual(leaf.level, 20);
+        Assert.Greater(TerrainLattice.LevelForSpacing(source.radius, 1.0), 0,
+            "Collision target is a separate spacing-derived level.");
+    }
+
     [Test]
     public void AncestorRequestsKeepParentsUntilAllChildrenCanReplaceThem()
     {
@@ -81,6 +102,34 @@ public sealed class RuntimeTerrainTests
         Assert.That(Vector3.Distance(a.vertices[0], a.vertices[1]), Is.InRange(0.001f, 0.1f));
         foreach (var vertex in a.vertices) Assert.IsTrue(math.all(math.isfinite((float3)vertex)));
         foreach (int index in a.triangles) Assert.That(index, Is.InRange(0, a.vertices.Length - 1));
+    }
+
+    [Test]
+    public void ChildBoundaryMorphMatchesParentFrequencyAtEverySharedVertex()
+    {
+        definition.features.hasOcean = false;
+        var source = new RuntimeTerrainSource(definition);
+        TerrainNodeKey parentKey = TerrainLattice.NodeAt(new double3(1, 0.2, 0.3), 14);
+        RuntimeTerrainChunk parent = RuntimeTerrainChunk.Build(source, parentKey, CancellationToken.None);
+        RuntimeTerrainChunk child = RuntimeTerrainChunk.Build(source, parentKey.Child(0), CancellationToken.None);
+        int side = TerrainLattice.N + 1;
+
+        for (int v = 0; v <= TerrainLattice.N; v += 2)
+        {
+            AssertShared(child, 0, v, parent, 0, v / 2, side);
+            AssertShared(child, TerrainLattice.N, v, parent, TerrainLattice.N / 2, v / 2, side);
+            AssertShared(child, v, 0, parent, v / 2, 0, side);
+            AssertShared(child, v, TerrainLattice.N, parent, v / 2, TerrainLattice.N / 2, side);
+        }
+    }
+
+    private static void AssertShared(RuntimeTerrainChunk a, int ax, int ay,
+        RuntimeTerrainChunk b, int bx, int by, int side)
+    {
+        double3 pa = a.origin + (double3)(float3)a.vertices[ay * side + ax];
+        double3 pb = b.origin + (double3)(float3)b.vertices[by * side + bx];
+        Assert.Less(math.distance(pa, pb), 0.0001,
+            "Fine child boundary must use the parent-resolved relief band.");
     }
 
     [Test]

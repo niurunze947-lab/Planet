@@ -100,11 +100,15 @@ public sealed class TerrainCollisionTests
                 verticalFovDegrees = 60, aspect = 1.6f, pixelHeight = 1080,
                 localCameraActive = true
             };
-            var leaves = RuntimeTerrainSelection.Select(source, view, 1024, 25, 3, true);
+            const int visualMaxLevel = 20;
+            int collisionLevel = TerrainLattice.LevelForSpacing(source.radius, 1.0);
+            var leaves = RuntimeTerrainSelection.Select(source, view, 1024, visualMaxLevel, 3, true);
             int coveringLevel = 0;
             foreach (var key in leaves)
                 if (TerrainLattice.NodeAt(direction, key.level).Equals(key)) coveringLevel = key.level;
-            Assert.GreaterOrEqual(coveringLevel, 24);
+            Assert.LessOrEqual(coveringLevel, visualMaxLevel);
+            Assert.GreaterOrEqual(coveringLevel, collisionLevel,
+                "The visual contact mesh must have enough resolution to provide target collision coverage.");
         }
         finally { Object.DestroyImmediate(definition); }
     }

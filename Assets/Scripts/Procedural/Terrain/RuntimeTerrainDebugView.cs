@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Planet.Procedural.Terrain
 {
@@ -35,50 +36,73 @@ namespace Planet.Procedural.Terrain
 
         private void Awake()
         {
-            terrain = GetComponent<RuntimeTerrainRenderer>();
+            ResolveTerrain();
         }
 
-        private void OnRenderObject()
+        private void ResolveTerrain()
         {
-            if (!AnyDrawEnabled || terrain == null) return;
-            Camera camera = Camera.current;
-            if (camera == null || camera.cameraType == CameraType.Preview) return;
-            Draw(camera, false);
+            if (terrain == null) terrain = GetComponent<RuntimeTerrainRenderer>();
+        }
+
+        private void OnEnable()
+        {
+            RenderPipelineManager.endCameraRendering += AfterCamera;
+        }
+
+        private void OnDisable()
+        {
+            RenderPipelineManager.endCameraRendering -= AfterCamera;
+        }
+
+        private void AfterCamera(ScriptableRenderContext context, Camera camera)
+        {
+            if (!AnyDrawEnabled || camera == null || camera.cameraType == CameraType.Preview) return;
+            ResolveTerrain();
+            if (terrain == null || terrain.IsLocalRenderCamera(camera)) return;
+            Draw(camera);
         }
 
         private void OnDrawGizmosSelected()
         {
-            if (!AnyDrawEnabled || terrain == null) return;
+            if (!AnyDrawEnabled) return;
+            ResolveTerrain();
+            if (terrain == null) return;
             Camera camera = Camera.current != null ? Camera.current : Camera.main;
             if (camera == null) return;
+            Matrix4x4 oldMatrix = Gizmos.matrix;
+            Gizmos.matrix = Matrix4x4.TRS(camera.transform.position, camera.transform.rotation, Vector3.one);
             terrain.CopyDebugChunks(chunks);
-            int drawn = 0;
-            for (int i = 0; i < chunks.Count && drawn < maxDrawChunks; i++)
+            try
             {
-                RuntimeTerrainRenderer.DebugChunk chunk = chunks[i];
-                if (!chunk.visible && !showUncookedCoverage) continue;
-                if (!IsNearby(chunk, camera)) continue;
-                if (showMeshWireframe && chunk.visible)
+                int drawn = 0;
+                for (int i = 0; i < chunks.Count && drawn < maxDrawChunks; i++)
                 {
-                    DrawWireframeGizmo(camera, chunk.data);
+                    RuntimeTerrainRenderer.DebugChunk chunk = chunks[i];
+                    if (!chunk.visible && !showUncookedCoverage) continue;
+                    if (!IsNearby(chunk, camera)) continue;
+                    if (showMeshWireframe && chunk.visible)
+                    {
+                        DrawWireframeGizmo(camera, chunk.data);
+                    }
+                    if (showCollisionBounds && chunk.collider != null)
+                        DrawBoundsGizmo(camera, chunk.data, chunk.collider.sharedMesh != null
+                            ? chunk.collider.sharedMesh.bounds : new Bounds(Vector3.zero, Vector3.zero), collisionColor);
+                    if (showUncookedCoverage && chunk.collisionRelevant && chunk.collider == null)
+                        DrawBoundsGizmo(camera, chunk.data, SurfaceBounds(chunk.data), uncookedColor);
                     drawn++;
                 }
-                if (showCollisionBounds && chunk.collider != null)
-                    DrawBoundsGizmo(camera, chunk.data, chunk.collider.sharedMesh != null
-                        ? chunk.collider.sharedMesh.bounds : new Bounds(Vector3.zero, Vector3.zero), collisionColor);
-                if (showUncookedCoverage && chunk.collisionRelevant && chunk.collider == null)
-                    DrawBoundsGizmo(camera, chunk.data, SurfaceBounds(chunk.data), uncookedColor);
             }
+            finally { Gizmos.matrix = oldMatrix; }
         }
 
-        private void Draw(Camera camera, bool gizmo)
+        private void Draw(Camera camera)
         {
             if (!EnsureLineMaterial()) return;
             terrain.CopyDebugChunks(chunks);
             ConfigureLineMaterial();
             GL.PushMatrix();
             GL.LoadProjectionMatrix(camera.projectionMatrix);
-            GL.modelview = camera.worldToCameraMatrix;
+            GL.modelview = Matrix4x4.identity;
             GL.Begin(GL.LINES);
             int drawn = 0;
             for (int i = 0; i < chunks.Count && drawn < maxDrawChunks; i++)
@@ -90,7 +114,6 @@ namespace Planet.Procedural.Terrain
                 {
                     GL.Color(wireframeColor);
                     DrawWireframe(camera, chunk.data);
-                    drawn++;
                 }
                 if (showCollisionBounds && chunk.collider != null)
                 {
@@ -103,6 +126,7 @@ namespace Planet.Procedural.Terrain
                     GL.Color(uncookedColor);
                     DrawBounds(camera, chunk.data, SurfaceBounds(chunk.data));
                 }
+                drawn++;
             }
             GL.End();
             GL.PopMatrix();
@@ -112,7 +136,8 @@ namespace Planet.Procedural.Terrain
         {
             if (!showOnlyNearby) return true;
             Vector3 point = terrain.DebugProjectPoint(camera, chunk.data.origin);
-            return point.sqrMagnitude <= nearbyRangeMetres * nearbyRangeMetres;
+            float range = (float)(nearbyRangeMetres * terrain.DebugRangeScale(camera));
+            return point.sqrMagnitude <= range * range;
         }
 
         private void DrawWireframe(Camera camera, RuntimeTerrainChunk data)
@@ -135,6 +160,18 @@ namespace Planet.Procedural.Terrain
                 Line(camera, data.origin + (double3)(float3)data.vertices[a],
                     data.origin + (double3)(float3)data.vertices[b]);
             }
+            const int gridCount = (TerrainLattice.N + 1) * (TerrainLattice.N + 1);
+            for (int edge = 0; edge < 4; edge++)
+            for (int v = 0; v < side; v += stride)
+            {
+                int surface = EdgeVertex(edge, v, TerrainLattice.N);
+                int skirt = gridCount + edge * side + v;
+                Line(camera, data.origin + (double3)(float3)data.vertices[surface],
+                    data.origin + (double3)(float3)data.vertices[skirt]);
+                if (v + stride < side)
+                    Line(camera, data.origin + (double3)(float3)data.vertices[skirt],
+                        data.origin + (double3)(float3)data.vertices[gridCount + edge * side + v + stride]);
+            }
         }
 
         private void DrawWireframeGizmo(Camera camera, RuntimeTerrainChunk data)
@@ -149,6 +186,38 @@ namespace Planet.Procedural.Terrain
                 int b = y * side + Mathf.Min(x + stride, TerrainLattice.N);
                 Gizmos.DrawLine(terrain.DebugProjectPoint(camera, data.origin + (double3)(float3)data.vertices[a]),
                     terrain.DebugProjectPoint(camera, data.origin + (double3)(float3)data.vertices[b]));
+            }
+            for (int x = 0; x < side; x += stride)
+            for (int y = 0; y < TerrainLattice.N; y += stride)
+            {
+                int a = y * side + x;
+                int b = Mathf.Min(y + stride, TerrainLattice.N) * side + x;
+                Gizmos.DrawLine(terrain.DebugProjectPoint(camera, data.origin + (double3)(float3)data.vertices[a]),
+                    terrain.DebugProjectPoint(camera, data.origin + (double3)(float3)data.vertices[b]));
+            }
+            const int gridCount = side * side;
+            for (int edge = 0; edge < 4; edge++)
+            for (int v = 0; v < side; v += stride)
+            {
+                int surface = EdgeVertex(edge, v, TerrainLattice.N);
+                int skirt = gridCount + edge * side + v;
+                Gizmos.DrawLine(terrain.DebugProjectPoint(camera, data.origin + (double3)(float3)data.vertices[surface]),
+                    terrain.DebugProjectPoint(camera, data.origin + (double3)(float3)data.vertices[skirt]));
+                if (v + stride < side)
+                    Gizmos.DrawLine(terrain.DebugProjectPoint(camera, data.origin + (double3)(float3)data.vertices[skirt]),
+                        terrain.DebugProjectPoint(camera, data.origin + (double3)(float3)data.vertices[gridCount + edge * side + v + stride]));
+            }
+        }
+
+        private static int EdgeVertex(int edge, int v, int n)
+        {
+            int side = n + 1;
+            switch (edge)
+            {
+                case 0: return v;
+                case 1: return v * side + n;
+                case 2: return n * side + n - v;
+                default: return (n - v) * side;
             }
         }
 
@@ -172,8 +241,14 @@ namespace Planet.Procedural.Terrain
 
         private void Line(Camera camera, double3 a, double3 b)
         {
-            GL.Vertex(terrain.DebugProjectPoint(camera, a));
-            GL.Vertex(terrain.DebugProjectPoint(camera, b));
+            GL.Vertex(ToClipView(terrain.DebugProjectPoint(camera, a)));
+            GL.Vertex(ToClipView(terrain.DebugProjectPoint(camera, b)));
+        }
+
+        private static Vector3 ToClipView(Vector3 cameraLocal)
+        {
+            cameraLocal.z = -cameraLocal.z;
+            return cameraLocal;
         }
 
         private static Bounds SurfaceBounds(RuntimeTerrainChunk data)

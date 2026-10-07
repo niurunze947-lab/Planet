@@ -325,6 +325,10 @@ namespace Planet.Procedural
             _oceanMaterial.SetFloat("_SeaLevel", definition.physical.seaLevelMetres);
             _oceanMaterial.SetColor("_ShallowColor", definition.palette.shallowOcean);
             _oceanMaterial.SetColor("_DeepColor", definition.palette.deepOcean);
+            // Tile sizes come from the same table the chunk phase origins are reduced against, so a
+            // stale material can never desynchronise the wave pattern between neighbouring chunks.
+            for (int layer = 0; layer < OceanWaveLayers.Count; layer++)
+                _oceanMaterial.SetFloat("_WavePatch" + layer, OceanWaveLayers.PatchMetres(layer));
             var directions = new System.Collections.Generic.List<Vector3>();
             var samples = new System.Collections.Generic.List<Vector4>();
             _mesh.GetUVs(1, directions); _mesh.GetUVs(2, samples);

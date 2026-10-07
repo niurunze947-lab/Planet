@@ -15,10 +15,17 @@ Shader "Planet/ProceduralSurface"
         _LocalClipDistance ("Local camera composition distance", Float) = 0
         _ProceduralDetailEnabled ("Procedural Detail Enabled", Float) = 0
         _ProceduralDetailAmplitude ("Procedural Detail Amplitude", Float) = 0
+        _ProceduralDetailMaterialAmplitude ("Procedural Detail Material Amplitude", Float) = 0
         _ProceduralDetailBaseWavelength ("Procedural Detail Base Wavelength", Float) = 4096
         _ProceduralDetailGain ("Procedural Detail Gain", Range(0.3, 0.75)) = 0.55
         _ProceduralDetailSeed ("Procedural Detail Seed", Float) = 0
-        _ChunkSpacing ("Chunk Vertex Spacing", Float) = 1
+        _ProceduralDetailOctaves ("Procedural Detail Octaves", Float) = 0
+        _ProceduralDetailCoastScale ("Procedural Detail Coast Scale", Float) = 1
+        _ProceduralDetailHasOcean ("Procedural Detail Has Ocean", Float) = 0
+        _TerrainDetailSpacing ("Terrain Detail Vertex Spacing", Float) = 1
+        _TerrainDetailRadiusMetres ("Terrain Detail Radius Metres", Float) = 6371000
+        _TerrainVisualReliefScale ("Terrain Visual Relief Scale", Float) = 1
+        _TerrainOpticalHeight ("Terrain Optical Height", Float) = 0
         _DetailOriginHigh ("Detail Origin High", Vector) = (0, 0, 0, 0)
         _DetailOriginLow ("Detail Origin Low", Vector) = (0, 0, 0, 0)
         _CloudShadowEnabled ("Cloud Shadows Enabled", Float) = 1
@@ -51,6 +58,7 @@ Shader "Planet/ProceduralSurface"
             HLSLPROGRAM
             #pragma vertex Vert
             #pragma fragment Frag
+            #pragma target 3.5
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
@@ -81,6 +89,7 @@ Shader "Planet/ProceduralSurface"
                 float3 sphereNormalWS : TEXCOORD4;
                 float4 shadowCoord : TEXCOORD5;
                 float3 viewVectorWS : TEXCOORD6;
+                float3 localPositionOS : TEXCOORD7;
                 half3 color : COLOR;
             };
 
@@ -93,6 +102,7 @@ Shader "Planet/ProceduralSurface"
                 output.viewVectorWS = _ChunkEnabled > 0.5 ? -PlanetRelativePosition(input.positionOS.xyz) : _WorldSpaceCameraPos.xyz - positionInputs.positionWS;
                 output.color = input.color.rgb;
                 output.positionWS = positionInputs.positionWS;
+                output.localPositionOS = input.positionOS.xyz;
                 output.normalWS = PlanetNormalToWorld(input.normalOS);
                 output.directionOS = normalize(input.directionOS);
                 output.surfaceData = input.surfaceData;
@@ -108,6 +118,11 @@ Shader "Planet/ProceduralSurface"
                 half3 directionOS = normalize(input.directionOS);
                 half3 radialNormal = normalize(input.sphereNormalWS);
                 half3 terrainNormal = normalize(input.normalWS);
+                half height = input.surfaceData.x;
+                half detailMask = _ProceduralDetailHasOcean > 0.5h
+                    ? smoothstep(0.0h, max(_ProceduralDetailCoastScale, 1.0), abs(height - _SeaLevel)) : 1.0h;
+                half proceduralDetail = _ProceduralDetailEnabled > 0.5h && _ChunkEnabled > 0.5
+                    ? PlanetDetailField(input.localPositionOS, directionOS, height) : 0.0h;
                 if (_NormalEnabled > 0.5h)
                 {
                     float3 detailOS = normalize(SAMPLE_TEXTURECUBE(_NormalCube, sampler_NormalCube, directionOS).rgb * 2.0 - 1.0);
@@ -115,10 +130,10 @@ Shader "Planet/ProceduralSurface"
                 }
                 if (_ProceduralDetailEnabled > 0.5h && _ChunkEnabled > 0.5)
                 {
-                    float3 detailNormalOS = PlanetDetailNormal(input.positionOS.xyz, normalize(input.normalOS));
-                    terrainNormal = normalize(lerp(terrainNormal, PlanetNormalToWorld(detailNormalOS), 0.65));
+                    float3 baseNormalOS = normalize(PlanetDirectionToBody(radialNormal));
+                    float3 detailNormalOS = PlanetDetailNormal(input.localPositionOS, directionOS, height, baseNormalOS);
+                    terrainNormal = normalize(lerp(terrainNormal, PlanetNormalToWorld(detailNormalOS), 0.65h * detailMask));
                 }
-                half height = input.surfaceData.x;
                 half slope = saturate(input.surfaceData.y / 42.0h);
                 // The mesh carries the smooth, derived liquid coverage in TEXCOORD2.z. It is
                 // computed from sea level minus terrain height, so it remains correct when the
@@ -145,8 +160,9 @@ Shader "Planet/ProceduralSurface"
                 half3 albedo = lerp(SAMPLE_TEXTURECUBE(_AlbedoCube, sampler_AlbedoCube, directionOS).rgb, input.color, _UseVertexAlbedo);
                 if (_ProceduralDetailEnabled > 0.5h && _ChunkEnabled > 0.5)
                 {
-                    half detailTone = 0.5h + 0.5h * PlanetDetailField(input.positionOS.xyz);
-                    albedo *= lerp(0.88h, 1.10h, detailTone);
+                    half detailTone = saturate(0.5h + 0.5h * proceduralDetail /
+                        max(_ProceduralDetailMaterialAmplitude, 0.001h));
+                    albedo *= lerp(1.0h, lerp(0.88h, 1.10h, detailTone), detailMask);
                 }
                 // The old globe albedo includes blue ocean. The solid seafloor is sediment/rock;
                 // water color and specular now belong exclusively to the separate ocean renderer.
@@ -199,7 +215,8 @@ Shader "Planet/ProceduralSurface"
                 half3 color = albedo * (_NightAmbient + direct * mainLight.color * cloudShadow);
                 half smoothness = lerp(_LandSmoothness, _OceanSmoothness, ocean);
                 if (_ProceduralDetailEnabled > 0.5h && _ChunkEnabled > 0.5)
-                    smoothness = saturate(smoothness + PlanetDetailField(input.positionOS.xyz) * 0.025h);
+                    smoothness = saturate(smoothness + proceduralDetail /
+                        max(_ProceduralDetailMaterialAmplitude, 0.001h) * 0.025h * detailMask);
                 half3 halfVector = normalize(lightDirection + viewDirection);
                 // Ocean highlights stay wide at planetary scale. The old exponent of 128 made
                 // the cubemap read as sharp, tiled wave normals from orbit.

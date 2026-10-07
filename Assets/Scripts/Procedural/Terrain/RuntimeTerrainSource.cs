@@ -67,6 +67,22 @@ namespace Planet.Procedural.Terrain
             return h + detail.Evaluate(direction * radius, spacing) * coast;
         }
 
+        public void HeightBands(double3 direction, double ownSpacing, double parentSpacing,
+            out double ownHeight, out double parentHeight, Dictionary<float3, float> cache = null)
+        {
+            double macroHeight = MacroHeight(direction, cache);
+            ownHeight = macroHeight;
+            parentHeight = macroHeight;
+            if (!solid || !detail.IsEnabled) return;
+            double coast = macro.hasOcean
+                ? math.saturate(math.abs(macroHeight - macro.seaLevelMetres) / math.max(1.0, detail.AmplitudeBound * 2))
+                : 1.0;
+            coast = coast * coast * (3 - 2 * coast);
+            detail.Evaluate2(direction * radius, ownSpacing, parentSpacing, out double own, out double parent);
+            ownHeight += own * coast;
+            parentHeight += parent * coast;
+        }
+
         public float3 MacroAlbedo(double3 direction, double spacing, Dictionary<float3, float3> cache)
         {
             if (spacing >= 2 * radius / MacroSegments) return macro.EvaluateAlbedoOnly((float3)direction);

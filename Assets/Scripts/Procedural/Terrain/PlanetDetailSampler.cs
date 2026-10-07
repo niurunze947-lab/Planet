@@ -11,7 +11,7 @@ namespace Planet.Procedural.Terrain
     /// </summary>
     public readonly struct PlanetDetailSampler
     {
-        public const int GeneratorVersion = 2;
+        public const int GeneratorVersion = 3;
         public const double BaseWavelengthMetres = 4096.0;
         public const int MaxOctaves = 24;
         /// <summary>Normalises the 0.5-radius simplex kernel to about [-1, 1] (worst case 0.99).</summary>
@@ -21,14 +21,14 @@ namespace Planet.Procedural.Terrain
         /// <summary>Worst triangle interpolation error of one unit octave, per (spacing / wavelength)^2.</summary>
         private const double CurvatureCoefficient = 24.0;
 
-        public readonly ulong seed;
+        public readonly uint seed;
         public readonly double amplitudeMetres;
         public readonly double gain;
         public readonly int octaveCount;
 
         public PlanetDetailSampler(int generationSeed, double amplitudeMetres, double gain, double minimumWavelengthMetres)
         {
-            seed = Mix(unchecked((ulong)(uint)generationSeed) ^ 0x5DEECE66DUL);
+            seed = Mix(unchecked((uint)generationSeed) ^ 0xDEECE66Du);
             this.amplitudeMetres = math.max(0.0, amplitudeMetres);
             this.gain = math.clamp(gain, 0.3, 0.75);
             // Never include a wavelength shorter than the configured cutoff.
@@ -121,13 +121,13 @@ namespace Planet.Procedural.Terrain
             return math.isfinite(spacing) ? math.max(spacing, 1e-6) : BaseWavelengthMetres;
         }
 
-        private ulong OctaveSeed(int octave)
+        private uint OctaveSeed(int octave)
         {
-            return Mix(seed + (ulong)(octave + 1) * 0x9E3779B97F4A7C15UL);
+            return Mix(unchecked(seed + (uint)(octave + 1) * 0x9E3779B9u));
         }
 
-        /// <summary>3D simplex noise with a 0.5 kernel radius and 12 cube-edge gradients, in double.</summary>
-        public static double Noise(double3 p, ulong octaveSeed)
+        /// <summary>3D simplex noise shared with PlanetSurfaceCommon.hlsl.</summary>
+        public static double Noise(double3 p, uint octaveSeed)
         {
             const double F3 = 1.0 / 3.0, G3 = 1.0 / 6.0;
             double s = (p.x + p.y + p.z) * F3;
@@ -157,7 +157,7 @@ namespace Planet.Procedural.Terrain
             return NoiseScale * sum;
         }
 
-        private static double Corner(double3 x, long i, long j, long k, ulong octaveSeed)
+        private static double Corner(double3 x, long i, long j, long k, uint octaveSeed)
         {
             double t = 0.5 - math.dot(x, x);
             if (t <= 0.0) return 0.0;
@@ -165,9 +165,9 @@ namespace Planet.Procedural.Terrain
             return t * t * Gradient(Hash(i, j, k, octaveSeed), x);
         }
 
-        private static double Gradient(ulong hash, double3 x)
+        private static double Gradient(uint hash, double3 x)
         {
-            switch ((int)(hash % 12UL))
+            switch ((int)(hash % 12u))
             {
                 case 0: return x.x + x.y;
                 case 1: return -x.x + x.y;
@@ -184,25 +184,24 @@ namespace Planet.Procedural.Terrain
             }
         }
 
-        private static ulong Hash(long i, long j, long k, ulong octaveSeed)
+        private static uint Hash(long i, long j, long k, uint octaveSeed)
         {
             unchecked
             {
-                ulong h = Mix(octaveSeed ^ ((ulong)i * 0x8DA6B343UL));
-                h = Mix(h ^ ((ulong)j * 0xD8163841UL));
-                return Mix(h ^ ((ulong)k * 0xCB1AB31FUL));
+                uint h = Mix(octaveSeed ^ ((uint)i * 0x8DA6B343u));
+                h = Mix(h ^ ((uint)j * 0xD8163841u));
+                return Mix(h ^ ((uint)k * 0xCB1AB31Fu));
             }
         }
 
-        /// <summary>splitmix64 finaliser.</summary>
-        private static ulong Mix(ulong z)
+        private static uint Mix(uint z)
         {
             unchecked
             {
-                z += 0x9E3779B97F4A7C15UL;
-                z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL;
-                z = (z ^ (z >> 27)) * 0x94D049BB133111EBUL;
-                return z ^ (z >> 31);
+                z += 0x9E3779B9u;
+                z = (z ^ (z >> 16)) * 0x85EBCA6Bu;
+                z = (z ^ (z >> 13)) * 0xC2B2AE35u;
+                return z ^ (z >> 16);
             }
         }
     }

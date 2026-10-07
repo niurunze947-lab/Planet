@@ -112,6 +112,8 @@ namespace Planet.Procedural
                 globe.enabled = _bodyVisible;
                 if (_terrain == null) _terrain = GetComponent<RuntimeTerrainRenderer>();
                 if (_terrain == null) _terrain = gameObject.AddComponent<RuntimeTerrainRenderer>();
+                if (GetComponent<RuntimeTerrainDebugView>() == null)
+                    gameObject.AddComponent<RuntimeTerrainDebugView>();
                 _terrain.enabled = true;
                 _terrain.Configure(this, _surface, _radiusUnits, ResolveMaterial());
                 _terrain.SetStreamingRequested(false);

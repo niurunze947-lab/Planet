@@ -113,6 +113,11 @@ Shader "Planet/ProceduralSurface"
                     float3 detailOS = normalize(SAMPLE_TEXTURECUBE(_NormalCube, sampler_NormalCube, directionOS).rgb * 2.0 - 1.0);
                     terrainNormal = PlanetNormalToWorld(detailOS);
                 }
+                if (_ProceduralDetailEnabled > 0.5h && _ChunkEnabled > 0.5)
+                {
+                    float3 detailNormalOS = PlanetDetailNormal(input.positionOS.xyz, normalize(input.normalOS));
+                    terrainNormal = normalize(lerp(terrainNormal, PlanetNormalToWorld(detailNormalOS), 0.65));
+                }
                 half height = input.surfaceData.x;
                 half slope = saturate(input.surfaceData.y / 42.0h);
                 // The mesh carries the smooth, derived liquid coverage in TEXCOORD2.z. It is
@@ -138,6 +143,11 @@ Shader "Planet/ProceduralSurface"
                 half direct = twilight * (0.16h + 0.84h * reliefDiffuse);
                 half sunFacing = saturate(dot(radialNormal, lightDirection));
                 half3 albedo = lerp(SAMPLE_TEXTURECUBE(_AlbedoCube, sampler_AlbedoCube, directionOS).rgb, input.color, _UseVertexAlbedo);
+                if (_ProceduralDetailEnabled > 0.5h && _ChunkEnabled > 0.5)
+                {
+                    half detailTone = 0.5h + 0.5h * PlanetDetailField(input.positionOS.xyz);
+                    albedo *= lerp(0.88h, 1.10h, detailTone);
+                }
                 // The old globe albedo includes blue ocean. The solid seafloor is sediment/rock;
                 // water color and specular now belong exclusively to the separate ocean renderer.
                 if (_SeparateOcean > 0.5 && input.surfaceData.x < _SeaLevel)
@@ -188,6 +198,8 @@ Shader "Planet/ProceduralSurface"
                 }
                 half3 color = albedo * (_NightAmbient + direct * mainLight.color * cloudShadow);
                 half smoothness = lerp(_LandSmoothness, _OceanSmoothness, ocean);
+                if (_ProceduralDetailEnabled > 0.5h && _ChunkEnabled > 0.5)
+                    smoothness = saturate(smoothness + PlanetDetailField(input.positionOS.xyz) * 0.025h);
                 half3 halfVector = normalize(lightDirection + viewDirection);
                 // Ocean highlights stay wide at planetary scale. The old exponent of 128 made
                 // the cubemap read as sharp, tiled wave normals from orbit.

@@ -1445,6 +1445,7 @@ GameObject:
   - component: {fileID: 217054747}
   - component: {fileID: 217054748}
   - component: {fileID: 217054749}
+  - component: {fileID: 217054750}
   m_Layer: 0
   m_Name: Ceres
   m_TagString: Untagged
@@ -1536,6 +1537,9 @@ MonoBehaviour:
   maxActiveChunks: 192
   maxResidentChunks: 320
   maxLevel: 25
+  visualMaxLevel: 20
+  collisionSpacingMetres: 1
+  proceduralDetailEnabled: 1
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
   neighbourhood:
@@ -1549,6 +1553,29 @@ MonoBehaviour:
     contactSpacingMetres: 1
   nearActiveChunks: 1024
   nearResidentChunks: 1536
+--- !u!114 &217054750
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 217054744}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a608c0bfb57db34686d3989d726464b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  showMeshWireframe: 0
+  showCollisionBounds: 0
+  showUncookedCoverage: 0
+  showOnlyNearby: 1
+  depthTest: 1
+  wireframeStride: 1
+  maxDrawChunks: 96
+  nearbyRangeMetres: 25000
+  wireframeColor: {r: 0.25, g: 1, b: 0.45, a: 0.85}
+  collisionColor: {r: 1, g: 0.55, b: 0.1, a: 0.9}
+  uncookedColor: {r: 1, g: 0.2, b: 0.2, a: 0.75}
 --- !u!1 &231903757
 GameObject:
   m_ObjectHideFlags: 0
@@ -1646,6 +1673,7 @@ GameObject:
   - component: {fileID: 234872390}
   - component: {fileID: 234872392}
   - component: {fileID: 234872393}
+  - component: {fileID: 234872394}
   m_Layer: 0
   m_Name: Mars
   m_TagString: Untagged
@@ -1762,6 +1790,9 @@ MonoBehaviour:
   maxActiveChunks: 192
   maxResidentChunks: 320
   maxLevel: 25
+  visualMaxLevel: 20
+  collisionSpacingMetres: 1
+  proceduralDetailEnabled: 1
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
   neighbourhood:
@@ -1775,6 +1806,29 @@ MonoBehaviour:
     contactSpacingMetres: 1
   nearActiveChunks: 1024
   nearResidentChunks: 1536
+--- !u!114 &234872394
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 234872387}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a608c0bfb57db34686d3989d726464b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  showMeshWireframe: 0
+  showCollisionBounds: 0
+  showUncookedCoverage: 0
+  showOnlyNearby: 1
+  depthTest: 1
+  wireframeStride: 1
+  maxDrawChunks: 96
+  nearbyRangeMetres: 25000
+  wireframeColor: {r: 0.25, g: 1, b: 0.45, a: 0.85}
+  collisionColor: {r: 1, g: 0.55, b: 0.1, a: 0.9}
+  uncookedColor: {r: 1, g: 0.2, b: 0.2, a: 0.75}
 --- !u!1 &253167458
 GameObject:
   m_ObjectHideFlags: 0
@@ -2826,6 +2880,7 @@ GameObject:
   - component: {fileID: 320205195}
   - component: {fileID: 320205197}
   - component: {fileID: 320205198}
+  - component: {fileID: 320205199}
   m_Layer: 0
   m_Name: Venus
   m_TagString: Untagged
@@ -2942,6 +2997,9 @@ MonoBehaviour:
   maxActiveChunks: 192
   maxResidentChunks: 320
   maxLevel: 25
+  visualMaxLevel: 20
+  collisionSpacingMetres: 1
+  proceduralDetailEnabled: 1
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
   neighbourhood:
@@ -2955,6 +3013,29 @@ MonoBehaviour:
     contactSpacingMetres: 1
   nearActiveChunks: 1024
   nearResidentChunks: 1536
+--- !u!114 &320205199
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 320205192}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a608c0bfb57db34686d3989d726464b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  showMeshWireframe: 0
+  showCollisionBounds: 0
+  showUncookedCoverage: 0
+  showOnlyNearby: 1
+  depthTest: 1
+  wireframeStride: 1
+  maxDrawChunks: 96
+  nearbyRangeMetres: 25000
+  wireframeColor: {r: 0.25, g: 1, b: 0.45, a: 0.85}
+  collisionColor: {r: 1, g: 0.55, b: 0.1, a: 0.9}
+  uncookedColor: {r: 1, g: 0.2, b: 0.2, a: 0.75}
 --- !u!1 &339664996
 GameObject:
   m_ObjectHideFlags: 0
@@ -4502,6 +4583,7 @@ GameObject:
   - component: {fileID: 370554827}
   - component: {fileID: 370554828}
   - component: {fileID: 370554829}
+  - component: {fileID: 370554830}
   m_Layer: 0
   m_Name: Mercury
   m_TagString: Untagged
@@ -4593,6 +4675,9 @@ MonoBehaviour:
   maxActiveChunks: 192
   maxResidentChunks: 320
   maxLevel: 25
+  visualMaxLevel: 20
+  collisionSpacingMetres: 1
+  proceduralDetailEnabled: 1
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
   neighbourhood:
@@ -4606,6 +4691,29 @@ MonoBehaviour:
     contactSpacingMetres: 1
   nearActiveChunks: 1024
   nearResidentChunks: 1536
+--- !u!114 &370554830
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 370554824}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a608c0bfb57db34686d3989d726464b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  showMeshWireframe: 0
+  showCollisionBounds: 0
+  showUncookedCoverage: 0
+  showOnlyNearby: 1
+  depthTest: 1
+  wireframeStride: 1
+  maxDrawChunks: 96
+  nearbyRangeMetres: 25000
+  wireframeColor: {r: 0.25, g: 1, b: 0.45, a: 0.85}
+  collisionColor: {r: 1, g: 0.55, b: 0.1, a: 0.9}
+  uncookedColor: {r: 1, g: 0.2, b: 0.2, a: 0.75}
 --- !u!1 &398422855
 GameObject:
   m_ObjectHideFlags: 0
@@ -4619,6 +4727,7 @@ GameObject:
   - component: {fileID: 398422858}
   - component: {fileID: 398422859}
   - component: {fileID: 398422860}
+  - component: {fileID: 398422861}
   m_Layer: 0
   m_Name: Moon
   m_TagString: Untagged
@@ -4710,6 +4819,9 @@ MonoBehaviour:
   maxActiveChunks: 192
   maxResidentChunks: 320
   maxLevel: 25
+  visualMaxLevel: 20
+  collisionSpacingMetres: 1
+  proceduralDetailEnabled: 1
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
   neighbourhood:
@@ -4723,6 +4835,29 @@ MonoBehaviour:
     contactSpacingMetres: 1
   nearActiveChunks: 1024
   nearResidentChunks: 1536
+--- !u!114 &398422861
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 398422855}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a608c0bfb57db34686d3989d726464b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  showMeshWireframe: 0
+  showCollisionBounds: 0
+  showUncookedCoverage: 0
+  showOnlyNearby: 1
+  depthTest: 1
+  wireframeStride: 1
+  maxDrawChunks: 96
+  nearbyRangeMetres: 25000
+  wireframeColor: {r: 0.25, g: 1, b: 0.45, a: 0.85}
+  collisionColor: {r: 1, g: 0.55, b: 0.1, a: 0.9}
+  uncookedColor: {r: 1, g: 0.2, b: 0.2, a: 0.75}
 --- !u!1 &529167431
 GameObject:
   m_ObjectHideFlags: 0
@@ -5400,6 +5535,7 @@ GameObject:
   - component: {fileID: 533661590}
   - component: {fileID: 533661592}
   - component: {fileID: 533661593}
+  - component: {fileID: 533661594}
   m_Layer: 0
   m_Name: Jupiter
   m_TagString: Untagged
@@ -5517,6 +5653,9 @@ MonoBehaviour:
   maxActiveChunks: 192
   maxResidentChunks: 320
   maxLevel: 25
+  visualMaxLevel: 20
+  collisionSpacingMetres: 1
+  proceduralDetailEnabled: 1
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
   neighbourhood:
@@ -5530,6 +5669,29 @@ MonoBehaviour:
     contactSpacingMetres: 1
   nearActiveChunks: 1024
   nearResidentChunks: 1536
+--- !u!114 &533661594
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 533661587}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a608c0bfb57db34686d3989d726464b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  showMeshWireframe: 0
+  showCollisionBounds: 0
+  showUncookedCoverage: 0
+  showOnlyNearby: 1
+  depthTest: 1
+  wireframeStride: 1
+  maxDrawChunks: 96
+  nearbyRangeMetres: 25000
+  wireframeColor: {r: 0.25, g: 1, b: 0.45, a: 0.85}
+  collisionColor: {r: 1, g: 0.55, b: 0.1, a: 0.9}
+  uncookedColor: {r: 1, g: 0.2, b: 0.2, a: 0.75}
 --- !u!1 &544906945
 GameObject:
   m_ObjectHideFlags: 0
@@ -5710,6 +5872,7 @@ GameObject:
   - component: {fileID: 597274054}
   - component: {fileID: 597274056}
   - component: {fileID: 597274057}
+  - component: {fileID: 597274058}
   m_Layer: 0
   m_Name: Titan
   m_TagString: Untagged
@@ -5826,6 +5989,9 @@ MonoBehaviour:
   maxActiveChunks: 192
   maxResidentChunks: 320
   maxLevel: 25
+  visualMaxLevel: 20
+  collisionSpacingMetres: 1
+  proceduralDetailEnabled: 1
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
   neighbourhood:
@@ -5839,6 +6005,29 @@ MonoBehaviour:
     contactSpacingMetres: 1
   nearActiveChunks: 1024
   nearResidentChunks: 1536
+--- !u!114 &597274058
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 597274051}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a608c0bfb57db34686d3989d726464b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  showMeshWireframe: 0
+  showCollisionBounds: 0
+  showUncookedCoverage: 0
+  showOnlyNearby: 1
+  depthTest: 1
+  wireframeStride: 1
+  maxDrawChunks: 96
+  nearbyRangeMetres: 25000
+  wireframeColor: {r: 0.25, g: 1, b: 0.45, a: 0.85}
+  collisionColor: {r: 1, g: 0.55, b: 0.1, a: 0.9}
+  uncookedColor: {r: 1, g: 0.2, b: 0.2, a: 0.75}
 --- !u!1 &606799146
 GameObject:
   m_ObjectHideFlags: 0
@@ -8716,6 +8905,7 @@ GameObject:
   - component: {fileID: 940779326}
   - component: {fileID: 940779327}
   - component: {fileID: 940779328}
+  - component: {fileID: 940779329}
   m_Layer: 0
   m_Name: Callisto
   m_TagString: Untagged
@@ -8807,6 +8997,9 @@ MonoBehaviour:
   maxActiveChunks: 192
   maxResidentChunks: 320
   maxLevel: 25
+  visualMaxLevel: 20
+  collisionSpacingMetres: 1
+  proceduralDetailEnabled: 1
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
   neighbourhood:
@@ -8820,6 +9013,29 @@ MonoBehaviour:
     contactSpacingMetres: 1
   nearActiveChunks: 1024
   nearResidentChunks: 1536
+--- !u!114 &940779329
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 940779323}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a608c0bfb57db34686d3989d726464b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  showMeshWireframe: 0
+  showCollisionBounds: 0
+  showUncookedCoverage: 0
+  showOnlyNearby: 1
+  depthTest: 1
+  wireframeStride: 1
+  maxDrawChunks: 96
+  nearbyRangeMetres: 25000
+  wireframeColor: {r: 0.25, g: 1, b: 0.45, a: 0.85}
+  collisionColor: {r: 1, g: 0.55, b: 0.1, a: 0.9}
+  uncookedColor: {r: 1, g: 0.2, b: 0.2, a: 0.75}
 --- !u!1 &1019639356
 GameObject:
   m_ObjectHideFlags: 0
@@ -9025,6 +9241,7 @@ GameObject:
   - component: {fileID: 1089580285}
   - component: {fileID: 1089580286}
   - component: {fileID: 1089580287}
+  - component: {fileID: 1089580288}
   m_Layer: 0
   m_Name: Ganymede
   m_TagString: Untagged
@@ -9116,6 +9333,9 @@ MonoBehaviour:
   maxActiveChunks: 192
   maxResidentChunks: 320
   maxLevel: 25
+  visualMaxLevel: 20
+  collisionSpacingMetres: 1
+  proceduralDetailEnabled: 1
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
   neighbourhood:
@@ -9129,6 +9349,29 @@ MonoBehaviour:
     contactSpacingMetres: 1
   nearActiveChunks: 1024
   nearResidentChunks: 1536
+--- !u!114 &1089580288
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1089580282}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a608c0bfb57db34686d3989d726464b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  showMeshWireframe: 0
+  showCollisionBounds: 0
+  showUncookedCoverage: 0
+  showOnlyNearby: 1
+  depthTest: 1
+  wireframeStride: 1
+  maxDrawChunks: 96
+  nearbyRangeMetres: 25000
+  wireframeColor: {r: 0.25, g: 1, b: 0.45, a: 0.85}
+  collisionColor: {r: 1, g: 0.55, b: 0.1, a: 0.9}
+  uncookedColor: {r: 1, g: 0.2, b: 0.2, a: 0.75}
 --- !u!1 &1112695272
 GameObject:
   m_ObjectHideFlags: 0
@@ -12446,6 +12689,7 @@ GameObject:
   - component: {fileID: 1170795390}
   - component: {fileID: 1170795391}
   - component: {fileID: 1170795392}
+  - component: {fileID: 1170795393}
   m_Layer: 0
   m_Name: Makemake
   m_TagString: Untagged
@@ -12537,6 +12781,9 @@ MonoBehaviour:
   maxActiveChunks: 192
   maxResidentChunks: 320
   maxLevel: 25
+  visualMaxLevel: 20
+  collisionSpacingMetres: 1
+  proceduralDetailEnabled: 1
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
   neighbourhood:
@@ -12550,6 +12797,29 @@ MonoBehaviour:
     contactSpacingMetres: 1
   nearActiveChunks: 1024
   nearResidentChunks: 1536
+--- !u!114 &1170795393
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1170795387}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a608c0bfb57db34686d3989d726464b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  showMeshWireframe: 0
+  showCollisionBounds: 0
+  showUncookedCoverage: 0
+  showOnlyNearby: 1
+  depthTest: 1
+  wireframeStride: 1
+  maxDrawChunks: 96
+  nearbyRangeMetres: 25000
+  wireframeColor: {r: 0.25, g: 1, b: 0.45, a: 0.85}
+  collisionColor: {r: 1, g: 0.55, b: 0.1, a: 0.9}
+  uncookedColor: {r: 1, g: 0.2, b: 0.2, a: 0.75}
 --- !u!1 &1194695950
 GameObject:
   m_ObjectHideFlags: 0
@@ -14996,6 +15266,7 @@ GameObject:
   - component: {fileID: 1359006656}
   - component: {fileID: 1359006657}
   - component: {fileID: 1359006658}
+  - component: {fileID: 1359006659}
   m_Layer: 0
   m_Name: Haumea
   m_TagString: Untagged
@@ -15088,6 +15359,9 @@ MonoBehaviour:
   maxActiveChunks: 192
   maxResidentChunks: 320
   maxLevel: 25
+  visualMaxLevel: 20
+  collisionSpacingMetres: 1
+  proceduralDetailEnabled: 1
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
   neighbourhood:
@@ -15101,6 +15375,29 @@ MonoBehaviour:
     contactSpacingMetres: 1
   nearActiveChunks: 1024
   nearResidentChunks: 1536
+--- !u!114 &1359006659
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1359006653}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a608c0bfb57db34686d3989d726464b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  showMeshWireframe: 0
+  showCollisionBounds: 0
+  showUncookedCoverage: 0
+  showOnlyNearby: 1
+  depthTest: 1
+  wireframeStride: 1
+  maxDrawChunks: 96
+  nearbyRangeMetres: 25000
+  wireframeColor: {r: 0.25, g: 1, b: 0.45, a: 0.85}
+  collisionColor: {r: 1, g: 0.55, b: 0.1, a: 0.9}
+  uncookedColor: {r: 1, g: 0.2, b: 0.2, a: 0.75}
 --- !u!1 &1365860515
 GameObject:
   m_ObjectHideFlags: 0
@@ -15371,6 +15668,7 @@ GameObject:
   - component: {fileID: 1457607867}
   - component: {fileID: 1457607868}
   - component: {fileID: 1457607869}
+  - component: {fileID: 1457607870}
   m_Layer: 0
   m_Name: Europa
   m_TagString: Untagged
@@ -15462,6 +15760,9 @@ MonoBehaviour:
   maxActiveChunks: 192
   maxResidentChunks: 320
   maxLevel: 25
+  visualMaxLevel: 20
+  collisionSpacingMetres: 1
+  proceduralDetailEnabled: 1
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
   neighbourhood:
@@ -15475,6 +15776,29 @@ MonoBehaviour:
     contactSpacingMetres: 1
   nearActiveChunks: 1024
   nearResidentChunks: 1536
+--- !u!114 &1457607870
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1457607864}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a608c0bfb57db34686d3989d726464b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  showMeshWireframe: 0
+  showCollisionBounds: 0
+  showUncookedCoverage: 0
+  showOnlyNearby: 1
+  depthTest: 1
+  wireframeStride: 1
+  maxDrawChunks: 96
+  nearbyRangeMetres: 25000
+  wireframeColor: {r: 0.25, g: 1, b: 0.45, a: 0.85}
+  collisionColor: {r: 1, g: 0.55, b: 0.1, a: 0.9}
+  uncookedColor: {r: 1, g: 0.2, b: 0.2, a: 0.75}
 --- !u!1 &1473632810
 GameObject:
   m_ObjectHideFlags: 0
@@ -15492,6 +15816,7 @@ GameObject:
   - component: {fileID: 1473632817}
   - component: {fileID: 1473632818}
   - component: {fileID: 1473632819}
+  - component: {fileID: 1473632820}
   m_Layer: 0
   m_Name: Earth
   m_TagString: Untagged
@@ -15642,6 +15967,9 @@ MonoBehaviour:
   maxActiveChunks: 192
   maxResidentChunks: 320
   maxLevel: 25
+  visualMaxLevel: 20
+  collisionSpacingMetres: 1
+  proceduralDetailEnabled: 1
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
   neighbourhood:
@@ -15667,16 +15995,29 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 216c7cc6be7b6e94fab0aa97eb25ac48, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  toggleKey: 284
-  collisionKey: 285
-  showMeshWireframe: 1
-  showCollisionCoverage: 1
+--- !u!114 &1473632820
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1473632810}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a608c0bfb57db34686d3989d726464b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  showMeshWireframe: 0
+  showCollisionBounds: 0
+  showUncookedCoverage: 0
+  showOnlyNearby: 1
+  depthTest: 1
   wireframeStride: 1
-  meshWireframeRange: 25000
+  maxDrawChunks: 96
+  nearbyRangeMetres: 25000
   wireframeColor: {r: 0.25, g: 1, b: 0.45, a: 0.85}
   collisionColor: {r: 1, g: 0.55, b: 0.1, a: 0.9}
-  collisionDisabledColor: {r: 1, g: 0.2, b: 0.2, a: 0.75}
-  boxColor: {r: 0.3, g: 0.75, b: 1, a: 0.9}
+  uncookedColor: {r: 1, g: 0.2, b: 0.2, a: 0.75}
 --- !u!1 &1533230669
 GameObject:
   m_ObjectHideFlags: 0
@@ -15691,6 +16032,7 @@ GameObject:
   - component: {fileID: 1533230672}
   - component: {fileID: 1533230674}
   - component: {fileID: 1533230675}
+  - component: {fileID: 1533230676}
   m_Layer: 0
   m_Name: Uranus
   m_TagString: Untagged
@@ -15808,6 +16150,9 @@ MonoBehaviour:
   maxActiveChunks: 192
   maxResidentChunks: 320
   maxLevel: 25
+  visualMaxLevel: 20
+  collisionSpacingMetres: 1
+  proceduralDetailEnabled: 1
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
   neighbourhood:
@@ -15821,6 +16166,29 @@ MonoBehaviour:
     contactSpacingMetres: 1
   nearActiveChunks: 1024
   nearResidentChunks: 1536
+--- !u!114 &1533230676
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1533230669}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a608c0bfb57db34686d3989d726464b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  showMeshWireframe: 0
+  showCollisionBounds: 0
+  showUncookedCoverage: 0
+  showOnlyNearby: 1
+  depthTest: 1
+  wireframeStride: 1
+  maxDrawChunks: 96
+  nearbyRangeMetres: 25000
+  wireframeColor: {r: 0.25, g: 1, b: 0.45, a: 0.85}
+  collisionColor: {r: 1, g: 0.55, b: 0.1, a: 0.9}
+  uncookedColor: {r: 1, g: 0.2, b: 0.2, a: 0.75}
 --- !u!1 &1546309657
 GameObject:
   m_ObjectHideFlags: 0
@@ -16015,6 +16383,7 @@ GameObject:
   - component: {fileID: 1617085010}
   - component: {fileID: 1617085011}
   - component: {fileID: 1617085012}
+  - component: {fileID: 1617085013}
   m_Layer: 0
   m_Name: Io
   m_TagString: Untagged
@@ -16106,6 +16475,9 @@ MonoBehaviour:
   maxActiveChunks: 192
   maxResidentChunks: 320
   maxLevel: 25
+  visualMaxLevel: 20
+  collisionSpacingMetres: 1
+  proceduralDetailEnabled: 1
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
   neighbourhood:
@@ -16119,6 +16491,29 @@ MonoBehaviour:
     contactSpacingMetres: 1
   nearActiveChunks: 1024
   nearResidentChunks: 1536
+--- !u!114 &1617085013
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1617085007}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a608c0bfb57db34686d3989d726464b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  showMeshWireframe: 0
+  showCollisionBounds: 0
+  showUncookedCoverage: 0
+  showOnlyNearby: 1
+  depthTest: 1
+  wireframeStride: 1
+  maxDrawChunks: 96
+  nearbyRangeMetres: 25000
+  wireframeColor: {r: 0.25, g: 1, b: 0.45, a: 0.85}
+  collisionColor: {r: 1, g: 0.55, b: 0.1, a: 0.9}
+  uncookedColor: {r: 1, g: 0.2, b: 0.2, a: 0.75}
 --- !u!1 &1626184992
 GameObject:
   m_ObjectHideFlags: 0
@@ -16133,6 +16528,7 @@ GameObject:
   - component: {fileID: 1626184995}
   - component: {fileID: 1626184997}
   - component: {fileID: 1626184998}
+  - component: {fileID: 1626184999}
   m_Layer: 0
   m_Name: Neptune
   m_TagString: Untagged
@@ -16250,6 +16646,9 @@ MonoBehaviour:
   maxActiveChunks: 192
   maxResidentChunks: 320
   maxLevel: 25
+  visualMaxLevel: 20
+  collisionSpacingMetres: 1
+  proceduralDetailEnabled: 1
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
   neighbourhood:
@@ -16263,6 +16662,29 @@ MonoBehaviour:
     contactSpacingMetres: 1
   nearActiveChunks: 1024
   nearResidentChunks: 1536
+--- !u!114 &1626184999
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1626184992}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a608c0bfb57db34686d3989d726464b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  showMeshWireframe: 0
+  showCollisionBounds: 0
+  showUncookedCoverage: 0
+  showOnlyNearby: 1
+  depthTest: 1
+  wireframeStride: 1
+  maxDrawChunks: 96
+  nearbyRangeMetres: 25000
+  wireframeColor: {r: 0.25, g: 1, b: 0.45, a: 0.85}
+  collisionColor: {r: 1, g: 0.55, b: 0.1, a: 0.9}
+  uncookedColor: {r: 1, g: 0.2, b: 0.2, a: 0.75}
 --- !u!1 &1636714789
 GameObject:
   m_ObjectHideFlags: 0
@@ -16277,6 +16699,7 @@ GameObject:
   - component: {fileID: 1636714792}
   - component: {fileID: 1636714794}
   - component: {fileID: 1636714795}
+  - component: {fileID: 1636714796}
   m_Layer: 0
   m_Name: Saturn
   m_TagString: Untagged
@@ -16394,6 +16817,9 @@ MonoBehaviour:
   maxActiveChunks: 192
   maxResidentChunks: 320
   maxLevel: 25
+  visualMaxLevel: 20
+  collisionSpacingMetres: 1
+  proceduralDetailEnabled: 1
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
   neighbourhood:
@@ -16407,6 +16833,29 @@ MonoBehaviour:
     contactSpacingMetres: 1
   nearActiveChunks: 1024
   nearResidentChunks: 1536
+--- !u!114 &1636714796
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1636714789}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a608c0bfb57db34686d3989d726464b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  showMeshWireframe: 0
+  showCollisionBounds: 0
+  showUncookedCoverage: 0
+  showOnlyNearby: 1
+  depthTest: 1
+  wireframeStride: 1
+  maxDrawChunks: 96
+  nearbyRangeMetres: 25000
+  wireframeColor: {r: 0.25, g: 1, b: 0.45, a: 0.85}
+  collisionColor: {r: 1, g: 0.55, b: 0.1, a: 0.9}
+  uncookedColor: {r: 1, g: 0.2, b: 0.2, a: 0.75}
 --- !u!1 &1688934272
 GameObject:
   m_ObjectHideFlags: 0
@@ -16421,6 +16870,7 @@ GameObject:
   - component: {fileID: 1688934275}
   - component: {fileID: 1688934277}
   - component: {fileID: 1688934278}
+  - component: {fileID: 1688934279}
   m_Layer: 0
   m_Name: Triton
   m_TagString: Untagged
@@ -16537,6 +16987,9 @@ MonoBehaviour:
   maxActiveChunks: 192
   maxResidentChunks: 320
   maxLevel: 25
+  visualMaxLevel: 20
+  collisionSpacingMetres: 1
+  proceduralDetailEnabled: 1
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
   neighbourhood:
@@ -16550,6 +17003,29 @@ MonoBehaviour:
     contactSpacingMetres: 1
   nearActiveChunks: 1024
   nearResidentChunks: 1536
+--- !u!114 &1688934279
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1688934272}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a608c0bfb57db34686d3989d726464b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  showMeshWireframe: 0
+  showCollisionBounds: 0
+  showUncookedCoverage: 0
+  showOnlyNearby: 1
+  depthTest: 1
+  wireframeStride: 1
+  maxDrawChunks: 96
+  nearbyRangeMetres: 25000
+  wireframeColor: {r: 0.25, g: 1, b: 0.45, a: 0.85}
+  collisionColor: {r: 1, g: 0.55, b: 0.1, a: 0.9}
+  uncookedColor: {r: 1, g: 0.2, b: 0.2, a: 0.75}
 --- !u!1 &1716801187
 GameObject:
   m_ObjectHideFlags: 0
@@ -16787,6 +17263,7 @@ GameObject:
   - component: {fileID: 1800150845}
   - component: {fileID: 1800150847}
   - component: {fileID: 1800150848}
+  - component: {fileID: 1800150849}
   m_Layer: 0
   m_Name: Pluto
   m_TagString: Untagged
@@ -16903,6 +17380,9 @@ MonoBehaviour:
   maxActiveChunks: 192
   maxResidentChunks: 320
   maxLevel: 25
+  visualMaxLevel: 20
+  collisionSpacingMetres: 1
+  proceduralDetailEnabled: 1
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
   neighbourhood:
@@ -16916,6 +17396,29 @@ MonoBehaviour:
     contactSpacingMetres: 1
   nearActiveChunks: 1024
   nearResidentChunks: 1536
+--- !u!114 &1800150849
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1800150842}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a608c0bfb57db34686d3989d726464b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  showMeshWireframe: 0
+  showCollisionBounds: 0
+  showUncookedCoverage: 0
+  showOnlyNearby: 1
+  depthTest: 1
+  wireframeStride: 1
+  maxDrawChunks: 96
+  nearbyRangeMetres: 25000
+  wireframeColor: {r: 0.25, g: 1, b: 0.45, a: 0.85}
+  collisionColor: {r: 1, g: 0.55, b: 0.1, a: 0.9}
+  uncookedColor: {r: 1, g: 0.2, b: 0.2, a: 0.75}
 --- !u!1 &1800661695
 GameObject:
   m_ObjectHideFlags: 0
@@ -19252,6 +19755,7 @@ GameObject:
   - component: {fileID: 2031693066}
   - component: {fileID: 2031693067}
   - component: {fileID: 2031693068}
+  - component: {fileID: 2031693069}
   m_Layer: 0
   m_Name: Charon
   m_TagString: Untagged
@@ -19343,6 +19847,9 @@ MonoBehaviour:
   maxActiveChunks: 192
   maxResidentChunks: 320
   maxLevel: 25
+  visualMaxLevel: 20
+  collisionSpacingMetres: 1
+  proceduralDetailEnabled: 1
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
   neighbourhood:
@@ -19356,6 +19863,29 @@ MonoBehaviour:
     contactSpacingMetres: 1
   nearActiveChunks: 1024
   nearResidentChunks: 1536
+--- !u!114 &2031693069
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2031693063}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a608c0bfb57db34686d3989d726464b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  showMeshWireframe: 0
+  showCollisionBounds: 0
+  showUncookedCoverage: 0
+  showOnlyNearby: 1
+  depthTest: 1
+  wireframeStride: 1
+  maxDrawChunks: 96
+  nearbyRangeMetres: 25000
+  wireframeColor: {r: 0.25, g: 1, b: 0.45, a: 0.85}
+  collisionColor: {r: 1, g: 0.55, b: 0.1, a: 0.9}
+  uncookedColor: {r: 1, g: 0.2, b: 0.2, a: 0.75}
 --- !u!114 &2065860518
 MonoBehaviour:
   m_ObjectHideFlags: 0

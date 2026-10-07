@@ -60,10 +60,38 @@ public sealed class RuntimeTerrainTests
     public void VisualSelectionHonoursIndependentLevelCap()
     {
         var source = new RuntimeTerrainSource(definition);
-        var leaves = RuntimeTerrainSelection.Select(source, View(0.5), 512, 20, 3, true);
-        foreach (TerrainNodeKey leaf in leaves) Assert.LessOrEqual(leaf.level, 20);
-        Assert.Greater(TerrainLattice.LevelForSpacing(source.radius, 1.0), 0,
-            "Collision target is a separate spacing-derived level.");
+        var leaves = RuntimeTerrainSelection.Select(source, View(0.5), 512, 18, 3, true);
+        foreach (TerrainNodeKey leaf in leaves) Assert.LessOrEqual(leaf.level, 18);
+        Assert.Greater(TerrainLattice.LevelForSpacing(source.radius, 1.0), 18,
+            "Collision target remains spacing-derived when visual detail is capped lower.");
+    }
+
+    [Test]
+    public void CollisionSelectionUsesFinestResidentAncestorUntilTargetChunkArrives()
+    {
+        double3 direction = math.normalize(new double3(1, 0.2, -0.3));
+        const int targetLevel = 19;
+        TerrainNodeKey target = TerrainLattice.NodeAt(direction, targetLevel);
+        var resident = new HashSet<TerrainNodeKey>
+        {
+            target.Ancestor(targetLevel - 2),
+            target.Child(0)
+        };
+
+        Assert.IsTrue(RuntimeTerrainCollisionSelection.TryFindResidentAncestor(
+            resident, direction, targetLevel, out TerrainNodeKey fallback));
+        Assert.AreEqual(target.Ancestor(targetLevel - 2), fallback,
+            "A finer visual child cannot stand in for a missing collision target; use the best resident parent.");
+
+        resident.Add(target.Ancestor(targetLevel - 1));
+        Assert.IsTrue(RuntimeTerrainCollisionSelection.TryFindResidentAncestor(
+            resident, direction, targetLevel, out fallback));
+        Assert.AreEqual(target.Ancestor(targetLevel - 1), fallback);
+
+        resident.Add(target);
+        Assert.IsTrue(RuntimeTerrainCollisionSelection.TryFindResidentAncestor(
+            resident, direction, targetLevel, out fallback));
+        Assert.AreEqual(target, fallback);
     }
 
     [Test]

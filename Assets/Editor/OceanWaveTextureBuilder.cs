@@ -29,7 +29,7 @@ namespace Planet.EditorTools
         public const string MaterialPath = "Assets/Resources/Solar/OceanSurface.mat";
         public const int Resolution = 256;
         /// <summary>Bump to force every layer to be baked again.</summary>
-        private const string KeyPrefix = "PlanetWave:2:";
+        private const string KeyPrefix = "PlanetWave:3:";
         private const double Gravity = 9.80665;
         /// <summary>Fully developed sea: significant height = 0.21 V² / g.</summary>
         private const double SignificantHeightCoefficient = 0.21;
@@ -41,17 +41,24 @@ namespace Planet.EditorTools
             /// <summary>Metres covered by one tile. Sets the smallest resolved wavelength.</summary>
             public float patchMetres;
             public float significantHeightMetres;
-            /// <summary>Isotropic floor of |k̂·ŵ|²; 0.5 is nearly omnidirectional.</summary>
+            /// <summary>Isotropic floor of |k̂·ŵ|²; 1 is fully omnidirectional.</summary>
             public float directionalBias;
             /// <summary>Steepness (in RMS slopes) where whitecaps start.</summary>
             public float crestSteepness;
         }
 
+        /// <summary>
+        /// Swell, wind sea and chop, coarsest first. The directional bias stays deliberately high: the
+        /// shader scrolls a tile along the prevailing wind, but the cube-face frame it is projected on
+        /// cannot follow the wind without cracking the pattern at every chunk border, so a strongly
+        /// grooved tile would be seen sliding across its own crests. Coherent crest lines come from the
+        /// nearshore train instead, which is placed from the bathymetry rather than from a tile.
+        /// </summary>
         private static readonly Layer[] Layers =
         {
-            new Layer { file = "OceanWaveSwell", patchMetres = 512f, significantHeightMetres = 1.6f, directionalBias = 0.22f, crestSteepness = 1.7f },
-            new Layer { file = "OceanWaveWindSea", patchMetres = 128f, significantHeightMetres = 0.7f, directionalBias = 0.32f, crestSteepness = 1.6f },
-            new Layer { file = "OceanWaveChop", patchMetres = 32f, significantHeightMetres = 0.25f, directionalBias = 0.45f, crestSteepness = 1.5f }
+            new Layer { file = "OceanWaveSwell", patchMetres = 512f, significantHeightMetres = 1.6f, directionalBias = 0.55f, crestSteepness = 1.7f },
+            new Layer { file = "OceanWaveWindSea", patchMetres = 128f, significantHeightMetres = 0.7f, directionalBias = 0.62f, crestSteepness = 1.6f },
+            new Layer { file = "OceanWaveChop", patchMetres = 32f, significantHeightMetres = 0.25f, directionalBias = 0.72f, crestSteepness = 1.5f }
         };
 
         [MenuItem("Tools/Planet/Build Ocean Wave Textures", false, 26)]

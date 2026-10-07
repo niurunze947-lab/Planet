@@ -21,5 +21,6 @@ namespace Planet.Procedural
         public PlanetBiome biome;
         public float3 normal;
         public float3 albedoLinear;
+        public PlanetTerrainWeights terrainWeights;
     }
 }

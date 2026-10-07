@@ -49,7 +49,7 @@ namespace Planet.Procedural.Terrain
             get
             {
                 return ready
-                    ? math.min(TerrainLattice.LevelForSpacing(source.radius, CollisionSpacingMetres), EffectiveVisualMaxLevel)
+                    ? TerrainLattice.LevelForSpacing(source.radius, CollisionSpacingMetres)
                     : 0;
             }
         }
@@ -143,13 +143,6 @@ namespace Planet.Procedural.Terrain
             get { return math.clamp(math.min(maxLevel, visualMaxLevel), 0, TerrainLattice.MaxLevel); }
         }
 
-        private Node VisibleNodeAt(double3 direction)
-        {
-            var key = TerrainLattice.NodeAt(direction, TerrainLattice.MaxLevel);
-            for (int level = TerrainLattice.MaxLevel; level >= 0; level--)
-                if (visibleKeys.Contains(key.Ancestor(level)) && nodes.TryGetValue(key.Ancestor(level), out Node node)) return node;
-            return null;
-        }
         public double SampleHeightMetres(double3 directionBf, double sampleSpacingMetres)
         {
             if (!ready) return 0;
@@ -207,10 +200,12 @@ namespace Planet.Procedural.Terrain
         private readonly List<Node> nextVisible = new List<Node>();
         private bool coverageDirty = true, physicsDirty;
         private readonly List<Node> collisionCandidates = new List<Node>();
+        private readonly HashSet<TerrainNodeKey> collisionCandidateKeys = new HashSet<TerrainNodeKey>();
         private readonly List<TerrainNodeKey> retiredColliders = new List<TerrainNodeKey>();
-        private double3 lastCollisionObserver;
+        private double3 lastCollisionObserver, lastCollisionVelocity;
         private float nextCollisionPlan;
         private int plannedCoverageRevision = -1;
+        private int plannedCollisionLevel = -1;
         private readonly Stopwatch updateTimer = new Stopwatch();
         private PlanetViewState selectedView;
         private bool hasSelectedView;
@@ -820,7 +815,9 @@ namespace Planet.Procedural.Terrain
             foreach (var node in nodes.Values) DestroyNode(node);
             nodes.Clear(); visible.Clear(); visibleKeys.Clear(); nextVisible.Clear(); nextKeys.Clear();
             wanted.Clear(); desired.Clear(); splits.Clear(); collisionCandidates.Clear();
+            collisionCandidateKeys.Clear();
             coverageDirty = true; hasSelectedView = false; plannedCoverageRevision = -1;
+            plannedCollisionLevel = -1;
             pendingCount = 0; VisibleCount = 0; ready = false;
         }
 
@@ -846,40 +843,34 @@ namespace Planet.Procedural.Terrain
             double3 aheadDirection = math.normalizesafe(ahead, direction);
             int targetLevel = CollisionLevel;
             int built = 0;
-            bool replan = plannedCoverageRevision != CoverageRevision ||
-                (Time.realtimeSinceStartup >= nextCollisionPlan &&
-                 math.distance(lastCollisionObserver, collisionPlayerBf) > 1);
+            bool observerMoved = math.distance(lastCollisionObserver, collisionPlayerBf) > 1;
+            bool velocityChanged = math.distance(lastCollisionVelocity, collisionVelocityBf) > 1;
+            bool replan = plannedCoverageRevision != CoverageRevision || plannedCollisionLevel != targetLevel ||
+                (Time.realtimeSinceStartup >= nextCollisionPlan && (observerMoved || velocityChanged));
             if (replan)
             {
                 collisionCandidates.Clear();
+                collisionCandidateKeys.Clear();
                 foreach (Node node in nodes.Values)
-                    if (node.data.key.level == targetLevel) collisionCandidates.Add(node);
+                    if (node.data.key.level == targetLevel && collisionCandidateKeys.Add(node.data.key))
+                        collisionCandidates.Add(node);
+                if (RuntimeTerrainCollisionSelection.TryFindResidentAncestor(
+                    nodes.Keys, direction, targetLevel, out TerrainNodeKey underfootKey) &&
+                    collisionCandidateKeys.Add(underfootKey))
+                    collisionCandidates.Add(nodes[underfootKey]);
+                if (RuntimeTerrainCollisionSelection.TryFindResidentAncestor(
+                    nodes.Keys, aheadDirection, targetLevel, out TerrainNodeKey forwardKey) &&
+                    collisionCandidateKeys.Add(forwardKey))
+                    collisionCandidates.Add(nodes[forwardKey]);
                 collisionCandidates.Sort((a, b) => CollisionPriority(b, direction, aheadDirection)
                     .CompareTo(CollisionPriority(a, direction, aheadDirection)));
                 plannedCoverageRevision = CoverageRevision;
+                plannedCollisionLevel = targetLevel;
                 lastCollisionObserver = collisionPlayerBf;
+                lastCollisionVelocity = collisionVelocityBf;
                 nextCollisionPlan = Time.realtimeSinceStartup + 0.1f;
             }
-            // Retire collision patches independently from visual coverage. A parent remains while
-            // it is the best cooked patch under the player; a finer collision patch may replace it
-            // before the visual quadtree is allowed to split again.
-            retiredColliders.Clear();
-            foreach (var pair in collisionNodes)
-            {
-                bool underfoot = TerrainLattice.NodeAt(direction, pair.Key.level).Equals(pair.Key);
-                bool forward = TerrainLattice.NodeAt(aheadDirection, pair.Key.level).Equals(pair.Key);
-                bool coveredUnderfoot = underfoot && CollisionNodeAt(direction) != pair.Value;
-                bool coveredForward = forward && CollisionNodeAt(aheadDirection) != pair.Value;
-                bool keep = math.distance(pair.Value.data.origin, collisionPlayerBf) <
-                    math.clamp(math.length(collisionVelocityBf) * 3.0, 256.0, 15000.0) ||
-                    underfoot || forward;
-                if (coveredUnderfoot || coveredForward || !keep) retiredColliders.Add(pair.Key);
-            }
-            foreach (var key in retiredColliders)
-            {
-                DestroyCollider(collisionNodes[key]); collisionNodes.Remove(key);
-                physicsDirty = true; plannedCoverageRevision = -1;
-            }
+            RetireSupersededColliders(direction, aheadDirection);
             foreach (Node node in collisionCandidates)
             {
                 TerrainNodeKey key = node.data.key;
@@ -896,6 +887,7 @@ namespace Planet.Procedural.Terrain
                     built++;
                 }
             }
+            RetireSupersededColliders(direction, aheadDirection);
             FinestCollisionLevel = 0;
             foreach (var pair in collisionNodes)
                 FinestCollisionLevel = math.max(FinestCollisionLevel, pair.Key.level);
@@ -909,6 +901,29 @@ namespace Planet.Procedural.Terrain
                 TerrainLattice.NodeAt(ahead, key.level).Equals(key) ? 1e16 : 0;
             priority += key.level * 1e10;
             return priority - math.distance(node.data.origin, collisionPlayerBf);
+        }
+
+        private void RetireSupersededColliders(double3 direction, double3 aheadDirection)
+        {
+            retiredColliders.Clear();
+            foreach (var pair in collisionNodes)
+            {
+                bool underfoot = TerrainLattice.NodeAt(direction, pair.Key.level).Equals(pair.Key);
+                bool forward = TerrainLattice.NodeAt(aheadDirection, pair.Key.level).Equals(pair.Key);
+                bool coveredUnderfoot = underfoot && CollisionNodeAt(direction) != pair.Value;
+                bool coveredForward = forward && CollisionNodeAt(aheadDirection) != pair.Value;
+                bool keep = math.distance(pair.Value.data.origin, collisionPlayerBf) <
+                    math.clamp(math.length(collisionVelocityBf) * 3.0, 256.0, 15000.0) ||
+                    underfoot || forward;
+                if (coveredUnderfoot || coveredForward || !keep) retiredColliders.Add(pair.Key);
+            }
+            foreach (TerrainNodeKey key in retiredColliders)
+            {
+                DestroyCollider(collisionNodes[key]);
+                collisionNodes.Remove(key);
+                physicsDirty = true;
+                plannedCoverageRevision = -1;
+            }
         }
 
         private void CreateCollider(Node node)
@@ -943,6 +958,7 @@ namespace Planet.Procedural.Terrain
             collisionNodes.Clear();
             FinestCollisionLevel = 0;
             collisionCandidates.Clear(); coverageDirty = true; physicsDirty = true; plannedCoverageRevision = -1;
+            collisionCandidateKeys.Clear(); plannedCollisionLevel = -1;
             if (collisionScene.IsValid() && Application.isPlaying)
             {
                 SceneManager.UnloadSceneAsync(collisionScene);

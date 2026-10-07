@@ -57,6 +57,18 @@ namespace Planet.Procedural
         [Range(-0.3f, 0.3f)] public float moistureOffset = 0.02f;
         [Min(0f)] public float altitudeCoolingPerKilometre = 0.085f;
 
+        [Header("Terrain layers")]
+        [Range(0f, 1f)] public float snowLineTemperature = 0.34f;
+        [Range(0.01f, 0.5f)] public float snowBlendRange = 0.12f;
+        [Range(0f, 89f)] public float snowSlopeStartDegrees = 28f;
+        [Range(1f, 90f)] public float snowSlopeFullDegrees = 48f;
+        [Range(0f, 89f)] public float rockSlopeStartDegrees = 22f;
+        [Range(1f, 90f)] public float rockSlopeFullDegrees = 47f;
+        [Min(0f)] public float rockLineStartMetres = 2500f;
+        [Min(1f)] public float rockLineFullMetres = 5500f;
+        [Range(0f, 1f)] public float desertMoistureStart = 0.35f;
+        [Range(0.01f, 1f)] public float desertMoistureFull = 0.60f;
+
         [Header("Cloud field")]
         [Min(0.1f)] public float cloudFrequency = 5.4f;
         [Range(0f, 1f)] public float cloudCoverage = 0.49f;
@@ -181,6 +193,20 @@ namespace Planet.Procedural
             generation.cloudOrographicInfluence = Mathf.Clamp01(generation.cloudOrographicInfluence);
             generation.cloudUpwindDistanceMetres = Mathf.Clamp(generation.cloudUpwindDistanceMetres,
                 1000f, Mathf.Max(1000f, (float)physical.radiusMetres * 0.1f));
+            generation.snowLineTemperature = Mathf.Clamp01(generation.snowLineTemperature);
+            generation.snowBlendRange = Mathf.Clamp(generation.snowBlendRange, 0.01f, 0.5f);
+            generation.snowSlopeStartDegrees = Mathf.Clamp(generation.snowSlopeStartDegrees, 0f, 89f);
+            generation.snowSlopeFullDegrees = Mathf.Clamp(generation.snowSlopeFullDegrees,
+                generation.snowSlopeStartDegrees + 1f, 90f);
+            generation.rockSlopeStartDegrees = Mathf.Clamp(generation.rockSlopeStartDegrees, 0f, 89f);
+            generation.rockSlopeFullDegrees = Mathf.Clamp(generation.rockSlopeFullDegrees,
+                generation.rockSlopeStartDegrees + 1f, 90f);
+            generation.rockLineStartMetres = Mathf.Max(0f, generation.rockLineStartMetres);
+            generation.rockLineFullMetres = Mathf.Max(generation.rockLineStartMetres + 1f,
+                generation.rockLineFullMetres);
+            generation.desertMoistureStart = Mathf.Clamp(generation.desertMoistureStart, 0f, 0.98f);
+            generation.desertMoistureFull = Mathf.Clamp(generation.desertMoistureFull,
+                generation.desertMoistureStart + 0.01f, 1f);
         }
 
         /// <summary>

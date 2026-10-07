@@ -13,6 +13,14 @@ Shader "Planet/ProceduralSurface"
         _OceanEnabled ("Ocean Enabled", Float) = 1
         _SeparateOcean ("Separate ocean geometry", Float) = 0
         _LocalClipDistance ("Local camera composition distance", Float) = 0
+        _ProceduralDetailEnabled ("Procedural Detail Enabled", Float) = 0
+        _ProceduralDetailAmplitude ("Procedural Detail Amplitude", Float) = 0
+        _ProceduralDetailBaseWavelength ("Procedural Detail Base Wavelength", Float) = 4096
+        _ProceduralDetailGain ("Procedural Detail Gain", Range(0.3, 0.75)) = 0.55
+        _ProceduralDetailSeed ("Procedural Detail Seed", Float) = 0
+        _ChunkSpacing ("Chunk Vertex Spacing", Float) = 1
+        _DetailOriginHigh ("Detail Origin High", Vector) = (0, 0, 0, 0)
+        _DetailOriginLow ("Detail Origin Low", Vector) = (0, 0, 0, 0)
         _CloudShadowEnabled ("Cloud Shadows Enabled", Float) = 1
         _WaterCoverage ("Water Coverage", Range(0, 1)) = 0.65
         _CloudShadowStrength ("Cloud Shadow Strength", Range(0, 1)) = 0.32

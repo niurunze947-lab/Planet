@@ -19,6 +19,7 @@ namespace Planet.Procedural.Terrain
         [Range(0, TerrainLattice.MaxLevel)] public int maxLevel = TerrainLattice.MaxLevel;
         [Range(0, TerrainLattice.MaxLevel)] public int visualMaxLevel = 20;
         [Min(0.05f)] public float collisionSpacingMetres = 1f;
+        public bool proceduralDetailEnabled = true;
         [Range(0.5f, 12f)] public float pixelTolerance = 3;
         [Min(0.1f)] public float uploadBudgetMilliseconds = 2;
         [Header("Ground neighbourhood")]
@@ -647,6 +648,7 @@ namespace Planet.Procedural.Terrain
                 node.block.SetFloat("_UseVertexAlbedo", node.data.spacing < 20000 ? 1 : 0);
                 // Chunk normals already contain resolved relief; a global normal cubemap would erase it.
                 node.block.SetFloat("_NormalEnabled", 0);
+                SetDetailProperties(node.block, node.data);
                 node.renderer.SetPropertyBlock(node.block);
                 PrepareOcean(node, cameraView, false);
                 PrepareLocalNode(node, cameraView);
@@ -684,8 +686,33 @@ namespace Planet.Procedural.Terrain
             localBlock.SetFloat("_LocalClipDistance", 4500);
             localBlock.SetFloat("_UseVertexAlbedo", node.data.spacing < 20000 ? 1 : 0);
             localBlock.SetFloat("_NormalEnabled", 0);
+            SetDetailProperties(localBlock, node.data);
             node.localRenderer.SetPropertyBlock(localBlock);
             PrepareOcean(node, cameraView, true);
+        }
+
+        private void SetDetailProperties(MaterialPropertyBlock block, RuntimeTerrainChunk data)
+        {
+            block.SetFloat("_ProceduralDetailEnabled", proceduralDetailEnabled && source.solid ? 1f : 0f);
+            block.SetFloat("_ProceduralDetailAmplitude", (float)(source.detail.amplitudeMetres * source.reliefScale * 0.25));
+            block.SetFloat("_ProceduralDetailBaseWavelength", (float)PlanetDetailSampler.BaseWavelengthMetres);
+            block.SetFloat("_ProceduralDetailGain", (float)source.detail.gain);
+            block.SetFloat("_ProceduralDetailSeed", (float)(source.detail.seed & 0x00ffffffUL));
+            block.SetFloat("_ChunkSpacing", (float)data.spacing);
+            SplitDetailOrigin(data.origin, out float3 high, out float3 low);
+            block.SetVector("_DetailOriginHigh", new Vector4(high.x, high.y, high.z, 0));
+            block.SetVector("_DetailOriginLow", new Vector4(low.x, low.y, low.z, 0));
+        }
+
+        private static void SplitDetailOrigin(double3 value, out float3 high, out float3 low)
+        {
+            high = new float3(Split(value.x), Split(value.y), Split(value.z));
+            low = (float3)(value - (double3)high);
+        }
+
+        private static float Split(double value)
+        {
+            return (float)(math.floor(value / 1024.0) * 1024.0);
         }
 
         private MeshRenderer AddOceanRenderer(GameObject go, Mesh mesh)

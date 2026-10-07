@@ -74,8 +74,8 @@ graph TD
 | [DEVLOG.md](DEVLOG.md) | 逐日历史线：哪天做了什么、为什么这么定 | 当前状态、参数、踩坑（都会过期） |
 | [PLANET-PITFALLS.md](PLANET-PITFALLS.md) | **全工程唯一**的「现象 → 结论」表，按子系统分组 | 机制解释 → 对应专题文档 |
 | [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) | 正式场景：比例决策、轨道力学与数值验证、操作与菜单、坐标系映射 | 尺度层 → [PLANET-SPACE.md](PLANET-SPACE.md)；外观 → [PLANET-MATERIALS.md](PLANET-MATERIALS.md) |
-| [PLANET-SPACE.md](PLANET-SPACE.md) | 尺度坐标层：精度预算、四级架树、浮动原点、分块网格与接缝、LOD 选择、流式预算、远场策略 | 大气散射与地表采样 → [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) |
-| [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) | 程序化框架：设计原则、数据流、单位与坐标、采样数学、网格与壳层、烘焙缓存、分辨率预算 | 单颗天体的外观解释 → [PLANET-MATERIALS.md](PLANET-MATERIALS.md) |
+| [PLANET-SPACE.md](PLANET-SPACE.md) | 尺度坐标层：精度预算、四级架树、浮动原点、分块网格与接缝、策略 LOD/ChunkStreamer、远场策略 | 大气散射与地表采样、正式运行时区块流送 → [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §16 |
+| [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) | 程序化框架：设计原则、数据流、单位与坐标、采样数学、网格与壳层、烘焙缓存、分辨率预算、正式运行时地表加载 | 单颗天体的外观解释 → [PLANET-MATERIALS.md](PLANET-MATERIALS.md) |
 | [PLANET-MATERIALS.md](PLANET-MATERIALS.md) | 21 个天体的可见光外观、权威/派生资源布局、框架缺口与对策、特征依据 | 采样数学 → [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) |
 | [PLANET-TEXTURE-LOD.md](PLANET-TEXTURE-LOD.md) | Earth 按视场高度分级的纹理档位、烘焙与缓存、运行时绑定与显存预算、云层唯一性 | 采样数学 → [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) |
 | [PLANET-STELLAR.md](PLANET-STELLAR.md) | 独立恒星定义、光球几何与对流、Planck/CIE 温度辐射、较差自转、观测与曝光边界 | 行星采样与材质 → [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) / [PLANET-MATERIALS.md](PLANET-MATERIALS.md) |
@@ -92,11 +92,12 @@ graph TD
 | 主题 | 唯一 owner | 其它文档只能 |
 |---|---|---|
 | 程序集清单、依赖方向、跨程序集接口（含 C1/C2/C-ratio/C6） | [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §2 | 链接 |
-| 视场高度契约、`clearanceOverView` / `clearanceOverRadius`、模式阈值 | [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §3 | 给符号名，不给数字 |
+| 玩家近地模式阈值与 `clearanceOverView` / `clearanceOverRadius` 契约 | [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §3 | 给符号名，不给数字 |
 | 目录数据（半径/质量/轨道/环）改动的操作顺序 | [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §4 | 链接 |
 | 分支、轮次、合并与验收流程 | [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §1、§5–§7 | 链接 |
 | 全部「现象 → 结论」与踩坑结论 | [PLANET-PITFALLS.md](PLANET-PITFALLS.md) | 链接 |
-| 尺度层的精度数字、分块参数、LOD 与流式参数 | [PLANET-SPACE.md](PLANET-SPACE.md) | 只给结论，不复述数字 |
+| 尺度层精度、`SurfaceChunkGrid` / `ChunkStreamer` 策略参数 | [PLANET-SPACE.md](PLANET-SPACE.md) | 只给结论，不复述数字 |
+| 正式运行时 `TerrainLattice`、地表流送/碰撞预算与闸门 | [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §16 | 只给结论，不复述数字 |
 | 轨道根数来源与数值验证表 | [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) §2 | 链接 |
 | 编辑器菜单全表与操作顺序 | [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) §6 | 只写要用到的那一项 |
 | `PlanetDefinition` 参数分组与采样数学 | [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §5–§8 | 链接 |
@@ -130,7 +131,8 @@ graph TD
 | 改 Earth 的近景纹理档位 | [PLANET-TEXTURE-LOD.md](PLANET-TEXTURE-LOD.md) |
 | 改太阳外观 / 加恒星 | [PLANET-STELLAR.md](PLANET-STELLAR.md) |
 | 改相机、输入、缩放边界、地表漫游 | [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §3 → `Assets/Scripts/Interaction/` |
-| 改精度、原点、分块、LOD | [PLANET-SPACE.md](PLANET-SPACE.md) |
+| 改尺度精度、原点或 `SurfaceChunkGrid` / `ChunkStreamer` 策略 | [PLANET-SPACE.md](PLANET-SPACE.md) |
+| 改正式运行时地表区块、碰撞覆盖或加载预算 | [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §16 |
 | 改轨道 / 比例 / 目录数据 | [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) §2 → [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §4 |
 | 改星空天空盒 / 查贴图导入设置 | [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) §5 → [PLANET-PITFALLS.md](PLANET-PITFALLS.md) §6 |
 | 准备合并、开新分支 | [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §1、§5–§7 |

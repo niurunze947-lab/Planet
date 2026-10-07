@@ -433,42 +433,159 @@ oceanMask    = Smooth(0, 120 m, waterDepth)
 
 ## 16. 几何与纹理的运行时路径
 
-统一漫游路径使用固定全球网格作为远景，`RuntimeTerrainRenderer` 只在玩家实际靠近时预热，
-完整覆盖就绪后显示并继续细化。其碰撞代理复用区块显示顶点并排除裙边，位于局部米制物理场景；
-显示碰撞查询与未夸张的物理高程接口分开。交接契约见 [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §3。
-下表保留运行时地形与历史离线 Mesh LOD 的区别；固定远景网格不是距离驱动的旧 Mesh LOD 链。
+正式场景的运行时地表由 `PlanetSurfaceView` 与 `RuntimeTerrainRenderer` 共同维护。它是一条
+「固定全球网格 → 预热区块 → 原子替换 → 持续细化」的路径；固定全球网格不是距离驱动的旧
+Mesh LOD 链。地形流送只跟随**实际靠近的天体**，不跟随 HUD 选中的导航目标。交接契约见
+[DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §3。
 
-近地选择先满足 `TerrainNeighbourhoodPolicy` 的区域基准，再分配屏幕误差预算。
-默认离地 10 km 内，周边 5 km 的名义格距不大于 64 m；离地 1 km 内，周边 1 km 不大于
-8 m，近 100 m 不大于 1 m，脚下继续细化。范围按地表距离计算，镜头背后和 Cube-Sphere
-接缝两侧也参与。这里的“高精度”是局部区域的档位，不表示把整个 1 km 圈加载为厘米网格。
-区块边长仍由 `TerrainLattice.NodeSize` 与实际半径决定，同一格距在不同星球对应不同层级。
+### 16.1 远景与近地闸门
 
-`nearActiveChunks` / `nearResidentChunks` 为这条路径预留独立预算，默认 1024 / 1536；
-自定义更密格距或更大范围超出预算时，选择仍保持完整父覆盖，不无限增长内存。
-构建先完成区域基准所需的祖先与相邻块，再生成脚边更细层，碰撞随完整父子覆盖交接。
-请求以同父的四个子块成组提高优先级，避免只加载脚下子块而让父覆盖长期无法退出。
-每帧单次遍历选择下一个构建请求，碰撞上传优先于请求评分；细区块的宏观颜色与高度
-共享固定宏格点插值，减少重复噪声采样并保证相邻块颜色一致。
+`PlanetSurfaceView.BuildSurface()` 在每个启用 `useRuntimeChunks` 的天体上生成一张固定的
+全局 Cube-Sphere 网格，并按同一份采样数据生成独立的远景海面。它负责远景辨识与无缝兜底，
+不创建运行时区块碰撞。
+
+`SolarSystemVisualCoordinator` 每帧把实际观察者投影到每个天体，选出 `ProximityView` 作为
+地形消费者；没有观察者时才回退到 `FocusView`。对实际靠近的天体，三个比例闸门分别控制：
+
+| 状态 | 代码判据 | 作用 |
+|---|---|---|
+| 预热 | `observedRatio <= 0.25` | 在全球网格后面开始生成区块，区块仍不可见 |
+| 近地可见 | `observedRatio <= 0.12` | 根覆盖完成后隐藏全球网格，显示区块 |
+| 碰撞需求 | `observedRatio <= 0.09` | 请求局部米制物理场景中的碰撞网格 |
+
+`observedRatio` 使用实际观察者到天体中心的距离和天体参考半径计算。它只负责渲染、流送
+和碰撞的资格判断，不是相机限位。预热中的区块未完成时全球网格继续可见；退出近地后
+`SetStreamingRequested(false)` 清空运行时区块并恢复全球网格。
+
+### 16.2 唯一运行时索引与坐标
+
+正式运行时唯一使用 `Planet.Procedural.Terrain` 下的 `TerrainLattice`，不使用
+`Solar/Space/ChunkStreamer`。每个天体有六个 Cube-Sphere 根面，节点键为
+`(face, level, x, y)`。`TerrainLattice` 的固定常量是 32 个格子/边（33 个表面顶点）、25 层上限，
+每个面内坐标轴使用 2^30 个整数格点地址；父子节点及跨面共享顶点都由同一套整数地址计算，
+因此不依赖焊点 epsilon。
+节点名义边长由 `TerrainLattice.NodeSize(radius, level)` 决定，实际星球半径不同，达到同一
+格距所需的层级也不同。
+
+玩家位置、速度和区块采样都在体固定双精度米制坐标中计算。区块只保存相对自身原点的
+`float` 顶点；提交远景相机前才减去观察者位置并乘场景单位比例。近地 Overlay 相机使用
+同一份网格的米制副本，避免太阳系场景单位下的远裁面和浮点尾数吞掉贴地几何。
+
+### 16.3 选择：区域基准优先于屏幕误差
+
+`RuntimeTerrainSelection.Select()` 从六个根节点开始，用候选最大堆反复拆分，直到达到叶节点
+预算或所有候选的屏幕空间误差低于 `pixelTolerance`。选择评分包含曲率、区块间距、细节
+残差、视锥和地平线；脚下与速度预测方向会绕过普通剔除，保证玩家周围始终有覆盖。
+
+近地时先应用 `TerrainNeighbourhoodPolicy`，再使用屏幕误差分配剩余预算。默认区域基准为：
+
+| 区域 | 高度渐进目标 | 覆盖半径 | 名义格距目标 |
+|---|---:|---:|---:|
+| 概览基准 | `overviewAltitudeMetres`（默认 10 km） | 5 km | 64 m |
+| 近地细化 | `detailAltitudeMetres`（默认 1 km） | 1 km | 8 m |
+| 接触带 | 与近地细化共用高度门槛 | `contactRadiusMetres`（默认 100 m） | 1 m |
+
+每个区域会在其高度带的约 2 倍到 1 倍之间渐进细化，并用 `retain` 滞回保留已经加载的
+层级。范围按区块与玩家方向的球面距离计算，接缝另一侧和镜头背面不会因为视锥而丢掉
+作为覆盖所需的父节点。这些区域是优先级和最低精度基线，不代表整个半径内都加载到最高层。
+
+当预测离地高度进入 `overviewAltitudeMetres * 2.3` 范围时，渲染器将活动预算从
+`maxActiveChunks` / `maxResidentChunks` 切换到更大的 `nearActiveChunks` / `nearResidentChunks`。
+默认值分别是 384 / 640 和 1024 / 1536；预算达到上限时保持完整的父覆盖并拒绝继续驻留，
+而不是无限增长内存。
+
+### 16.4 生成、上传与替换
+
+`RuntimeTerrainSource` 是 worker 可复制的只读采样快照：宏观高程按每面 16384 段的固定格点
+插值，避免把原始 `float` 噪声直接带进厘米级区块；`PlanetDetailSampler` 在双精度米制域
+叠加按顶点间距带限的细节频段。源同时提供三种不同语义的半径：
+
+```text
+物理查询：参考扁球半径 + Height()
+显示地形：参考扁球半径 + DisplayDisplacement(Height())
+海面：    参考扁球半径 + seaLevel
+```
+
+有海洋时，`DisplayDisplacement` 固定海平面，只对海平面上下的陆地起伏应用
+`visualReliefScale`，再加 `opticalSurfaceHeightMetres`。因此显示夸张不会暗中改变
+物理高程接口。
+
+`RuntimeTerrainChunk.Build()` 为每个节点生成 32×32 个格子和 33×33 个表面顶点，并额外
+生成四边裙边来遮住不同层级的过渡缝。法线使用一次 halo 高程采样的中心差分，颜色来自
+固定宏观格点插值；区块尺寸、颜色和法线都来自同一份显示采样。
+
+每个天体每帧最多启动一个区块构建任务；全局 worker 信号量最多允许两个选择/构建任务同时
+运行。选择任务约每 0.3 秒重新计算一次，只有观察者位置、速度、朝向、视口或预算变化到
+阈值才重算。主线程完成任务时逐个接收 Unity Mesh，碰撞网格的创建还受
+`uploadBudgetMilliseconds` 限制。节点被选出后加入 `wanted`（包含所有祖先），完成构建后
+才可进入 `nodes` 驻留表。请求优先脚下、预测前进方向和更近的覆盖；父节点细分时四个兄弟
+子块作为同组提高优先级，使父节点能够在完整子覆盖就绪后退出。
+
+`SelectCoverage()` 只在某节点的四个子节点全部驻留时才把父节点替换为子节点；否则继续显示
+父节点。`Evict()` 只逐出不在 `wanted`、不可见且不承担碰撞的最旧节点，所以区块加载滞后时
+仍有连续的粗表面。
+
+### 16.5 地形与海洋对象
+
+海洋从地形采样中分离出来。节点的地形 Mesh 包含陆地和海床，节点有水时另建一个只覆盖
+海平面的 Ocean Mesh；海面不含地形裙边，也不挂 Collider。远景 `Ocean` 和近地区块海面
+在根覆盖切换时一起替换，岸线由海床和固定海平面的交叠关系产生。
+
+### 16.6 碰撞覆盖与加载滞后
+
+`IPlanetCollisionSurfaceQuery` 的碰撞半径读取当前**显示三角形**，而
+`IPlanetSurfaceQuery` 的高程读取未夸张的物理采样。碰撞网格调用
+`RuntimeTerrainChunk.UploadCollisionMesh()`，只复制 33×33 个表面顶点和 32×32 个三角形，
+明确排除裙边，因此“所见即所撞”。
+
+碰撞代理放在独立的 `LocalPhysicsMode.Physics3D` 场景，原点跟随玩家；玩家移动超过 64 m
+时只平移代理，避免太阳系场景单位下的浮点碰撞失效。碰撞候选优先脚下和速度前方，每帧
+最多烹饪一个 Collider，并限制碰撞驻留数量。已经承担碰撞的父区块 Collider 会保留到四个子区块的
+Collider 全部就绪，子区块随后以完整组替换父区块。
+
+区块还在生成或 Collider 尚未烹饪时，`SweepSphere()` 先尝试已有 PhysicsScene 的球扫掠；
+覆盖不完整时退回 `TerrainSurfaceSweep`，沿运动走廊查询同源显示表面半径并二分求接触点。
+缺失区块不会被假造为一堵墙，高速穿过行星的扫掠仍会被表面高度场拦截。`CollisionCoverageReady`
+只表示玩家当前方向的可见节点已有 Collider，不表示整个天体已经完成碰撞。
+
+### 16.7 相机与材质提交
+
+远景区块由 `PrepareCamera()` 写入相机相对的 `_ChunkOriginCR`、体固定旋转和场景单位比例。
+区块法线已经包含解析后的地形起伏，运行时关闭全局法线 Cubemap，避免再次覆盖几何法线。
+
+`ObserverRenderRig` 保留第 31 层给米制地形相机，背景相机不绘制该层；局部副本只提交
+层级至少为 L8 且距离玩家约 10 km 内的节点，Overlay 相机的米制裁剪范围为 0.05–5000 m。
+这层副本与远景区块共享顶点、材质属性和观察者姿态，不产生第二份地形采样。
+
+纹理档位由 `PlanetTextureLodController`（当前用于 Earth）按观察者比例独立切换，几何选择不会直接改变
+Cubemap 档位。区块复制 `PlanetSurfaceView` 的 `MaterialPropertyBlock`；当区块间距小于
+20 km 时才启用顶点颜色，远景仍使用当前 albedo/cloud Cubemap。区块法线由显示几何直接
+生成，因此运行时不再叠加全球法线 Cubemap。
 
 
-**两条几何路径并存，正式场景走的是运行时那条。**
+### 16.8 两条几何路径的边界
 
 | | 运行时分块地形（**正式场景在用**） | 离线 Mesh LOD（回退路径） |
 |---|---|---|
 | 入口 | `RuntimeTerrainRenderer`（由 `PlanetSurfaceView` 在 `useRuntimeChunks = true` 时自动挂载） | `PlanetMeshLodSet` / `PlanetMeshLodController` |
-| 格点 | `TerrainLattice`：32 格点 × 25 层 | Cube Sphere 六面 × 2^level |
+| 格点 | `TerrainLattice`：32 格子（33 顶点）× 25 层 | Cube Sphere 六面 × 2^level |
 | 采样域 | 双精度体固**米制**域（`RuntimeTerrainSource`），宏高度按 16384 段插值以把 float 噪声量化挡在厘米网格之外 | `PlanetSurfaceSampler` 单位球方向 |
-| 调度 | 自己的 `LateUpdate`：选择任务 0.3 s 节流、构建任务每帧最多一个、全局最多两个 worker、`uploadBudgetMilliseconds` 预算 | 只切换已导入的 Mesh |
-| 档位 | 屏幕空间误差 + 叶节点预算，`maxActiveChunks` / `maxResidentChunks` | `16/32/64/96` 四档 |
-| 现状 | 正式场景 21 个天体全部为 `useRuntimeChunks = 1`，`meshLodSet` 引用为空 | 场景里已无引用；派生资产保留在 `Assets/Editor/LegacyPlanetMeshLod/` |
+| 调度 | 异步选择、每个天体每帧一个构建、全局最多两个 worker；碰撞上传受 `uploadBudgetMilliseconds` 限制 | 只切换已导入的 Mesh |
+| 预算 | 屏幕误差 + 区域基准 + `maxActiveChunks` / `maxResidentChunks` | 离线资产的 `16/32/64/96` 四档 |
+| 现状 | 正式场景的 `PlanetSurfaceView` 使用 `useRuntimeChunks = 1`，`meshLodSet` 为空 | 兼容原型仍可显式使用 |
 
 `RuntimeTerrainRenderer` 同时实现 `IPlanetSurfaceQuery`（C2），把全频高程与背压
 `PendingDetailWork` 暴露给交互层，用于厘米级离地真值。
 
-生成器把指纹写入 Mesh importer 元数据，更新时用 `CopySerialized` 保留 GUID。
-**离线段落目前没有消费者**：正式场景已改用运行时地形，菜单仍保留以便让原型在
-`useRuntimeChunks = false` 时能独立重建。存废决定见 [DEVLOG.md](DEVLOG.md) 待补。
+运行时区块不写入资产缓存；采样源的 `TerrainContentFingerprint()` 仍用于包含
+`PlanetDetailSampler` 的派生缓存失效。离线 Mesh 生成器的指纹与 GUID 规则见 §10、§15。
+
+### 16.9 运行时验证入口
+
+可复用的确定性检查位于 `Assets/Tests/EditMode/`：`RuntimeTerrainTests` 验证格点、选择预算
+和脚下覆盖，`TerrainStreamingTests` 验证区域基准、滞后期间的高度场扫掠，
+`TerrainCollisionTests` 验证海洋/海床分离、裙边排除和显示三角形半径。场景级交接、加载
+滞后、重定原点和重力接触由 `Assets/Tests/PlayMode/UnifiedFlightPlayTests.cs` 覆盖。
 
 ---
 
@@ -496,12 +613,13 @@ oceanMask    = Smooth(0, 120 m, waterDepth)
 - **地表不投 / 不接收 URP 阴影**，也没有地形自遮挡（山体不会互相遮挡），因此没有日食、没有山影。
   环影和天体遮住环的太阳光采用解析求交近似，详见 [PLANET-MATERIALS.md](PLANET-MATERIALS.md) §3–§4。
 - **没有植被实例、河流 / 湖泊、潮汐、海面波浪几何**；水体只有水位、水深与颜色。
-- **几何缓存不会自动跟随参数变化**：改 `PlanetDefinition` 后必须跑对应构建菜单，
-  不要通过启用 runtime fallback 绕过缓存。
+- **离线几何缓存不会自动跟随参数变化**：改 `PlanetDefinition` 后必须跑对应构建菜单；
+  运行时区块会按 `TerrainContentFingerprint()` 重新建立内存采样源，不应把 runtime fallback
+  当成离线缓存更新工具。
 - `PlanetLightingController` 依赖 `SolarSystemSimulation`，只能用在正式太阳系场景里，不能单独搬到别的场景。
 - 新外观仍是统计场：不含观测地图、气带动力学、地下海洋、日冕、喷发、多层散射或环弧。
   `appearance.interpretation` 与 [PLANET-MATERIALS.md](PLANET-MATERIALS.md) §1 明确每颗天体的解释边界。
-- **两套分块层级尚未统一**：本框架的 `TerrainLattice`（32 格点 × 25 层）与
+- **两套分块层级尚未统一**：本框架的 `TerrainLattice`（32 格子 × 25 层）与
   `Planet.Solar.Space` 的 `SurfaceChunkGrid`（6 面 × 2^level，上限 20）定义了不同的格点常数与层数，
   而只有前者接入了帧循环。见 [PLANET-SPACE.md](PLANET-SPACE.md) §11。
 
@@ -522,11 +640,11 @@ oceanMask    = Smooth(0, 120 m, waterDepth)
 - `Terrain/PlanetDetailSampler` 已用 double 的星体坐标米制域，频段逐级减半，
   按顶点间距淡入／截断未解析频段。**参数是截止下限**，不保证恰好有该波长，
   也不是高程精度证明。
-- `TerrainLattice` 的 32 格点、25 层约能达到地球面中心厘米量级；
+- `TerrainLattice` 的 32 格子、25 层约能达到地球面中心厘米量级；
   它与 `Planet.Solar.Space` 的另一套 `SurfaceChunkGrid` 层级不同，**两套必须统一，
   不能只打开一个"厘米级"开关**。
-- 水体目前只有一个全局海平面。低洼区域被淹**并不等于**按流域、溢流口和水量形成了湖泊，
-  也没有独立水面网格与海底几何的分离。
+- 水体目前只有一个全局海平面。低洼区域被淹**并不等于**按流域、溢流口和水量形成了湖泊；
+  运行时已经把海床地形与独立海面网格分开，但还没有河流、湖泊或波浪模拟。
 
 ### 19.2 按画面误差分配面积与精度
 

@@ -334,18 +334,17 @@ interval = angularStalenessDegrees / (maxMeanMotion × daysPerSecond)
 
 ## 11. 已知限制
 
-- **`maxLevel = 20`**：每面 2²⁰ 块是索引的架构上限。想在地球上分辨 1 cm 的**网格间距**
-  需要 L26，那要换更深的索引（或分层索引）。当前上限对应地球 59.65 cm 网格间距。
+- **`SurfaceChunkGrid.maxLevel = 20`**：这是本目录审计/策略实现的索引上限。想在地球上分辨
+  1 cm 的**网格间距**需要 L26，那要换更深的索引（或分层索引）。当前上限对应地球
+  59.65 cm 网格间距；正式画面使用的 `TerrainLattice` 另有 25 层上限，见
+  [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §16。
 
-- **这一层的地表分块还不是真正在渲染的那一套。** 本目录的 `SurfaceChunkGrid` +
-  `ChunkStreamer` 是可审计、可测试的**策略实现**，但没有任何运行时路径构造 `ChunkStreamer`
-  （连 `SolarSpaceContext` 也只驱动地表原点的 `Threshold` 跟随，不接 `IChunkContentProvider`）。
-  正式场景里真正绘制分块地形的是 `Planet.Procedural.Terrain` 下另一套实现：
-  `TerrainLattice`（32 格点 × 25 层）+ `RuntimeTerrainSelection` + `RuntimeTerrainRenderer`，
-  由渲染器自己的 `LateUpdate` 驱动，并已被 `PlanetSurfaceView` 自动挂载
-  （见 [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §16）。
-  **两套层级尚未统一**：层数定义、格点常数、坐标系与消费者都不同，
-  改这一侧不会影响画面。
+- **本目录的地表分块不是正式运行时消费者。** `SurfaceChunkGrid` + `ChunkStreamer` 是可审计、
+  可测试的策略实现；没有运行时路径构造 `ChunkStreamer`，`SolarSpaceContext` 只负责空间架与
+  原点。正式场景由 `Planet.Procedural.Terrain` 的 `TerrainLattice`、
+  `RuntimeTerrainSelection` 和 `RuntimeTerrainRenderer` 驱动，详见
+  [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §16。两套层级、格点常数和消费者仍然不同，
+  修改本目录的策略不会改变正式画面。
 
 - **银河系架是装饰性的**：`solInGalaxyMetres` 默认为 0。它证明了阶梯能承载这一级，
   但目前没有数据源把它填上。

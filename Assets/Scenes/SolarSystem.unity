@@ -1538,6 +1538,17 @@ MonoBehaviour:
   maxLevel: 25
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
+  neighbourhood:
+    overviewAltitudeMetres: 10000
+    overviewRadiusMetres: 5000
+    overviewSpacingMetres: 64
+    detailAltitudeMetres: 1000
+    detailRadiusMetres: 1000
+    detailSpacingMetres: 8
+    contactRadiusMetres: 100
+    contactSpacingMetres: 1
+  nearActiveChunks: 1024
+  nearResidentChunks: 1536
 --- !u!1 &231903757
 GameObject:
   m_ObjectHideFlags: 0
@@ -1753,6 +1764,17 @@ MonoBehaviour:
   maxLevel: 25
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
+  neighbourhood:
+    overviewAltitudeMetres: 10000
+    overviewRadiusMetres: 5000
+    overviewSpacingMetres: 64
+    detailAltitudeMetres: 1000
+    detailRadiusMetres: 1000
+    detailSpacingMetres: 8
+    contactRadiusMetres: 100
+    contactSpacingMetres: 1
+  nearActiveChunks: 1024
+  nearResidentChunks: 1536
 --- !u!1 &253167458
 GameObject:
   m_ObjectHideFlags: 0
@@ -2922,6 +2944,17 @@ MonoBehaviour:
   maxLevel: 25
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
+  neighbourhood:
+    overviewAltitudeMetres: 10000
+    overviewRadiusMetres: 5000
+    overviewSpacingMetres: 64
+    detailAltitudeMetres: 1000
+    detailRadiusMetres: 1000
+    detailSpacingMetres: 8
+    contactRadiusMetres: 100
+    contactSpacingMetres: 1
+  nearActiveChunks: 1024
+  nearResidentChunks: 1536
 --- !u!1 &339664996
 GameObject:
   m_ObjectHideFlags: 0
@@ -4562,6 +4595,17 @@ MonoBehaviour:
   maxLevel: 25
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
+  neighbourhood:
+    overviewAltitudeMetres: 10000
+    overviewRadiusMetres: 5000
+    overviewSpacingMetres: 64
+    detailAltitudeMetres: 1000
+    detailRadiusMetres: 1000
+    detailSpacingMetres: 8
+    contactRadiusMetres: 100
+    contactSpacingMetres: 1
+  nearActiveChunks: 1024
+  nearResidentChunks: 1536
 --- !u!1 &398422855
 GameObject:
   m_ObjectHideFlags: 0
@@ -4668,6 +4712,17 @@ MonoBehaviour:
   maxLevel: 25
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
+  neighbourhood:
+    overviewAltitudeMetres: 10000
+    overviewRadiusMetres: 5000
+    overviewSpacingMetres: 64
+    detailAltitudeMetres: 1000
+    detailRadiusMetres: 1000
+    detailSpacingMetres: 8
+    contactRadiusMetres: 100
+    contactSpacingMetres: 1
+  nearActiveChunks: 1024
+  nearResidentChunks: 1536
 --- !u!1 &529167431
 GameObject:
   m_ObjectHideFlags: 0
@@ -5464,6 +5519,17 @@ MonoBehaviour:
   maxLevel: 25
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
+  neighbourhood:
+    overviewAltitudeMetres: 10000
+    overviewRadiusMetres: 5000
+    overviewSpacingMetres: 64
+    detailAltitudeMetres: 1000
+    detailRadiusMetres: 1000
+    detailSpacingMetres: 8
+    contactRadiusMetres: 100
+    contactSpacingMetres: 1
+  nearActiveChunks: 1024
+  nearResidentChunks: 1536
 --- !u!1 &544906945
 GameObject:
   m_ObjectHideFlags: 0
@@ -5762,6 +5828,17 @@ MonoBehaviour:
   maxLevel: 25
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
+  neighbourhood:
+    overviewAltitudeMetres: 10000
+    overviewRadiusMetres: 5000
+    overviewSpacingMetres: 64
+    detailAltitudeMetres: 1000
+    detailRadiusMetres: 1000
+    detailSpacingMetres: 8
+    contactRadiusMetres: 100
+    contactSpacingMetres: 1
+  nearActiveChunks: 1024
+  nearResidentChunks: 1536
 --- !u!1 &606799146
 GameObject:
   m_ObjectHideFlags: 0
@@ -8732,6 +8809,17 @@ MonoBehaviour:
   maxLevel: 25
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
+  neighbourhood:
+    overviewAltitudeMetres: 10000
+    overviewRadiusMetres: 5000
+    overviewSpacingMetres: 64
+    detailAltitudeMetres: 1000
+    detailRadiusMetres: 1000
+    detailSpacingMetres: 8
+    contactRadiusMetres: 100
+    contactSpacingMetres: 1
+  nearActiveChunks: 1024
+  nearResidentChunks: 1536
 --- !u!1 &1019639356
 GameObject:
   m_ObjectHideFlags: 0
@@ -9030,6 +9118,17 @@ MonoBehaviour:
   maxLevel: 25
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
+  neighbourhood:
+    overviewAltitudeMetres: 10000
+    overviewRadiusMetres: 5000
+    overviewSpacingMetres: 64
+    detailAltitudeMetres: 1000
+    detailRadiusMetres: 1000
+    detailSpacingMetres: 8
+    contactRadiusMetres: 100
+    contactSpacingMetres: 1
+  nearActiveChunks: 1024
+  nearResidentChunks: 1536
 --- !u!1 &1112695272
 GameObject:
   m_ObjectHideFlags: 0
@@ -12440,6 +12539,17 @@ MonoBehaviour:
   maxLevel: 25
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
+  neighbourhood:
+    overviewAltitudeMetres: 10000
+    overviewRadiusMetres: 5000
+    overviewSpacingMetres: 64
+    detailAltitudeMetres: 1000
+    detailRadiusMetres: 1000
+    detailSpacingMetres: 8
+    contactRadiusMetres: 100
+    contactSpacingMetres: 1
+  nearActiveChunks: 1024
+  nearResidentChunks: 1536
 --- !u!1 &1194695950
 GameObject:
   m_ObjectHideFlags: 0
@@ -14980,6 +15090,17 @@ MonoBehaviour:
   maxLevel: 25
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
+  neighbourhood:
+    overviewAltitudeMetres: 10000
+    overviewRadiusMetres: 5000
+    overviewSpacingMetres: 64
+    detailAltitudeMetres: 1000
+    detailRadiusMetres: 1000
+    detailSpacingMetres: 8
+    contactRadiusMetres: 100
+    contactSpacingMetres: 1
+  nearActiveChunks: 1024
+  nearResidentChunks: 1536
 --- !u!1 &1365860515
 GameObject:
   m_ObjectHideFlags: 0
@@ -14992,6 +15113,7 @@ GameObject:
   - component: {fileID: 1365860516}
   - component: {fileID: 1365860518}
   - component: {fileID: 2065860518}
+  - component: {fileID: 2065860519}
   m_Layer: 0
   m_Name: Solar System
   m_TagString: Untagged
@@ -15342,6 +15464,17 @@ MonoBehaviour:
   maxLevel: 25
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
+  neighbourhood:
+    overviewAltitudeMetres: 10000
+    overviewRadiusMetres: 5000
+    overviewSpacingMetres: 64
+    detailAltitudeMetres: 1000
+    detailRadiusMetres: 1000
+    detailSpacingMetres: 8
+    contactRadiusMetres: 100
+    contactSpacingMetres: 1
+  nearActiveChunks: 1024
+  nearResidentChunks: 1536
 --- !u!1 &1473632810
 GameObject:
   m_ObjectHideFlags: 0
@@ -15358,6 +15491,7 @@ GameObject:
   - component: {fileID: 1473632816}
   - component: {fileID: 1473632817}
   - component: {fileID: 1473632818}
+  - component: {fileID: 1473632819}
   m_Layer: 0
   m_Name: Earth
   m_TagString: Untagged
@@ -15510,6 +15644,39 @@ MonoBehaviour:
   maxLevel: 25
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
+  neighbourhood:
+    overviewAltitudeMetres: 10000
+    overviewRadiusMetres: 5000
+    overviewSpacingMetres: 64
+    detailAltitudeMetres: 1000
+    detailRadiusMetres: 1000
+    detailSpacingMetres: 8
+    contactRadiusMetres: 100
+    contactSpacingMetres: 1
+  nearActiveChunks: 1024
+  nearResidentChunks: 1536
+--- !u!114 &1473632819
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1473632810}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 216c7cc6be7b6e94fab0aa97eb25ac48, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  toggleKey: 284
+  collisionKey: 285
+  showMeshWireframe: 1
+  showCollisionCoverage: 1
+  wireframeStride: 1
+  meshWireframeRange: 25000
+  wireframeColor: {r: 0.25, g: 1, b: 0.45, a: 0.85}
+  collisionColor: {r: 1, g: 0.55, b: 0.1, a: 0.9}
+  collisionDisabledColor: {r: 1, g: 0.2, b: 0.2, a: 0.75}
+  boxColor: {r: 0.3, g: 0.75, b: 1, a: 0.9}
 --- !u!1 &1533230669
 GameObject:
   m_ObjectHideFlags: 0
@@ -15643,6 +15810,17 @@ MonoBehaviour:
   maxLevel: 25
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
+  neighbourhood:
+    overviewAltitudeMetres: 10000
+    overviewRadiusMetres: 5000
+    overviewSpacingMetres: 64
+    detailAltitudeMetres: 1000
+    detailRadiusMetres: 1000
+    detailSpacingMetres: 8
+    contactRadiusMetres: 100
+    contactSpacingMetres: 1
+  nearActiveChunks: 1024
+  nearResidentChunks: 1536
 --- !u!1 &1546309657
 GameObject:
   m_ObjectHideFlags: 0
@@ -15930,6 +16108,17 @@ MonoBehaviour:
   maxLevel: 25
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
+  neighbourhood:
+    overviewAltitudeMetres: 10000
+    overviewRadiusMetres: 5000
+    overviewSpacingMetres: 64
+    detailAltitudeMetres: 1000
+    detailRadiusMetres: 1000
+    detailSpacingMetres: 8
+    contactRadiusMetres: 100
+    contactSpacingMetres: 1
+  nearActiveChunks: 1024
+  nearResidentChunks: 1536
 --- !u!1 &1626184992
 GameObject:
   m_ObjectHideFlags: 0
@@ -16063,6 +16252,17 @@ MonoBehaviour:
   maxLevel: 25
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
+  neighbourhood:
+    overviewAltitudeMetres: 10000
+    overviewRadiusMetres: 5000
+    overviewSpacingMetres: 64
+    detailAltitudeMetres: 1000
+    detailRadiusMetres: 1000
+    detailSpacingMetres: 8
+    contactRadiusMetres: 100
+    contactSpacingMetres: 1
+  nearActiveChunks: 1024
+  nearResidentChunks: 1536
 --- !u!1 &1636714789
 GameObject:
   m_ObjectHideFlags: 0
@@ -16196,6 +16396,17 @@ MonoBehaviour:
   maxLevel: 25
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
+  neighbourhood:
+    overviewAltitudeMetres: 10000
+    overviewRadiusMetres: 5000
+    overviewSpacingMetres: 64
+    detailAltitudeMetres: 1000
+    detailRadiusMetres: 1000
+    detailSpacingMetres: 8
+    contactRadiusMetres: 100
+    contactSpacingMetres: 1
+  nearActiveChunks: 1024
+  nearResidentChunks: 1536
 --- !u!1 &1688934272
 GameObject:
   m_ObjectHideFlags: 0
@@ -16328,6 +16539,17 @@ MonoBehaviour:
   maxLevel: 25
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
+  neighbourhood:
+    overviewAltitudeMetres: 10000
+    overviewRadiusMetres: 5000
+    overviewSpacingMetres: 64
+    detailAltitudeMetres: 1000
+    detailRadiusMetres: 1000
+    detailSpacingMetres: 8
+    contactRadiusMetres: 100
+    contactSpacingMetres: 1
+  nearActiveChunks: 1024
+  nearResidentChunks: 1536
 --- !u!1 &1716801187
 GameObject:
   m_ObjectHideFlags: 0
@@ -16683,6 +16905,17 @@ MonoBehaviour:
   maxLevel: 25
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
+  neighbourhood:
+    overviewAltitudeMetres: 10000
+    overviewRadiusMetres: 5000
+    overviewSpacingMetres: 64
+    detailAltitudeMetres: 1000
+    detailRadiusMetres: 1000
+    detailSpacingMetres: 8
+    contactRadiusMetres: 100
+    contactSpacingMetres: 1
+  nearActiveChunks: 1024
+  nearResidentChunks: 1536
 --- !u!1 &1800661695
 GameObject:
   m_ObjectHideFlags: 0
@@ -19112,6 +19345,17 @@ MonoBehaviour:
   maxLevel: 25
   pixelTolerance: 3
   uploadBudgetMilliseconds: 2
+  neighbourhood:
+    overviewAltitudeMetres: 10000
+    overviewRadiusMetres: 5000
+    overviewSpacingMetres: 64
+    detailAltitudeMetres: 1000
+    detailRadiusMetres: 1000
+    detailSpacingMetres: 8
+    contactRadiusMetres: 100
+    contactSpacingMetres: 1
+  nearActiveChunks: 1024
+  nearResidentChunks: 1536
 --- !u!114 &2065860518
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -19149,6 +19393,28 @@ MonoBehaviour:
   - {fileID: 1688934277}
   - {fileID: 1800150847}
   - {fileID: 2031693067}
+--- !u!114 &2065860519
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1365860515}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 554ead26d13f3484daded9bfaf848b2c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  show: 1
+  showLoaded: 1
+  showInGameView: 1
+  showReadout: 1
+  loadingColor: {r: 1, g: 0.7, b: 0.12, a: 0.95}
+  loadedColor: {r: 0.35, g: 1, b: 0.55, a: 0.16}
+  pulseHz: 1.5
+  minimumAngularRadius: 0.035
+  ringSegments: 96
+  refreshInterval: 0.2
 --- !u!1 &2072547902
 GameObject:
   m_ObjectHideFlags: 0

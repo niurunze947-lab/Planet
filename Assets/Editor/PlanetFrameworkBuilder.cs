@@ -256,7 +256,7 @@ namespace Planet.EditorTools
             material.SetFloat("_Density", definition.features.hasClouds ? 0.74f : 0f);
             material.SetFloat("_SilverLining", 0.46f);
             material.SetFloat("_ShadowStrength", 0.56f);
-            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent + 10;
+            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent - 20;
             EditorUtility.SetDirty(material);
             return material;
         }

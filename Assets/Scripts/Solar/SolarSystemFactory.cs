@@ -46,6 +46,11 @@ namespace Planet.Solar
             // tuned and audited without entering play mode.
             root.AddComponent<SolarSpaceContext>();
 
+            // Debug view of which bodies are still streaming (mesh / texture tier / terrain chunks).
+            // Added here for the same reason as the space context: the scene is generated, so a
+            // hand-placed component would disappear on the next rebuild.
+            root.AddComponent<BodyLoadingHighlight>();
+
             // ---- bodies ---------------------------------------------------------------------
             Body[] defs = SolarSystemCatalog.Bodies;
             for (int i = 0; i < defs.Length; i++)

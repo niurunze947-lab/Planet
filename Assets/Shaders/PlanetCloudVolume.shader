@@ -11,11 +11,11 @@ Shader "Planet/CloudVolume"
     }
     SubShader
     {
-        Tags { "Queue" = "Transparent+10" "RenderType" = "Transparent" "RenderPipeline" = "UniversalPipeline" }
+        Tags { "Queue" = "Transparent-20" "RenderType" = "Transparent" "RenderPipeline" = "UniversalPipeline" }
         Blend SrcAlpha OneMinusSrcAlpha
         ZWrite Off
         ZTest LEqual
-        Cull Back
+        Cull Off
         Pass
         {
             Name "CloudVolume"

@@ -106,6 +106,16 @@ namespace Planet.Procedural.Terrain
             return NodeSize(radiusMetres, level) / N;
         }
 
+        /// <summary>Smallest quadtree level whose nominal vertex spacing reaches a target.</summary>
+        public static int LevelForSpacing(double radiusMetres, double spacingMetres)
+        {
+            if (!(radiusMetres > 0) || !(spacingMetres > 0) || !math.isfinite(radiusMetres) ||
+                !math.isfinite(spacingMetres)) return 0;
+            double ratio = 2.0 * radiusMetres / (N * spacingMetres);
+            if (ratio <= 1.0) return 0;
+            return math.clamp((int)math.ceil(math.log2(ratio)), 0, MaxLevel);
+        }
+
         /// <summary>Uv rectangle of a node (min corner, max corner).</summary>
         public static void NodeUv(TerrainNodeKey key, out double2 min, out double2 max)
         {

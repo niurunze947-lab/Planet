@@ -34,8 +34,7 @@ namespace Planet.Procedural.Terrain
             if (nearestSurfaceDistance <= contactRadiusMetres)
                 spacing = math.min(spacing, BandSpacing(clearance, detailAltitudeMetres, contactSpacingMetres, retain));
             if (!math.isfinite(spacing)) return 0;
-            return math.clamp((int)math.ceil(math.log2(2 * radius / (TerrainLattice.N * spacing))),
-                0, TerrainLattice.MaxLevel);
+            return TerrainLattice.LevelForSpacing(radius, spacing);
         }
 
         private static double BandSpacing(double height, double altitude, double spacing, bool retain)

@@ -91,3 +91,14 @@ desktop.ini
 # ---------------------------------------------------------------
 !/[Aa]ssets/**/*.meta
 /[Aa]ssets/**/*.meta.meta
+
+# ---------------------------------------------------------------
+# Collaboration review screenshots / QA captures (do not commit)
+# ---------------------------------------------------------------
+/[Aa]ssets/[Ss]creenshots/
+/[Aa]ssets/[Ss]creenshots.meta
+/_qa_*.png
+/_qa_*.png.meta
+/[Aa]ssets/InitTestScene*.unity
+/[Aa]ssets/InitTestScene*.unity.meta
+/_mcp_setup_backup_*/

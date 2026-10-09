@@ -7,10 +7,10 @@
 
 ## 1. 这是什么
 
-一个 **Unity 2022.3 LTS + URP** 的行星演示工程。它有一条**正式工程线**、一条**参考线**，
-以及三层共享的实现：
+一个 **Unity 2022.3 LTS + URP** 的行星演示工程。正式内容是真实比例太阳系，
+建立在三层共享实现之上：
 
-**正式线 —— 真实比例的太阳系**（`SolarSystem.unity`，Build Settings index 2）
+**正式线 —— 真实比例的太阳系**（`SolarSystem.unity`，Build Settings index 0）
 
 - 从太阳到柯伊伯带，比例不做任何压缩，21 个天体 + 两条碎带
 - 轨道根数取自 JPL/Standish 与 Meeus；**自转与公转全部由代码按开普勒方程推算**
@@ -29,6 +29,9 @@
 Earth 的近景纹理分级（[PLANET-TEXTURE-LOD.md](PLANET-TEXTURE-LOD.md)）、
 21 个天体的可见光外观（[PLANET-MATERIALS.md](PLANET-MATERIALS.md)）、
 太阳的独立光球框架（[PLANET-STELLAR.md](PLANET-STELLAR.md)）。
+
+面向 SpaceEngine 体验目标的商业级渲染路线、已落地的采样优化和独立 Player 性能验收见
+[PLANET-RENDERING.md](PLANET-RENDERING.md) §1–§5；该目标尚未全部实现。
 
 ---
 

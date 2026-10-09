@@ -63,6 +63,7 @@ namespace Planet.Procedural
         /// <summary>Managed mesh buffers, also suitable for future patch generation before Unity upload.</summary>
         public static PlanetMeshData Generate(PlanetSurfaceSampler sampler, int resolution)
         {
+            Terrain.TerrainSamplingKernels.Surface(sampler, new float3(1, 0, 0), out _);
             resolution = math.clamp(resolution, 2, 512);
             int side = resolution + 1;
             int perFace = side * side;
@@ -79,7 +80,7 @@ namespace Planet.Procedural
                     // roundoff, which the finite-difference terrain normals would amplify.
                     float2 uv = new float2(2 * x - resolution, 2 * y - resolution) / resolution;
                     float3 d = Direction((PlanetCubeFace)face, uv);
-                    PlanetSurfaceSample sample = sampler.Evaluate(d);
+                    Terrain.TerrainSamplingKernels.Surface(sampler, d, out PlanetSurfaceSample sample);
                     data.positions[index] = sampler.SurfacePosition(d, sample.heightMetres);
                     data.normals[index] = sample.normal;
                     data.directions[index] = d;

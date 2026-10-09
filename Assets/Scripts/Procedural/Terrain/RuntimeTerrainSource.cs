@@ -52,7 +52,7 @@ namespace Planet.Procedural.Terrain
             const long step = TerrainLattice.LatticeSize / MacroSegments;
             float3 d = (float3)TerrainLattice.Direction(face, x * step, y * step);
             if (cache != null && cache.TryGetValue(d, out float height)) return height;
-            float result = macro.EvaluateHeight(d);
+            TerrainSamplingKernels.MacroHeight(macro, d, out float result);
             if (cache != null) cache[d] = result;
             return result;
         }
@@ -64,7 +64,8 @@ namespace Planet.Procedural.Terrain
             // Freeze coast topology across LOD. Fine relief fades smoothly to zero at the macro shoreline.
             double coast = macro.hasOcean ? math.saturate(math.abs(h - macro.seaLevelMetres) / math.max(1.0, detail.AmplitudeBound * 2)) : 1.0;
             coast = coast * coast * (3 - 2 * coast);
-            return h + detail.Evaluate(direction * radius, spacing) * coast;
+            TerrainSamplingKernels.DetailHeight(detail, direction * radius, spacing, out double fine);
+            return h + fine * coast;
         }
 
         public void HeightBands(double3 direction, double ownSpacing, double parentSpacing,
@@ -78,14 +79,32 @@ namespace Planet.Procedural.Terrain
                 ? math.saturate(math.abs(macroHeight - macro.seaLevelMetres) / math.max(1.0, detail.AmplitudeBound * 2))
                 : 1.0;
             coast = coast * coast * (3 - 2 * coast);
-            detail.Evaluate2(direction * radius, ownSpacing, parentSpacing, out double own, out double parent);
+            TerrainSamplingKernels.DetailBands(detail, direction * radius, ownSpacing, parentSpacing,
+                out double own, out double parent);
             ownHeight += own * coast;
             parentHeight += parent * coast;
         }
 
+        public double NodeHeight(double3 direction, TerrainNodeKey key, double gridX, double gridY,
+            double spacing, Dictionary<float3, float> cache = null)
+        {
+            double h = MacroHeight(direction, cache);
+            if (!solid || !detail.IsEnabled) return h;
+            double coast = macro.hasOcean
+                ? math.saturate(math.abs(h - macro.seaLevelMetres) / math.max(1.0, detail.AmplitudeBound * 2))
+                : 1.0;
+            coast = coast * coast * (3 - 2 * coast);
+            TerrainSamplingKernels.NodeDetail(detail, direction * radius, key, gridX, gridY, spacing, out double fine);
+            return h + fine * coast;
+        }
+
         public float3 MacroAlbedo(double3 direction, double spacing, Dictionary<float3, float3> cache)
         {
-            if (spacing >= 2 * radius / MacroSegments) return macro.EvaluateAlbedoOnly((float3)direction);
+            if (spacing >= 2 * radius / MacroSegments)
+            {
+                TerrainSamplingKernels.MacroAlbedo(macro, (float3)direction, out float3 direct);
+                return direct;
+            }
             var face = TerrainLattice.DominantFace(direction);
             double2 grid = (math.clamp(TerrainLattice.FaceUv(face, direction), -1.0, 1.0) + 1) * (0.5 * MacroSegments);
             int2 cell = math.clamp((int2)math.floor(grid), 0, MacroSegments - 1);
@@ -99,7 +118,7 @@ namespace Planet.Procedural.Terrain
             const long step = TerrainLattice.LatticeSize / MacroSegments;
             float3 d = (float3)TerrainLattice.Direction(face, x * step, y * step);
             if (cache.TryGetValue(d, out float3 color)) return color;
-            color = macro.EvaluateAlbedoOnly(d); cache[d] = color;
+            TerrainSamplingKernels.MacroAlbedo(macro, d, out color); cache[d] = color;
             return color;
         }
 

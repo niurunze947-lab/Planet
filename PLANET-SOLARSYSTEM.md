@@ -3,7 +3,7 @@
 `Assets/Scenes/SolarSystem.unity`：从**太阳**到**柯伊伯带**按真实比例搭建的太阳系，
 每个天体的**自转**与**公转**全部由代码按开普勒轨道根数推算，场景由代码生成而非手工摆放。
 
-- 场景文件：`Assets/Scenes/SolarSystem.unity`（Build index 2）
+- 场景文件：`Assets/Scenes/SolarSystem.unity`（Build index 0）
 - 代码：`Assets/Scripts/Solar/`（程序集 `Planet.Solar`，边界见
   [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §2）
 - 着色器：`Assets/Shaders/`；定义与派生资源：`Assets/Resources/Solar/`
@@ -306,6 +306,8 @@ shader `Planet/StarfieldPhysical`。必须用 EXR 而非 PNG：恒星亮度跨�
 | **Build Planet Mesh LODs** | `PlanetMeshLodBuilder` | 生成离线 Cube Sphere Mesh 档位资产。**正式场景已改用运行时分块地形，该路径只在 `useRuntimeChunks = false` 的原型里作为回退**（[PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §16） |
 | **Audit Space Scale** | `SpaceScaleAuditor` | 只读尺度审计，报告七节写入 `Library/SpaceScaleAudit.txt`（[PLANET-SPACE.md](PLANET-SPACE.md) §9） |
 | **Capture Solar System Poses** | `SolarSystemBuilder` | 按 `SolarSystemPoses` 的机位出图到 `Assets/Screenshots/`（需在 Play 模式） |
+| **Capture Render Benchmark** | `PlanetPerformanceAuditor` | 采集当前 Play 视角的帧时间与地形诊断，报告写入 `Library`；验收方法见 [PLANET-RENDERING.md](PLANET-RENDERING.md) §5 |
+| **Build Benchmark Player** | `PlanetPerformanceAuditor` | 构建独立 Windows Player 到 `Build`，供固定机位与命令行性能验收使用 |
 | **Reimport Solar Screenshots** | `SolarSystemBuilder` | 出图后手动触发资源导入 |
 
 场景是**代码生成**的：改比例、加天体、调分辨率都改 `SolarSystemCatalog` / `SolarSystemFactory`

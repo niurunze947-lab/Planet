@@ -50,6 +50,9 @@ graph TD
     O --> S["PLANET-SOLARSYSTEM<br/>正式场景"]
     O --> P["PLANET-PROCEDURAL<br/>程序化框架"]
     O --> C["PLANET-SPACE<br/>尺度坐标层"]
+    O --> R["PLANET-RENDERING<br/>渲染架构与验收"]
+    R --> P
+    R --> C
     P --> M["PLANET-MATERIALS<br/>21 天体外观"]
     P --> T["PLANET-TEXTURE-LOD<br/>Earth 视距纹理"]
     P --> L2["PLANET-STELLAR<br/>恒星框架"]
@@ -75,6 +78,7 @@ graph TD
 | [PLANET-PITFALLS.md](PLANET-PITFALLS.md) | **全工程唯一**的「现象 → 结论」表，按子系统分组 | 机制解释 → 对应专题文档 |
 | [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) | 正式场景：比例决策、轨道力学与数值验证、操作与菜单、坐标系映射 | 尺度层 → [PLANET-SPACE.md](PLANET-SPACE.md)；外观 → [PLANET-MATERIALS.md](PLANET-MATERIALS.md) |
 | [PLANET-SPACE.md](PLANET-SPACE.md) | 尺度坐标层：精度预算、四级架树、浮动原点、分块网格与接缝、策略 LOD/ChunkStreamer、远场策略 | 大气散射与地表采样、正式运行时区块流送 → [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §16 |
+| [PLANET-RENDERING.md](PLANET-RENDERING.md) | 商业级画质路线、跨系统渲染架构、帧时间与独立 Player 验收、性能诊断入口 | 采样与区块预算 → [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §16；坐标与交互契约 → [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §2–§3 |
 | [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) | 程序化框架：设计原则、数据流、单位与坐标、采样数学、网格与壳层、烘焙缓存、分辨率预算、正式运行时地表加载 | 单颗天体的外观解释 → [PLANET-MATERIALS.md](PLANET-MATERIALS.md) |
 | [PLANET-MATERIALS.md](PLANET-MATERIALS.md) | 21 个天体的可见光外观、权威/派生资源布局、框架缺口与对策、特征依据 | 采样数学 → [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) |
 | [PLANET-TEXTURE-LOD.md](PLANET-TEXTURE-LOD.md) | Earth 按视场高度分级的纹理档位、烘焙与缓存、运行时绑定与显存预算、云层唯一性 | 采样数学 → [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) |
@@ -98,6 +102,7 @@ graph TD
 | 全部「现象 → 结论」与踩坑结论 | [PLANET-PITFALLS.md](PLANET-PITFALLS.md) | 链接 |
 | 尺度层精度、`SurfaceChunkGrid` / `ChunkStreamer` 策略参数 | [PLANET-SPACE.md](PLANET-SPACE.md) | 只给结论，不复述数字 |
 | 正式运行时 `TerrainLattice`、地表流送/碰撞预算与闸门 | [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §16 | 只给结论，不复述数字 |
+| 商业级画质阶段、性能目标与基准方法 | [PLANET-RENDERING.md](PLANET-RENDERING.md) | 链接；实测结果从基准工具重新导出 |
 | 轨道根数来源与数值验证表 | [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) §2 | 链接 |
 | 编辑器菜单全表与操作顺序 | [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) §6 | 只写要用到的那一项 |
 | `PlanetDefinition` 参数分组与采样数学 | [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §5–§8 | 链接 |
@@ -133,6 +138,7 @@ graph TD
 | 改相机、输入、缩放边界、地表漫游 | [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §3 → `Assets/Scripts/Interaction/` |
 | 改尺度精度、原点或 `SurfaceChunkGrid` / `ChunkStreamer` 策略 | [PLANET-SPACE.md](PLANET-SPACE.md) |
 | 改正式运行时地表区块、碰撞覆盖或加载预算 | [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §16 |
+| 提升整体画质与性能、运行独立 Player 基准 | [PLANET-RENDERING.md](PLANET-RENDERING.md) §3–§5 |
 | 改轨道 / 比例 / 目录数据 | [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) §2 → [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §4 |
 | 改星空天空盒 / 查贴图导入设置 | [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) §5 → [PLANET-PITFALLS.md](PLANET-PITFALLS.md) §6 |
 | 准备合并、开新分支 | [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §1、§5–§7 |

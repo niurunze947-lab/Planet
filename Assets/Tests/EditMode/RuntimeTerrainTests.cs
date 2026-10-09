@@ -160,6 +160,24 @@ public sealed class RuntimeTerrainTests
             "Fine child boundary must use the parent-resolved relief band.");
     }
 
+    [TestCase(14)]
+    [TestCase(25)]
+    public void MaterialCoordinatesRetainLocalPrecisionOnAnOblatePlanet(int level)
+    {
+        var source = new RuntimeTerrainSource(definition);
+        TerrainNodeKey key = TerrainLattice.NodeAt(math.normalize(new double3(1, 0.57, -0.31)), level);
+        RuntimeTerrainChunk data = RuntimeTerrainChunk.Build(source, key, CancellationToken.None);
+        int count = (TerrainLattice.N + 1) * (TerrainLattice.N + 1);
+        for (int i = 0; i < count; i++)
+        {
+            double3 displayed = data.origin + (double3)(float3)data.vertices[i];
+            double3 expected = math.normalize(displayed) * source.radius;
+            double3 reconstructed = displayed - (double3)math.normalize((float3)data.directions[i]) * data.samples[i].w;
+            Assert.Less(math.distance(expected, reconstructed), 0.006,
+                "Shader radial offset must be derived before narrowing planetary radii to float.");
+        }
+    }
+
     [Test]
     public void MacroInterpolationIsContinuousAcrossCubeFaceEdges()
     {

@@ -1,23 +1,27 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using Unity.Mathematics;
 using UnityEngine;
-using Planet.Procedural;
+using Unity.Profiling;
 
 namespace Planet.Procedural.Terrain
 {
     /// <summary>Managed buffers produced on a worker. Unity mesh creation happens on the main thread.</summary>
     public sealed class RuntimeTerrainChunk
     {
+        public const int GeometryVersion = 3;
+        private static readonly ProfilerMarker BuildMarker = new ProfilerMarker("Planet.Terrain.Build");
+
         public TerrainNodeKey key;
         public double3 origin;
         public Vector3[] vertices, normals, directions;
         public Vector4[] samples;
-        public Vector4[] layerWeights;
         public Color[] colors;
         public int[] triangles;
         public double spacing;
+        public double buildMilliseconds;
         public double3 oceanOrigin;
         public Vector3[] oceanVertices, oceanNormals;
         /// <summary>Uphill bed direction (body axes) and bed slope, for the nearshore wave train.</summary>
@@ -96,9 +100,9 @@ namespace Planet.Procedural.Terrain
 
         public Mesh Upload()
         {
-        var mesh = new Mesh { name = "Terrain " + key, hideFlags = HideFlags.DontSave };
-        mesh.vertices = vertices; mesh.normals = normals; mesh.colors = colors;
-        mesh.SetUVs(1, directions); mesh.SetUVs(2, samples); mesh.SetUVs(3, layerWeights); mesh.triangles = triangles;
+            var mesh = new Mesh { name = "Terrain " + key, hideFlags = HideFlags.DontSave };
+            mesh.vertices = vertices; mesh.normals = normals; mesh.colors = colors;
+            mesh.SetUVs(1, directions); mesh.SetUVs(2, samples); mesh.triangles = triangles;
             mesh.RecalculateBounds();
             return mesh;
         }
@@ -106,6 +110,13 @@ namespace Planet.Procedural.Terrain
         public static RuntimeTerrainChunk Build(RuntimeTerrainSource source, TerrainNodeKey key, CancellationToken cancel)
         {
             if (!key.IsValid) throw new ArgumentOutOfRangeException(nameof(key));
+            using (BuildMarker.Auto())
+                return BuildBuffers(source, key, cancel);
+        }
+
+        private static RuntimeTerrainChunk BuildBuffers(RuntimeTerrainSource source, TerrainNodeKey key, CancellationToken cancel)
+        {
+            var timer = Stopwatch.StartNew();
             var macroCache = new Dictionary<float3, float>();
             var colorCache = new Dictionary<float3, float3>();
             const int n = TerrainLattice.N, side = n + 1, gridCount = side * side;
@@ -115,7 +126,6 @@ namespace Planet.Procedural.Terrain
                 key = key, spacing = TerrainLattice.Spacing(source.radius, key.level),
                 vertices = new Vector3[gridCount + skirtCount], normals = new Vector3[gridCount + skirtCount],
                 directions = new Vector3[gridCount + skirtCount], samples = new Vector4[gridCount + skirtCount],
-                layerWeights = new Vector4[gridCount + skirtCount],
                 colors = new Color[gridCount + skirtCount], triangles = new int[n * n * 6 + n * 4 * 6]
             };
             long startX = TerrainLattice.VertexLattice(key.x, key.level, 0);
@@ -136,7 +146,6 @@ namespace Planet.Procedural.Terrain
             const int haloSide = n + 3;
             var positions = new double3[haloSide * haloSide];
             var heights = new double[positions.Length];
-            double parentSpacing = result.spacing * 2.0;
             for (int y = -1; y <= n + 1; y++)
             {
                 cancel.ThrowIfCancellationRequested();
@@ -144,15 +153,7 @@ namespace Planet.Procedural.Terrain
                 {
                     int i = (y + 1) * haloSide + x + 1;
                     double3 d = TerrainLattice.Direction(key.face, startX + x * step, startY + y * step);
-                    double height;
-                    if (key.level > 0)
-                    {
-                        source.HeightBands(d, result.spacing, parentSpacing, out height, out double parentHeight, macroCache);
-                        double edgeDistance = math.min(math.min(x, n - x), math.min(y, n - y));
-                        double blend = math.saturate(edgeDistance * 0.5);
-                        height = math.lerp(parentHeight, height, blend);
-                    }
-                    else height = source.Height(d, result.spacing, macroCache);
+                    double height = source.NodeHeight(d, key, x, y, result.spacing, macroCache);
                     heights[i] = height;
                     positions[i] = d * (source.ReferenceRadius(d) + source.DisplayDisplacement(height));
                 }
@@ -195,12 +196,13 @@ namespace Planet.Procedural.Terrain
                     }
                     double dhU = (heights[hIndex + 1] - heights[hIndex - 1]) / (2 * result.spacing);
                     double dhV = (heights[hIndex + haloSide] - heights[hIndex - haloSide]) / (2 * result.spacing);
-                    result.samples[i] = new Vector4((float)h, (float)math.degrees(math.atan(math.sqrt(dhU * dhU + dhV * dhV))), water, 0);
+                    // Subtract in double; reconstructing this offset from float planetary radii
+                    // in the shader loses the centimetre-scale material sampling coordinates.
+                    double radialOffset = source.ReferenceRadius(d) + source.DisplayDisplacement(h) - source.radius;
+                    result.samples[i] = new Vector4((float)h, (float)math.degrees(math.atan(math.sqrt(dhU * dhU + dhV * dhV))),
+                        water, (float)radialOffset);
                     float3 albedo = source.MacroAlbedo(d, result.spacing, colorCache);
                     result.colors[i] = new Color(albedo.x, albedo.y, albedo.z, 1);
-                    PlanetTerrainWeights weights = source.macro.EvaluateTerrainWeights((float3)d,
-                        (float)h, result.samples[i].y);
-                    result.layerWeights[i] = (Vector4)weights.Channels;
                 }
             }
             if (!anyWater) { result.oceanVertices = null; result.oceanNormals = null; result.oceanShore = null; }
@@ -221,13 +223,13 @@ namespace Planet.Procedural.Terrain
                 int a = EdgeVertex(edge, v, n), b = gridCount + edge * side + v;
                 result.vertices[b] = result.vertices[a] - result.directions[a] * (float)depth;
                 result.normals[b] = result.normals[a]; result.directions[b] = result.directions[a];
-                result.layerWeights[b] = result.layerWeights[a];
                 result.colors[b] = result.colors[a]; result.samples[b] = result.samples[a];
                 if (v == n) continue;
                 int next = EdgeVertex(edge, v + 1, n);
                 result.triangles[index++] = a; result.triangles[index++] = b; result.triangles[index++] = next;
                 result.triangles[index++] = next; result.triangles[index++] = b; result.triangles[index++] = b + 1;
             }
+            result.buildMilliseconds = timer.Elapsed.TotalMilliseconds;
             return result;
         }
 

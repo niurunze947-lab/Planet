@@ -15815,7 +15815,6 @@ GameObject:
   - component: {fileID: 1473632816}
   - component: {fileID: 1473632817}
   - component: {fileID: 1473632818}
-  - component: {fileID: 1473632819}
   - component: {fileID: 1473632820}
   m_Layer: 0
   m_Name: Earth
@@ -15983,18 +15982,6 @@ MonoBehaviour:
     contactSpacingMetres: 1
   nearActiveChunks: 1024
   nearResidentChunks: 1536
---- !u!114 &1473632819
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1473632810}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 216c7cc6be7b6e94fab0aa97eb25ac48, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &1473632820
 MonoBehaviour:
   m_ObjectHideFlags: 0

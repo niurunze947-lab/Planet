@@ -62,7 +62,7 @@ Unity 不允许同一目录下存在两个 asmdef。
 | **旧 C6 精确地表高度（兼容工具路径）** | 只读真值 | `HasPreciseSurfaceDistance` / `SetSurfaceClearanceMetres` / `TargetSurfaceClearanceMetres` / `CameraBodyFixedMetres`。与 `freeRoam` 为**或**关系释放 `BodyFixedCameraAnchor` |
 | **旧交互层对外（保留测试与兼容调用，正式运行时见 §3）** | `Planet.Interaction` 发布 | `ViewDistanceBoundary`（纯函数：比例、速率、钳制、闸门判定、`ApplySurfaceClearanceZoomMetres`）、`SurfaceModeController.EnteredSurfaceMode` / `ExitedSurfaceMode` 事件与 `[SurfaceMode]` 日志口径。预订这些事件的资源预加载由 `planet-definition` 实现 |
 | **显示位移** | `PlanetSurfaceSampler.DisplacementMetres(height)` | globe 与 chunk 的唯一入口。有海时围绕固定海平面夸张陆地，物理高度不乘倍率 |
-| **缓存键** | 纯函数 | 全球贴图/网格用 `ContentFingerprint()`；含 `PlanetDetailSampler` 的区块缓存用 `TerrainContentFingerprint()`（`GeneratorVersion` + `detail`） |
+| **缓存键** | 纯函数 | 全球贴图/网格用 `ContentFingerprint()`；含 `PlanetDetailSampler` 的区块缓存用 `TerrainContentFingerprint()`（细节生成器版本 + 区块 `GeometryVersion` + `detail`） |
 
 新增接口时先在 `main` 修改本文件，再在职责分支实现。禁止通过复制字段、读取私有组件或
 增加反向 asmdef 绕过接口。

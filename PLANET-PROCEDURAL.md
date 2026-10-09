@@ -34,8 +34,8 @@ StellarSurfaceView`；行星仍使用本文件的采样链，基础质量／半�
    网格、贴图烘焙、星空测光各取所需，不会出现「贴图和几何对不上」。
 
 > `Planet.Procedural` 引用了 `Unity.Mathematics` 与 `Unity.Burst`（`autoReferenced`）。
-> 采样器写成 blittable 就是为了将来接 Burst，**但当前代码里没有任何 `[BurstCompile]`**，
-> 目前的并行只来自 `Parallel.For` 与 `Task`。
+> `TerrainSamplingKernels` 已通过 Burst 直接调用编译采样热点，保留托管回退；
+> 任务调度仍使用 `Parallel.For` 与 `Task`，尚未迁移为 Jobs / ECS。
 
 ---
 
@@ -83,6 +83,7 @@ PlanetLightingController             (推太阳方向 + 全局星空曝光 EV)
 | `Procedural/Terrain/PlanetViewState.cs`、`IPlanetSurfaceQuery.cs`、`ViewHeightRatios.cs` | **跨程序集契约** C1 / C2 / C-ratio（[DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §2.1） |
 | `Procedural/Terrain/PlanetDetailParameters.cs`、`PlanetDetailSampler.cs` | 双精度米制域的细节频段场，按顶点间距淡入／截断未解析频段 |
 | `Procedural/Terrain/TerrainLattice.cs`、`TerrainNodeKey.cs`、`RuntimeTerrain*.cs` | **运行时**分块地形：格点阶梯、节点键、选择、构建、渲染与 `IPlanetSurfaceQuery` 实现 |
+| `Procedural/Terrain/TerrainSamplingKernels.cs` | 宏观、完整表面和双精度细节的 Burst 纯函数入口，及祖先边界混合 |
 | `Scripts/PlanetAtmosphere.cs` | 大气壳层组件 |
 | `Scripts/PlanetLightingController.cs` | 太阳方向同步、壳层实例发现、星空曝光 EV |
 | `Editor/PlanetSurfaceBaker.cs`、`PlanetFrameworkBuilder.cs`、`PlanetDefinitionEditor.cs` | 烘焙、派生资产生成与接线、定义 Inspector |
@@ -153,7 +154,7 @@ PlanetLightingController             (推太阳方向 + 全局星空曝光 EV)
 
 **内容指纹**：`ContentFingerprint() = Hash128(GeneratorVersion + 五组参数的 JSON)`，
 用于网格与贴图缓存判定；`appearance` 参与指纹。含 `PlanetDetailSampler` 的区块缓存改用
-`TerrainContentFingerprint()`（`GeneratorVersion` + `detail`）。
+`TerrainContentFingerprint()`（细节生成器版本 + `RuntimeTerrainChunk.GeometryVersion` + `detail`）。
 
 以下 §6–§8 的高度与气候公式描述 `Terrestrial` 类型；其他类型由 `PlanetAppearanceSampler` 采样。
 气巨星、雾霾、光球的高度为光学参考层上的零起伏，另由 `opticalSurfaceHeightMetres` 控制可见壳层
@@ -514,11 +515,18 @@ Mesh LOD 链。地形流送只跟随**实际靠近的天体**，不跟随 HUD �
 生成四边裙边来遮住不同层级的过渡缝。法线使用一次 halo 高程采样的中心差分，颜色来自
 固定宏观格点插值；区块尺寸、颜色和法线都来自同一份显示采样。
 
+宏观、颜色、全球表面样本和双精度细节经过 `TerrainSamplingKernels` 的 Burst 直接调用，
+采样快照不包含 Unity 对象，禁用 Burst 时继续走同源托管函数。子块边界使用
+`RuntimeTerrainSource.NodeHeight()` 重建父块已经混合过的高度，按需要追溯祖先，
+避免父块边界退回祖父频段后与子块取值不一致。区块几何算法以 `GeometryVersion` 参与缓存键。
+
 每个天体每帧最多启动一个区块构建任务；全局 worker 信号量最多允许两个选择/构建任务同时
 运行。选择任务约每 0.3 秒重新计算一次，只有观察者位置、速度、朝向、视口或预算变化到
 阈值才重算。主线程完成任务时逐个接收 Unity Mesh，碰撞网格的创建还受
 `uploadBudgetMilliseconds` 限制。节点被选出后加入 `wanted`（包含所有祖先），完成构建后
-才可进入 `nodes` 驻留表。请求优先脚下、预测前进方向和更近的覆盖；父节点细分时四个兄弟
+才可进入 `nodes` 驻留表。完成的 Mesh 上传同样受更新计时器的准入限制，预算用尽则保留
+已完成的缓冲到后续帧；单次 Mesh 上传或 Collider 烹饪不可抢占，实际耗时由诊断记录。
+请求优先脚下、预测前进方向和更近的覆盖；父节点细分时四个兄弟
 子块作为同组提高优先级，使父节点能够在完整子覆盖就绪后退出。
 
 `SelectCoverage()` 只在某节点的四个子节点全部驻留时才把父节点替换为子节点；否则继续显示
@@ -561,6 +569,14 @@ Collider 全部就绪，子区块随后以完整组替换父区块。
 Cubemap 档位。区块复制 `PlanetSurfaceView` 的 `MaterialPropertyBlock`；当区块间距小于
 20 km 时才启用顶点颜色，远景仍使用当前 albedo/cloud Cubemap。区块法线由显示几何直接
 生成，因此运行时不再叠加全球法线 Cubemap。
+
+近地 shader 以局部米制位置的屏幕导数估计像素足迹，过滤未解析的材质频段；一次 Simplex
+遍历同时返回高度与解析梯度，梯度叠加在已有地形法线上。高度和方向保留 float 精度，
+不在计算细节坐标前降为 half。整机性能验收见 [PLANET-RENDERING.md](PLANET-RENDERING.md) §5。
+
+区块 `TEXCOORD2.w` 保存 double 域计算后降 float 的径向偏移，供材质恢复参考球采样位置。
+噪声计算保留整数高位格点和小范围低位残差，不在求格点前把它们合成行星尺度的 float。
+全球网格的同一通道仍按 §9 表示水含量；两条路径由 `_ChunkEnabled` 区分。
 
 
 ### 16.8 两条几何路径的边界

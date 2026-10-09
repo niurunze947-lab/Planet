@@ -115,14 +115,17 @@ Shader "Planet/ProceduralSurface"
             half4 Frag(Varyings input) : SV_Target
             {
                 if (_LocalClipDistance > 0) clip(_LocalClipDistance - length(input.viewVectorWS));
-                half3 directionOS = normalize(input.directionOS);
+                float3 directionOS = normalize(input.directionOS);
                 half3 radialNormal = normalize(input.sphereNormalWS);
                 half3 terrainNormal = normalize(input.normalWS);
-                half height = input.surfaceData.x;
+                float height = input.surfaceData.x;
+                float pixelFootprint = max(length(ddx(input.localPositionOS)), length(ddy(input.localPositionOS)));
                 half detailMask = _ProceduralDetailHasOcean > 0.5h
                     ? smoothstep(0.0h, max(_ProceduralDetailCoastScale, 1.0), abs(height - _SeaLevel)) : 1.0h;
-                half proceduralDetail = _ProceduralDetailEnabled > 0.5h && _ChunkEnabled > 0.5
-                    ? PlanetDetailField(input.localPositionOS, directionOS, height) : 0.0h;
+                float4 detailSample = 0;
+                if (_ProceduralDetailEnabled > 0.5h && _ChunkEnabled > 0.5)
+                    detailSample = PlanetDetailFieldGradient(input.localPositionOS, directionOS, input.surfaceData.w, pixelFootprint);
+                float proceduralDetail = detailSample.w;
                 if (_NormalEnabled > 0.5h)
                 {
                     float3 detailOS = normalize(SAMPLE_TEXTURECUBE(_NormalCube, sampler_NormalCube, directionOS).rgb * 2.0 - 1.0);
@@ -130,9 +133,9 @@ Shader "Planet/ProceduralSurface"
                 }
                 if (_ProceduralDetailEnabled > 0.5h && _ChunkEnabled > 0.5)
                 {
-                    float3 baseNormalOS = normalize(PlanetDirectionToBody(radialNormal));
-                    float3 detailNormalOS = PlanetDetailNormal(input.localPositionOS, directionOS, height, baseNormalOS);
-                    terrainNormal = normalize(lerp(terrainNormal, PlanetNormalToWorld(detailNormalOS), 0.65h * detailMask));
+                    float3 baseNormalOS = PlanetDirectionToBody(terrainNormal);
+                    float3 tangentGradient = detailSample.xyz - directionOS * dot(detailSample.xyz, directionOS);
+                    terrainNormal = PlanetNormalToWorld(normalize(baseNormalOS - tangentGradient * (0.65h * detailMask)));
                 }
                 half slope = saturate(input.surfaceData.y / 42.0h);
                 // The mesh carries the smooth, derived liquid coverage in TEXCOORD2.z. It is

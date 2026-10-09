@@ -80,41 +80,55 @@ uint PlanetDetailHash(int3 lattice, uint octaveSeed)
     return PlanetDetailMix(h ^ ((uint)lattice.z * 0xCB1AB31Fu));
 }
 
-float PlanetDetailGradient(uint hash, float3 x)
+float3 PlanetDetailGradientVector(uint hash)
 {
     switch (hash % 12u)
     {
-        case 0: return x.x + x.y;
-        case 1: return -x.x + x.y;
-        case 2: return x.x - x.y;
-        case 3: return -x.x - x.y;
-        case 4: return x.x + x.z;
-        case 5: return -x.x + x.z;
-        case 6: return x.x - x.z;
-        case 7: return -x.x - x.z;
-        case 8: return x.y + x.z;
-        case 9: return -x.y + x.z;
-        case 10: return x.y - x.z;
-        default: return -x.y - x.z;
+        case 0: return float3(1, 1, 0);
+        case 1: return float3(-1, 1, 0);
+        case 2: return float3(1, -1, 0);
+        case 3: return float3(-1, -1, 0);
+        case 4: return float3(1, 0, 1);
+        case 5: return float3(-1, 0, 1);
+        case 6: return float3(1, 0, -1);
+        case 7: return float3(-1, 0, -1);
+        case 8: return float3(0, 1, 1);
+        case 9: return float3(0, -1, 1);
+        case 10: return float3(0, 1, -1);
+        default: return float3(0, -1, -1);
     }
 }
 
-float PlanetDetailCorner(float3 x, int3 lattice, uint octaveSeed)
+// xyz = analytic derivative, w = height. Both share one simplex traversal.
+float4 PlanetDetailCorner(float3 x, int3 lattice, uint octaveSeed)
 {
     float t = 0.5 - dot(x, x);
     if (t <= 0.0) return 0.0;
-    t *= t;
-    return t * t * PlanetDetailGradient(PlanetDetailHash(lattice, octaveSeed), x);
+    float3 gradient = PlanetDetailGradientVector(PlanetDetailHash(lattice, octaveSeed));
+    float value = dot(gradient, x);
+    float t2 = t * t;
+    float t3 = t2 * t;
+    float t4 = t2 * t2;
+    return float4(t4 * gradient - 8.0 * t3 * value * x, t4 * value);
 }
 
-float PlanetDetailNoise(float3 p, uint octaveSeed)
+float4 PlanetDetailNoiseGradient(float3 highPosition, float3 lowPosition, uint octaveSeed)
 {
     const float F3 = 1.0 / 3.0;
     const float G3 = 1.0 / 6.0;
-    float s = (p.x + p.y + p.z) * F3;
-    int3 i = (int3)floor(p + s);
-    float t = (i.x + i.y + i.z) * G3;
-    float3 x0 = p - ((float3)i - t);
+    // Keep the planetary integer address out of the local fraction. Combining high and
+    // low in a float before floor() discards sub-metre motion on an Earth-sized body.
+    int3 highCell = (int3)floor(highPosition);
+    lowPosition += highPosition - (float3)highCell;
+    int sumHigh = highCell.x + highCell.y + highCell.z;
+    int skewHigh = (int)((uint)abs(sumHigh) / 3u);
+    if (sumHigh < 0) skewHigh = -skewHigh;
+    int remainder = sumHigh - skewHigh * 3;
+    float skewLow = (lowPosition.x + lowPosition.y + lowPosition.z + remainder) * F3;
+    int3 localCell = (int3)floor(lowPosition + skewLow);
+    int3 i = highCell + skewHigh + localCell;
+    float t = (localCell.x + localCell.y + localCell.z + remainder) * G3;
+    float3 x0 = lowPosition - (float3)localCell + t;
     int3 o1, o2;
     if (x0.x >= x0.y)
     {
@@ -128,67 +142,50 @@ float PlanetDetailNoise(float3 p, uint octaveSeed)
         else if (x0.x < x0.z) { o1 = int3(0, 1, 0); o2 = int3(0, 1, 1); }
         else { o1 = int3(0, 1, 0); o2 = int3(1, 1, 0); }
     }
-    float sum = PlanetDetailCorner(x0, i, octaveSeed);
+    float4 sum = PlanetDetailCorner(x0, i, octaveSeed);
     sum += PlanetDetailCorner(x0 - (float3)o1 + G3, i + o1, octaveSeed);
     sum += PlanetDetailCorner(x0 - (float3)o2 + 2.0 * G3, i + o2, octaveSeed);
     sum += PlanetDetailCorner(x0 - 1.0 + 3.0 * G3, i + 1, octaveSeed);
     return 76.0 * sum;
 }
 
-float3 PlanetDetailCoordinates(float3 localPosition, float3 directionOS, float height, float wavelength)
+void PlanetDetailCoordinates(float3 localPosition, float3 directionOS, float radialOffset,
+    float wavelength, out float3 highPosition, out float3 lowPosition)
 {
     float3 direction = normalize(directionOS);
-    float3 axes = max(_ReferenceAxes.xyz, 0.001);
-    float referenceRadius = _TerrainDetailRadiusMetres * rsqrt(dot(direction / axes, direction / axes));
-    float displacement = _ProceduralDetailHasOcean > 0.5h
-        ? _SeaLevel + (height - _SeaLevel) * _TerrainVisualReliefScale
-        : height * _TerrainVisualReliefScale;
-    displacement += _TerrainOpticalHeight;
-    float radialOffset = referenceRadius + displacement - _TerrainDetailRadiusMetres;
-    float3 origin = _DetailOriginHigh.xyz / wavelength +
-        (_DetailOriginLow.xyz + localPosition - direction * radialOffset) / wavelength;
-    return origin;
+    highPosition = _DetailOriginHigh.xyz / wavelength;
+    lowPosition = (_DetailOriginLow.xyz + localPosition - direction * radialOffset) / wavelength;
 }
 
-float PlanetDetailField(float3 localPosition, float3 directionOS, float height)
+float4 PlanetDetailFieldGradient(float3 localPosition, float3 directionOS, float radialOffset, float pixelFootprint)
 {
     float amplitude = _ProceduralDetailAmplitude;
     float wavelength = max(_ProceduralDetailBaseWavelength, 1.0);
-    float result = 0.0;
+    float4 result = 0.0;
     float spacing = max(_TerrainDetailSpacing, 0.05);
+    float footprint = max(pixelFootprint, 0.001);
     int octaves = clamp((int)_ProceduralDetailOctaves, 0, 24);
     [loop]
     for (int octave = 0; octave < octaves; octave++)
     {
-        if (amplitude < 0.005) break;
+        if (amplitude < 0.005 || wavelength <= 2.0 * footprint) break;
+        if (max(max(abs(_DetailOriginHigh.x), abs(_DetailOriginHigh.y)), abs(_DetailOriginHigh.z)) / wavelength > 5e8) break;
         float t = saturate((wavelength - 2.0 * spacing) / (2.0 * spacing));
         float geometryWeight = t * t * (3.0 - 2.0 * t);
-        float materialWeight = 1.0 - geometryWeight;
+        float screenWeight = smoothstep(2.0 * footprint, 4.0 * footprint, wavelength);
+        float materialWeight = (1.0 - geometryWeight) * screenWeight;
         if (materialWeight > 0.001)
         {
             uint octaveSeed = PlanetDetailMix(_ProceduralDetailSeed + (uint)(octave + 1) * 0x9E3779B9u);
-            float3 coordinates = PlanetDetailCoordinates(localPosition, directionOS, height, wavelength);
-            result += PlanetDetailNoise(coordinates, octaveSeed) * amplitude * materialWeight;
+            float3 highPosition, lowPosition;
+            PlanetDetailCoordinates(localPosition, directionOS, radialOffset, wavelength, highPosition, lowPosition);
+            float4 sample = PlanetDetailNoiseGradient(highPosition, lowPosition, octaveSeed);
+            result.xyz += sample.xyz * (amplitude * materialWeight / wavelength);
+            result.w += sample.w * amplitude * materialWeight;
         }
         amplitude *= _ProceduralDetailGain;
         wavelength *= 0.5;
     }
     return result;
-}
-
-float3 PlanetDetailNormal(float3 localPosition, float3 directionOS, float height, float3 normalOS)
-{
-    float3 up = normalize(directionOS);
-    float3 helper = abs(up.y) < 0.9 ? float3(0, 1, 0) : float3(1, 0, 0);
-    float3 east = normalize(cross(helper, up));
-    float3 north = cross(up, east);
-    float step = max(_TerrainDetailSpacing * 0.5, 0.25);
-    float angularStep = step / max(_TerrainDetailRadiusMetres, 1.0);
-    float slopeEast = (PlanetDetailField(localPosition + east * step, normalize(up + east * angularStep), height) -
-        PlanetDetailField(localPosition - east * step, normalize(up - east * angularStep), height)) / (2.0 * step);
-    float slopeNorth = (PlanetDetailField(localPosition + north * step, normalize(up + north * angularStep), height) -
-        PlanetDetailField(localPosition - north * step, normalize(up - north * angularStep), height)) / (2.0 * step);
-    float3 gradient = east * slopeEast + north * slopeNorth;
-    return normalize(normalOS - gradient);
 }
 #endif

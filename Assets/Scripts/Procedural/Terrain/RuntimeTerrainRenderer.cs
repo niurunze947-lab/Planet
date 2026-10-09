@@ -7,6 +7,7 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
+using Unity.Profiling;
 
 namespace Planet.Procedural.Terrain
 {
@@ -37,6 +38,9 @@ namespace Planet.Procedural.Terrain
         public int CollisionChunkCount { get { return collisionNodes.Count; } }
         public int CoverageRevision { get; private set; }
         public double LastUpdateMilliseconds { get; private set; }
+        public double LastBuildMilliseconds { get; private set; }
+        public double LastUploadMilliseconds { get; private set; }
+        public double LastSubmitMilliseconds { get; private set; }
         public int FallbackSweepCount { get; private set; }
         public string LastError { get; private set; }
         public RuntimeTerrainSource Source { get { return source; } }
@@ -193,6 +197,8 @@ namespace Planet.Procedural.Terrain
             public bool collisionRelevant;
         }
         private static readonly SemaphoreSlim Workers = new SemaphoreSlim(2, 2);
+        private static readonly ProfilerMarker UploadMarker = new ProfilerMarker("Planet.Terrain.Upload");
+        private static readonly ProfilerMarker SubmitMarker = new ProfilerMarker("Planet.Terrain.Submit");
         private readonly Dictionary<TerrainNodeKey, Node> nodes = new Dictionary<TerrainNodeKey, Node>();
         private readonly List<Node> visible = new List<Node>();
         private readonly HashSet<TerrainNodeKey> visibleKeys = new HashSet<TerrainNodeKey>();
@@ -377,6 +383,7 @@ namespace Planet.Procedural.Terrain
             string fingerprint = owner.definition.TerrainContentFingerprint();
             if (identity == fingerprint && ready) return;
             Clear(); source = new RuntimeTerrainSource(owner.definition);
+            TerrainSamplingKernels.Warmup(source.macro, source.detail);
             identity = fingerprint; ready = true; nextSelection = 0; LastError = null;
         }
 
@@ -387,6 +394,7 @@ namespace Planet.Procedural.Terrain
             { nextIdentity = Time.realtimeSinceStartup + 0.5f; RefreshSource(); }
             if (!ready || !streamingRequested) return;
             updateTimer.Restart();
+            LastUploadMilliseconds = 0;
             double3 cameraDirection = math.normalizesafe(view.positionBfMetres, new double3(0, 1, 0));
             observerClearance = math.abs(math.length(view.positionBfMetres) - math.length(source.Position(cameraDirection, 1)));
             bool groundNeighbourhood = view.localCameraActive && source.solid &&
@@ -443,7 +451,7 @@ namespace Planet.Procedural.Terrain
                 });
             }
             var timer = updateTimer;
-            CompleteJob();
+            CompleteJob(timer);
             SelectCoverage();
             Evict();
             SyncColliders(timer);
@@ -510,9 +518,12 @@ namespace Planet.Procedural.Terrain
             return math.distancesq(center, view.positionBfMetres);
         }
 
-        private void CompleteJob()
+        private void CompleteJob(Stopwatch timer)
         {
             if (job == null || !job.IsCompleted) return;
+            // Mesh upload cannot be preempted; defer admission when this frame's work has
+            // already consumed the budget, and retain the completed buffers until a later frame.
+            if (timer.Elapsed.TotalMilliseconds >= uploadBudgetMilliseconds) return;
             var completed = job; job = null;
             if (completed.IsCanceled) return;
             if (completed.IsFaulted)
@@ -521,10 +532,18 @@ namespace Planet.Procedural.Terrain
                 UnityEngine.Debug.LogError("[Planet terrain] " + LastError, this); return;
             }
             RuntimeTerrainChunk data = completed.Result;
+            LastBuildMilliseconds = data.buildMilliseconds;
             meanBuildSeconds = math.lerp(meanBuildSeconds, Time.realtimeSinceStartupAsDouble - buildStarted, 0.15);
             if (!wanted.Contains(data.key) || nodes.ContainsKey(data.key)) return;
             Evict();
             if (nodes.Count >= ResidentBudget) return;
+            double started = timer.Elapsed.TotalMilliseconds;
+            using (UploadMarker.Auto()) UploadNode(data);
+            LastUploadMilliseconds = timer.Elapsed.TotalMilliseconds - started;
+        }
+
+        private void UploadNode(RuntimeTerrainChunk data)
+        {
             var go = new GameObject("Chunk " + data.key) { hideFlags = HideFlags.HideAndDontSave, layer = gameObject.layer };
             go.transform.SetParent(root, false);
             Mesh mesh = data.Upload();
@@ -641,6 +660,13 @@ namespace Planet.Procedural.Terrain
         {
             if (!ready || !shown || owner == null) return;
             if (camera == localCamera) return;
+            long started = Stopwatch.GetTimestamp();
+            using (SubmitMarker.Auto()) SubmitCamera(camera);
+            LastSubmitMilliseconds = (Stopwatch.GetTimestamp() - started) * 1000.0 / Stopwatch.Frequency;
+        }
+
+        private void SubmitCamera(Camera camera)
+        {
             PlanetViewState cameraView = camera == viewCamera && receivedView && view.localCameraActive ? view : ViewFromCamera(camera);
             foreach (var node in visible)
             {

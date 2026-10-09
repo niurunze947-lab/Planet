@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Unity.Mathematics;
 using UnityEngine;
 
@@ -15,10 +16,10 @@ namespace Planet.Procedural
         public readonly float minHeightMetres;
         public readonly float maxHeightMetres;
         public readonly float waterDepthRangeMetres;
-        public readonly bool hasOcean;
-        public readonly bool hasClouds;
-        public readonly bool hasEcology;
-        public readonly bool hasIceCaps;
+        [MarshalAs(UnmanagedType.U1)] public readonly bool hasOcean;
+        [MarshalAs(UnmanagedType.U1)] public readonly bool hasClouds;
+        [MarshalAs(UnmanagedType.U1)] public readonly bool hasEcology;
+        [MarshalAs(UnmanagedType.U1)] public readonly bool hasIceCaps;
         public const float NormalEncodingScale = 16f;
 
         private readonly float3 seedOffset;
@@ -27,9 +28,6 @@ namespace Planet.Procedural
         private readonly float oceanDepth, plateauHeight, mountainFrequency, mountainHeight;
         private readonly float detailFrequency, detailHeight, slopeStep;
         private readonly float temperatureOffset, moistureOffset, altitudeCooling;
-        private readonly float snowLineTemperature, snowBlendRange, snowSlopeStartDegrees, snowSlopeFullDegrees;
-        private readonly float desertMoistureStart, desertMoistureFull, rockSlopeStartDegrees, rockSlopeFullDegrees;
-        private readonly float rockLineStartMetres, rockLineFullMetres;
         private readonly float cloudFrequency, cloudCoverage, cloudSoftness, cloudDetailFrequency;
         private readonly float cloudOceanDensity, cloudLandDensity, cloudMoistureInfluence, cloudAltitudeBias;
         private readonly float cloudTerrainInfluence, cloudOrographicInfluence, cloudUpwindDistance;
@@ -76,16 +74,6 @@ namespace Planet.Procedural
             temperatureOffset = g.temperatureOffset;
             moistureOffset = g.moistureOffset;
             altitudeCooling = g.altitudeCoolingPerKilometre;
-            snowLineTemperature = g.snowLineTemperature;
-            snowBlendRange = g.snowBlendRange;
-            snowSlopeStartDegrees = g.snowSlopeStartDegrees;
-            snowSlopeFullDegrees = g.snowSlopeFullDegrees;
-            desertMoistureStart = g.desertMoistureStart;
-            desertMoistureFull = g.desertMoistureFull;
-            rockSlopeStartDegrees = g.rockSlopeStartDegrees;
-            rockSlopeFullDegrees = g.rockSlopeFullDegrees;
-            rockLineStartMetres = g.rockLineStartMetres;
-            rockLineFullMetres = g.rockLineFullMetres;
             cloudFrequency = g.cloudFrequency;
             cloudCoverage = g.cloudCoverage;
             cloudSoftness = g.cloudSoftness;
@@ -145,12 +133,11 @@ namespace Planet.Procedural
             float waterContent = hasOcean ? math.saturate(waterDepth / waterDepthRangeMetres) : 0f;
             float ocean = hasOcean ? Smooth(0f, 120f, waterDepth) : 0f;
             PlanetBiome biome = SelectBiome(h, temperature, moisture);
-            PlanetTerrainWeights terrainWeights = EvaluateTerrainWeights(h, temperature, moisture, slope);
             return new PlanetSurfaceSample
             {
                 heightMetres = h, slopeDegrees = slope, temperature = temperature, moisture = moisture,
                 ocean = ocean, waterDepthMetres = waterDepth, waterContent = waterContent,
-                biome = biome, normal = normal, terrainWeights = terrainWeights,
+                biome = biome, normal = normal,
                 albedoLinear = appearance.kind == PlanetSurfaceKind.Terrestrial
                     ? Albedo(d, h, temperature, moisture, slope, ocean) : appearance.Albedo(d)
             };
@@ -182,32 +169,6 @@ namespace Planet.Procedural
             float dryBelt = math.exp(-math.pow((latitude - 0.43f) / 0.17f, 2f));
             moisture = math.saturate(0.63f + Fbm(d * 3.1f + seedOffset - 81f, 4, 0.55f) * 0.48f -
                 dryBelt * 0.36f + moistureOffset);
-        }
-
-        public PlanetTerrainWeights EvaluateTerrainWeights(float3 direction, float heightMetres, float slopeDegrees)
-        {
-            float3 d = math.normalizesafe(direction, new float3(0f, 1f, 0f));
-            EvaluateClimate(d, heightMetres, out float temperature, out float moisture);
-            return EvaluateTerrainWeights(heightMetres, temperature, moisture, slopeDegrees);
-        }
-
-        private PlanetTerrainWeights EvaluateTerrainWeights(float heightMetres,
-            float temperature, float moisture, float slopeDegrees)
-        {
-            if (appearance.kind == PlanetSurfaceKind.FracturedIce)
-                return new PlanetTerrainWeights { snow = 1f };
-            if (appearance.kind == PlanetSurfaceKind.CrateredRock ||
-                appearance.kind == PlanetSurfaceKind.DustyRock ||
-                appearance.kind == PlanetSurfaceKind.SulfurVolcanic)
-                return new PlanetTerrainWeights { rock = 1f };
-            if (appearance.kind != PlanetSurfaceKind.Terrestrial)
-                return default;
-
-            return PlanetTerrainWeights.FromClimate(hasEcology, hasIceCaps, hasOcean,
-                heightMetres, seaLevelMetres, temperature, moisture, slopeDegrees,
-                snowLineTemperature, snowBlendRange, snowSlopeStartDegrees, snowSlopeFullDegrees,
-                desertMoistureStart, desertMoistureFull, rockSlopeStartDegrees, rockSlopeFullDegrees,
-                rockLineStartMetres, rockLineFullMetres);
         }
 
         /// <summary>Body-fixed statistical cloud field; terrestrial clouds share terrain and biome climate.</summary>

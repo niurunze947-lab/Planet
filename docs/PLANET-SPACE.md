@@ -1,4 +1,4 @@
-# Planet — 宇宙尺度坐标阶梯与行星表面流式 LOD
+﻿# Planet — 宇宙尺度坐标阶梯与行星表面流式 LOD
 
 `Assets/Scripts/Solar/Space/`：把「一整个星系」和「地表厘米级细节」拆成**两套坐标系**，
 用**浮动原点 + 四级空间阶梯 + 分块本地坐标 + 多级 LOD 流式加载**把它们接起来。
@@ -8,7 +8,7 @@
 - 代码目录：`Assets/Scripts/Solar/Space/`（编入 `Planet.Solar` 程序集）
 - 审计工具：菜单 **Tools ▸ Planet ▸ Audit Space Scale**，报告写入 `Library/SpaceScaleAudit.txt`
 - 回归测试：`Assets/Tests/EditMode/Solar/`，程序集 `Planet.Solar.Tests`
-- 上游：[PROJECT-OVERVIEW.md](PROJECT-OVERVIEW.md)；
+- 上游：[README.md](../README.md)；
   [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md)（比例与浮动原点的动机）、
   [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md)（地表采样与网格）
 

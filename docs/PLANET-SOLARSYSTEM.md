@@ -1,4 +1,4 @@
-# Planet — 真实比例太阳系
+﻿# Planet — 真实比例太阳系
 
 `Assets/Scenes/SolarSystem.unity`：从**太阳**到**柯伊伯带**按真实比例搭建的太阳系，
 每个天体的**自转**与**公转**全部由代码按开普勒轨道根数推算，场景由代码生成而非手工摆放。
@@ -7,7 +7,7 @@
 - 代码：`Assets/Scripts/Solar/`（程序集 `Planet.Solar`，边界见
   [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §2）
 - 着色器：`Assets/Shaders/`；定义与派生资源：`Assets/Resources/Solar/`
-- 上游：[PROJECT-OVERVIEW.md](PROJECT-OVERVIEW.md)
+- 上游：[README.md](../README.md)
 
 外观、环与未实现的天文特征见 [PLANET-MATERIALS.md](PLANET-MATERIALS.md)；
 尺度坐标层见 [PLANET-SPACE.md](PLANET-SPACE.md)；Earth 的纹理分级见

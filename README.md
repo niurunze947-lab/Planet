@@ -1,7 +1,7 @@
-# Planet — 项目概览
+﻿# Planet — 项目概览
 
 > 本文件是文档体系的入口，只回答「这是什么、东西在哪、从哪上手」。
-> 每件事的 owner 见 [DOCS.md](DOCS.md) §3–§4；本文不复制任何专题的细节或数字。
+> 每件事的 owner 见 [doc.md](doc.md) §3–§4；本文不复制任何专题的细节或数字。
 
 ---
 
@@ -21,17 +21,17 @@
 
 | 层 | 做什么 | 一句话判据 | 文档 |
 |---|---|---|---|
-| 程序化框架 | `PlanetDefinition → PlanetSurfaceSampler → 网格 / Cubemap → PlanetSurfaceView` | **定义是唯一权威**，网格与贴图都是可重建的派生缓存；采样器按单位球方向取值，与分辨率、半径、场景尺度无关 | [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) |
-| 尺度坐标层 | 宇宙侧 `double` 米四级架树 + 地表侧 `float` 米分块本地坐标 | 唯一规则是「**在 double 里减，最后一步才降到 float**」 | [PLANET-SPACE.md](PLANET-SPACE.md) |
-| 交互层 | 统一自由飞行、临时聚焦、近地体固定运动和地形碰撞 | 玩家位姿与速度只有一个所有者，近地不切换运动控制器 | [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §3 |
+| 程序化框架 | `PlanetDefinition → PlanetSurfaceSampler → 网格 / Cubemap → PlanetSurfaceView` | **定义是唯一权威**，网格与贴图都是可重建的派生缓存；采样器按单位球方向取值，与分辨率、半径、场景尺度无关 | [PLANET-PROCEDURAL.md](docs/PLANET-PROCEDURAL.md) |
+| 尺度坐标层 | 宇宙侧 `double` 米四级架树 + 地表侧 `float` 米分块本地坐标 | 唯一规则是「**在 double 里减，最后一步才降到 float**」 | [PLANET-SPACE.md](docs/PLANET-SPACE.md) |
+| 交互层 | 统一自由飞行、临时聚焦、近地体固定运动和地形碰撞 | 玩家位姿与速度只有一个所有者，近地不切换运动控制器 | [DEVELOPMENT-WORKFLOW.md](docs/DEVELOPMENT-WORKFLOW.md) §3 |
 
 三个消费者建立在程序化框架之上，各自只读公开的观察契约，不修改输入与轨道：
-Earth 的近景纹理分级（[PLANET-TEXTURE-LOD.md](PLANET-TEXTURE-LOD.md)）、
-21 个天体的可见光外观（[PLANET-MATERIALS.md](PLANET-MATERIALS.md)）、
-太阳的独立光球框架（[PLANET-STELLAR.md](PLANET-STELLAR.md)）。
+Earth 的近景纹理分级（[PLANET-TEXTURE-LOD.md](docs/PLANET-TEXTURE-LOD.md)）、
+21 个天体的可见光外观（[PLANET-MATERIALS.md](docs/PLANET-MATERIALS.md)）、
+太阳的独立光球框架（[PLANET-STELLAR.md](docs/PLANET-STELLAR.md)）。
 
 面向 SpaceEngine 体验目标的商业级渲染路线、已落地的采样优化和独立 Player 性能验收见
-[PLANET-RENDERING.md](PLANET-RENDERING.md) §1–§5；该目标尚未全部实现。
+[PLANET-RENDERING.md](docs/PLANET-RENDERING.md) §1–§5；该目标尚未全部实现。
 
 ---
 
@@ -48,7 +48,7 @@ Earth 的近景纹理分级（[PLANET-TEXTURE-LOD.md](PLANET-TEXTURE-LOD.md)）�
 | 序列化模式 / Meta | **Force Text** / Visible Meta Files（资产 YAML 文本，可 diff） |
 | 默认分辨率 | 1024 × 768（窗口模式） |
 | 场景数 | **1**（`SolarSystem`，Build Settings index 0） |
-| Run In Background | **开启**——编辑器默认关闭，这是本工程最容易踩的坑（[PLANET-PITFALLS.md](PLANET-PITFALLS.md) §7） |
+| Run In Background | **开启**——编辑器默认关闭，这是本工程最容易踩的坑（[PLANET-PITFALLS.md](docs/PLANET-PITFALLS.md) §7） |
 | 版本控制 | **git + Git LFS**，整合分支 `main` |
 | **不要用 Unity 6 打开** | `Library/` 曾被 Unity 6 打开并降级，`manifest.json` 也一度混入 Unity 6 的包，已修复；再开一次会重新污染 |
 
@@ -67,11 +67,11 @@ D:\UnityProjects\Planet\
 │   ├── Resources/Solar/        PlanetDefinition 定义与派生缓存（含回退白模材质）
 │   ├── Tests/EditMode/         每个测试程序集独占一个子目录
 │   ├── Textures/Sky/           星空 HDR 贴图（唯一保留的位图资产）
-│   └── Screenshots/            验证产物，删掉不影响运行
 ├── ProjectSettings/            ← 入库
 ├── Packages/                   ← 入库
 ├── MCP-Setup/                  握手报告与工具清单 ← 入库
-└── *.md                        文档，地图见 DOCS.md
+├── docs/                       专题文档（PLANET-*、DEVLOG、WORKFLOW）
+└── doc.md + README.md          文档地图与工程入口
 ```
 
 `Library/`、`Logs/`、`UserSettings/` 已被 `.gitignore` 排除。
@@ -89,7 +89,7 @@ D:\UnityProjects\Planet\
 | `Assets/Editor/` | 构建、烘焙、审计、截图 | `Assembly-CSharp-Editor` |
 
 **程序集清单、依赖方向与完整的跨程序集接口列表见
-[DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §2**（那里是唯一权威版本）。
+[DEVELOPMENT-WORKFLOW.md](docs/DEVELOPMENT-WORKFLOW.md) §2**（那里是唯一权威版本）。
 依赖是**单向**的，反向没有任何引用；这样划分的直接目的是
 **让不同工作树合并时不会因为新增的引用或被引用而互相绊住**。
 编辑器工具**故意不另立 asmdef**——多一个 asmdef 就多一个合并冲突点。
@@ -122,8 +122,8 @@ Renderer Feature: ScreenSpaceAmbientOcclusion
 （星空 HDR），环境光取 Flat 暗蓝灰，反射走 Skybox 探针且压低强度，雾关闭——
 整体偏暗，以配合程序化表面的发光与测光。具体数值在场景文件里。
 
-天空盒的采样方式与逐轴 wrap 契约见 [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) §5，
-导入类故障见 [PLANET-PITFALLS.md](PLANET-PITFALLS.md) §6。
+天空盒的采样方式与逐轴 wrap 契约见 [PLANET-SOLARSYSTEM.md](docs/PLANET-SOLARSYSTEM.md) §5，
+导入类故障见 [PLANET-PITFALLS.md](docs/PLANET-PITFALLS.md) §6。
 
 ---
 
@@ -134,14 +134,14 @@ Renderer Feature: ScreenSpaceAmbientOcclusion
 | `SolarSystem.unity` | 0 | **全工程唯一的场景**：新增功能、比例与验证都以它为准 |
 
 早期还有一个贴图版地球／月球的参考场景与一个模板空场景，已于 2026-10-06 连同其专用资产一起移除
-（见 [DEVLOG.md](DEVLOG.md)）；目录里现在只有这一条线，不存在"参考场景 vs 正式场景"的分工。
+（见 [DEVLOG.md](docs/DEVLOG.md)）；目录里现在只有这一条线，不存在"参考场景 vs 正式场景"的分工。
 
 `SolarSystem.unity` 由 `Tools ▸ Planet ▸ Rebuild Solar System Scene` 生成，**不是手工摆放的**：
 改了 `SolarSystemCatalog` / `SolarSystemFactory` 里的数字后重跑菜单，不要手工在 Hierarchy 里挪物体。
 星球自己的场景缩放是**序列化在星球组件上**的派生缓存，改目录或 `kmPerUnit` 后必须重跑烘焙菜单，
-规则见 [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §4.1。
+规则见 [DEVELOPMENT-WORKFLOW.md](docs/DEVELOPMENT-WORKFLOW.md) §4.1。
 
-场景对象构成、比例选择与轨道力学见 [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md)。
+场景对象构成、比例选择与轨道力学见 [PLANET-SOLARSYSTEM.md](docs/PLANET-SOLARSYSTEM.md)。
 
 ---
 
@@ -150,12 +150,12 @@ Renderer Feature: ScreenSpaceAmbientOcclusion
 1. 打开 `Assets/Scenes/SolarSystem.unity` → Play。按 `1`–`0` 在太阳与行星间飞行，`空格` 暂停，
    `-` / `=` 调时间流速看公转快慢，`L` 开关经纬网看自转；用滚轮贴近一颗行星，
    控制台会在跨过地表模式闸门时打出 `[SurfaceMode] ENTER` / `EXIT`。
-   完整键位见 [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) §4。
-2. 改程序化星球的外观：先读 [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) 与
-   [PLANET-MATERIALS.md](PLANET-MATERIALS.md)，改 `ProceduralTerra.asset` 或
+   完整键位见 [PLANET-SOLARSYSTEM.md](docs/PLANET-SOLARSYSTEM.md) §4。
+2. 改程序化星球的外观：先读 [PLANET-PROCEDURAL.md](docs/PLANET-PROCEDURAL.md) 与
+   [PLANET-MATERIALS.md](docs/PLANET-MATERIALS.md)，改 `ProceduralTerra.asset` 或
    `BodyMaterials/<Name>.asset`，再跑 **Build Solar System Materials**
    （改到噪声 / 公式时必须提升 `GeneratorVersion`）。
-3. 准备开分支或合并前，必读 [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §1 与 §5–§7。
+3. 准备开分支或合并前，必读 [DEVELOPMENT-WORKFLOW.md](docs/DEVELOPMENT-WORKFLOW.md) §1 与 §5–§7。
 
 ---
 
@@ -190,4 +190,4 @@ set_active_instance "<projectName>@<hash>"                  # 切到自己的实
 - **`execute_code` 走 CodeDom（C# 6）**：`Enum.GetValues<T>()`、表达式体成员、插值字符串都不可用。
   测试代码与工程代码走正常编译，不受此限。
 
-（以上现象的完整记录与恢复方式见 [PLANET-PITFALLS.md](PLANET-PITFALLS.md) §7–§8。）
+（以上现象的完整记录与恢复方式见 [PLANET-PITFALLS.md](docs/PLANET-PITFALLS.md) §7–§8。）

@@ -1,7 +1,7 @@
-# Planet — 踩坑总表
+﻿# Planet — 踩坑总表
 
 > 全工程**唯一**的「现象 → 结论」清单。按子系统分组，不按文档归属分组。
-> 上游：[DOCS.md](DOCS.md)。机制解释在各专题文档，本表只负责「见到这个现象时该想到什么」。
+> 上游：[doc.md](../doc.md)。机制解释在各专题文档，本表只负责「见到这个现象时该想到什么」。
 >
 > 加条目时只写三件事：**现象**、**根因或正确做法**、**去哪看细节**。
 > 不写"某年某月某分支发生过"——那是 [DEVLOG.md](DEVLOG.md) 的事。
@@ -77,10 +77,10 @@
 
 | 现象 | 结论 | 详见 |
 |---|---|---|
-| 失去焦点后 Play 模式几乎不推进（实测 9 分钟只跑 2 帧） | **Run In Background 必须保持开启**。Unity 编辑器默认关闭它，失焦时主循环整个停止：`Update()` / `LateUpdate()` 从不执行，一切"每帧做一次"的逻辑全部失效，而画面停在第一帧看起来还算正常。已设为 `true` 并保存，请勿改回 | [PROJECT-OVERVIEW.md](PROJECT-OVERVIEW.md) §2、§7 |
+| 失去焦点后 Play 模式几乎不推进（实测 9 分钟只跑 2 帧） | **Run In Background 必须保持开启**。Unity 编辑器默认关闭它，失焦时主循环整个停止：`Update()` / `LateUpdate()` 从不执行，一切"每帧做一次"的逻辑全部失效，而画面停在第一帧看起来还算正常。已设为 `true` 并保存，请勿改回 | [README.md](../README.md) §2、§7 |
 | 11 个机位出图时画面变成一圈圈同心甜甜圈 | `CapturePoses` 原本在一个循环里同步跑完 11 个机位；碎带标记走 `Graphics.DrawMeshInstanced`，提交会**保留到帧末**，于是 11 个不同浮动原点的同一片碎带叠在一帧里画出来。必须**一个编辑器 tick 只处理一个机位** | [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) §6 |
 | 出图后编辑器被踢出 Play 模式，所有 `Instance` 变 null | `CapturePoses` 末尾不能调 `AssetDatabase.Refresh()`——它会重载域。刷新已拆成独立菜单项 | [PLANET-SOLARSYSTEM.md](PLANET-SOLARSYSTEM.md) §6 |
-| 新建的 asmdef / 脚本，Unity 说找不到 | Unity 窗口**失去焦点时不会自动刷新资源库**，显式调一次 `AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate)` 即可 | [PROJECT-OVERVIEW.md](PROJECT-OVERVIEW.md) §7 |
+| 新建的 asmdef / 脚本，Unity 说找不到 | Unity 窗口**失去焦点时不会自动刷新资源库**，显式调一次 `AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate)` 即可 | [README.md](../README.md) §7 |
 | 改 `SolarSpaceContext.maxChunkLevel` 这类序列化字段，重启就丢 | **Play 模式下改不了场景**：`MarkSceneDirty` / `SaveScene` 会抛 "This cannot be used during play mode"。先停止播放 | [PLANET-SPACE.md](PLANET-SPACE.md) §9 |
 | 把测试脚本和 `Planet.Procedural.Tests` 放同一目录，导入直接失败 | **Unity 不允许同一目录下存在两个 asmdef**，报 `contains multiple assembly definition files`。每个测试程序集必须各占一个子目录 | [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §2 |
 
@@ -88,11 +88,11 @@
 
 | 现象 | 结论 | 详见 |
 |---|---|---|
-| 以为自己改的是本工程，其实改的是另一个工作树 | MCP 客户端会**记住上次连接的实例**。四个工作树的场景与脚本在同一基线下，读出来的结构完全一样，**不专门查 `Application.dataPath` 根本发现不了**。驱动前先查 `Application.dataPath`，再 `set_active_instance "<projectName>@<hash>"` | [PROJECT-OVERVIEW.md](PROJECT-OVERVIEW.md) §7 |
-| 端口表里查到的实例，中途换了 | MCP 客户端会在会话中途**换**实例，端口表只在启动时可靠。在 `execute_code` 里加一道 `Application.dataPath` 断言，并核对程序集 `asm.Location` 落在哪个工作树 | [PROJECT-OVERVIEW.md](PROJECT-OVERVIEW.md) §7 |
+| 以为自己改的是本工程，其实改的是另一个工作树 | MCP 客户端会**记住上次连接的实例**。四个工作树的场景与脚本在同一基线下，读出来的结构完全一样，**不专门查 `Application.dataPath` 根本发现不了**。驱动前先查 `Application.dataPath`，再 `set_active_instance "<projectName>@<hash>"` | [README.md](../README.md) §7 |
+| 端口表里查到的实例，中途换了 | MCP 客户端会在会话中途**换**实例，端口表只在启动时可靠。在 `execute_code` 里加一道 `Application.dataPath` 断言，并核对程序集 `asm.Location` 落在哪个工作树 | [README.md](../README.md) §7 |
 | `read_console` 超时、`refresh_unity` 后无响应 | 多半是 Unity 弹了「open scene(s) have been modified externally」**模态框**（`git merge` 在磁盘上重写了正开着的场景）。点 Reload 即可恢复；合并前先关掉待合并的场景更稳 | [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §6 |
 | Unity 给某文件补了一份 GUID 不同的 `.meta` | 自生成的 GUID 与工程提交版**不同**。合并带入 `.meta` 前，先比对两侧并删掉自生成的那份 | [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §6 |
-| `Enum.GetValues<T>()` / 表达式体成员 / 插值字符串报错 | MCP 的 `execute_code` 走 CodeDom（C# 6）。测试代码走正常编译，不受此限 | [PROJECT-OVERVIEW.md](PROJECT-OVERVIEW.md) §7 |
+| `Enum.GetValues<T>()` / 表达式体成员 / 插值字符串报错 | MCP 的 `execute_code` 走 CodeDom（C# 6）。测试代码走正常编译，不受此限 | [README.md](../README.md) §7 |
 | 审计报告里出现 `1.0×10¹⁶ px` 这种荒唐数字 | 编辑器相机正好落在原点上时 `2r/d` 会算出这个值。现在距离小于 1 m 就打印 `on the body`——把"测不准"和"测出来是这样"分开写，比在表里放一个荒唐数字好 | [PLANET-SPACE.md](PLANET-SPACE.md) §9 |
 | `import error Code:(4)` / `Refresh recovered after Unity disconnect` | 用 `refresh_unity(scope: "all", wait_for_ready: true)` 重试，不是代码问题 | [PLANET-SPACE.md](PLANET-SPACE.md) §9 |
 

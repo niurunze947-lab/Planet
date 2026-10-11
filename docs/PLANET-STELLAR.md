@@ -1,7 +1,7 @@
-# Planet — 独立程序化恒星框架
+﻿# Planet — 独立程序化恒星框架
 
 > 正式场景为 SolarSystem：聚焦 Sun 时启用独立光球渲染，其他焦点只显示纯色自发光体。
-> 上游：[DOCS.md](DOCS.md) §1–§2；「现象 → 结论」见 [PLANET-PITFALLS.md](PLANET-PITFALLS.md) §5。
+> 上游：[doc.md](../doc.md) §1–§2；「现象 → 结论」见 [PLANET-PITFALLS.md](PLANET-PITFALLS.md) §5。
 
 ## 1. 权威与职责
 

@@ -1,4 +1,4 @@
-# Planet — 程序化星球表面生成框架
+﻿# Planet — 程序化星球表面生成框架
 
 > 代码：`Assets/Scripts/Procedural/`（程序集 `Planet.Procedural`）、
 > `Assets/Scripts/PlanetAtmosphere.cs`、`PlanetLightingController.cs`，以及
@@ -15,7 +15,7 @@
 太阳已迁移到独立[恒星框架](PLANET-STELLAR.md)：`CelestialDefinition → StellarDefinition →
 StellarSurfaceView`；行星仍使用本文件的采样链，基础质量／半径由 `CelestialDefinition` 共享。
 
-上游：[PROJECT-OVERVIEW.md](PROJECT-OVERVIEW.md)。
+上游：[README.md](../README.md)。
 程序集边界与对外契约的权威版本见 [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §2。
 
 ---

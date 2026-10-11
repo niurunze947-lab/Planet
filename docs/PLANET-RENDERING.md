@@ -1,6 +1,6 @@
-# Planet - 商业级渲染架构与验收
+﻿# Planet - 商业级渲染架构与验收
 
-> 上游：[PROJECT-OVERVIEW.md](PROJECT-OVERVIEW.md)。
+> 上游：[README.md](../README.md)。
 > 本文拥有跨系统的画质路线、性能验收方法和诊断入口；采样、区块预算与坐标契约仍归各专题。
 > SpaceEngine 是体验目标，不代表本工程已经达到其画质、内容覆盖或性能。
 

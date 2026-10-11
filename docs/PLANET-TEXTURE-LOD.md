@@ -1,7 +1,7 @@
-# Planet — 地球按视场高度分级的派生贴图
+﻿# Planet — 地球按视场高度分级的派生贴图
 
 > 代码：`Assets/Scripts/Procedural/PlanetTextureLodSet.cs`、`PlanetTextureLodController.cs`（程序集 `Planet.Procedural`）、烘焙菜单 `Assets/Editor/EarthTextureLodBuilder.cs`，档位资产与派生资源 `Assets/Resources/Solar/BodyMaterials/EarthLod/`。
-> 上游：[DOCS.md](DOCS.md)；档位判据的比例由 [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §3 定义，本文只给符号名与阈值、不复述契约；采样与云密度场见 [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §6–§8、§12，「现象 → 结论」见 [PLANET-PITFALLS.md](PLANET-PITFALLS.md) §4。
+> 上游：[doc.md](../doc.md)；档位判据的比例由 [DEVELOPMENT-WORKFLOW.md](DEVELOPMENT-WORKFLOW.md) §3 定义，本文只给符号名与阈值、不复述契约；采样与云密度场见 [PLANET-PROCEDURAL.md](PLANET-PROCEDURAL.md) §6–§8、§12，「现象 → 结论」见 [PLANET-PITFALLS.md](PLANET-PITFALLS.md) §4。
 
 ## 1. 高度与档位
 

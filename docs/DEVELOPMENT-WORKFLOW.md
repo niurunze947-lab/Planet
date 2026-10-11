@@ -1,9 +1,9 @@
-# Planet 隔离开发与合并协议
+﻿# Planet 隔离开发与合并协议
 
 本文件是各工作树共同遵守的工程协议，同时是**视场高度契约（§3）**与**跨程序集接口清单（§2）**
 的唯一权威来源。其它文档提到这两件事时只给符号名或链接，不复述数字。
 
-写作规则见 [DOCS.md](DOCS.md) §1–§2。
+写作规则见 [doc.md](../doc.md) §1–§2。
 
 ## 1. 权威分支
 
@@ -246,18 +246,18 @@ CelestialBody.RadiusUnits = sceneRadiusUnits × bodySizeExaggeration
 
 ## 8. 文档维护协议
 
-文档和代码一样有 ownership，同样会冲突。**写作规则与分工表在 [DOCS.md](DOCS.md) §1–§4**，
+文档和代码一样有 ownership，同样会冲突。**写作规则与分工表在 [doc.md](../doc.md) §1–§4**，
 本节只定流程：
 
 1. **一件事只有一个地方写。** 发现第二份拷贝就是 bug，删掉拷贝而不是同步两份。
 2. **文件名的生命周期含义**：
-   - `PLANET-*.md` / `DEVLOG.md` / `DEVELOPMENT-WORKFLOW.md` / `PROJECT-OVERVIEW.md` / `DOCS.md`：
+   - `PLANET-*.md` / `DEVLOG.md` / `DEVELOPMENT-WORKFLOW.md` / `../README.md` / `../doc.md`：
      长期文档，随代码一起演进；
    - `REPORT-<branch>-<topic>.md`：**分支交接单**，内容是「这个分支还需要改什么」。
      它随该分支的合并而**删除**，不留在权威提交里；
    - `MERGE-*`：一次性合并记录，结论并入本文件 §6 与 [DEVLOG.md](DEVLOG.md) 后删除。
 3. **合并类操作不得把过程性文档带进仓库。** 工作树自己的 `MERGE-REPORT-*.md` 属于工作树产物，
    合并时按第 2 条处理。
-4. 新增文档必须同时在 [DOCS.md](DOCS.md) §3 登记职责、§4 登记它新拥有的主题，否则视为孤儿文档。
+4. 新增文档必须同时在 [doc.md](../doc.md) §3 登记职责、§4 登记它新拥有的主题，否则视为孤儿文档。
    ——`PLANET-TEXTURE-LOD.md` 曾长期游离在索引之外，是这条规则的反面教材。
 5. 文档里的**数字与路径必须可核对**。写不进代码位置的常量就不要写数字，改为指向符号名。

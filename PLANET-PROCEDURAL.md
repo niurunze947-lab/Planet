@@ -706,3 +706,16 @@ Cubemap 档位。区块复制 `PlanetSurfaceView` 的 `MaterialPropertyBlock`；
 - globe 与 chunk 的可视位移统一调用 `DisplacementMetres(height)`：
   有水时围绕固定海平面夸张陆地，物理采样始终不乘显示倍率。
   **两侧必须用同一公式**，否则 globe / chunk 的交接高度不一致。
+
+
+## 地球运行时雕刻原型
+
+`Assets/PlanetSculpt/Runtime/EarthSculptController.cs` 将球体笔刷接到正式场景的 Earth / Surface。菜单 `Tools > Planet > Install Earth Brush` 安装场景组件及裸岩外观，`Validate Earth Brush` 检查笔刷与网格兼容性，`Validate Brush Stroke Limit` 检查次数边界。
+
+场景引用独立的 `EarthRockDefinition` 和 `EarthRockSurface` 资源，将地球替换为没有海洋、云层、大气和冰盖的裸岩球体；原始地球定义资源保留。雕刻使用运行时生成的球面网格与岩石材质。
+
+进入 Play 默认进入雕刻模式。左侧保留原有地球信息面板，笔刷面板位于右侧、柯伊伯带信息下方。F8 或右侧按钮切换雕刻与飞行；左键抬高，Shift + 左键降低，Ctrl + 左键平滑，Ctrl + Z 撤销，E 切换抬高／降低，右键环绕，滚轮缩放。输入使用项目现有 Input System。
+
+每次 Play 共可绘画 15 笔。一次按下到松开算一笔，持续拖动只扣一次；未命中球体或没有改变地形不扣次数。面板显示剩余次数。用完后禁止新笔触，仍可环绕、缩放和撤销；撤销、重置地形或切换模式均不返还次数。
+
+编辑期间暂停星系模拟、飞行相机和近地流送，退出后恢复；本次 Play 的笔触和次数在再次进入雕刻时保留。它不是 C2 物理地形采样器的写入接口，不会把笔触同步到近地分块或飞行碰撞。退出雕刻回到未雕刻的裸岩地表；停止 Play 后笔触清空，下次 Play 恢复 15 次。

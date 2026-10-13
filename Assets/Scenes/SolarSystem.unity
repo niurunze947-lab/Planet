@@ -6039,6 +6039,9 @@ GameObject:
   - component: {fileID: 606799147}
   - component: {fileID: 606799149}
   - component: {fileID: 606799148}
+  - component: {fileID: 606799152}
+  - component: {fileID: 606799151}
+  - component: {fileID: 606799150}
   m_Layer: 0
   m_Name: Surface
   m_TagString: Untagged
@@ -6081,7 +6084,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 1928dc59f03f69c4995032df0589cae6, type: 2}
+  - {fileID: 2100000, guid: 4c6093c5f9f60ec4799822b4767b3e47, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -6110,6 +6113,71 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 606799146}
+  m_Mesh: {fileID: 0}
+--- !u!114 &606799150
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 606799146}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec0115204d700be42823606d74b6c888, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  viewCamera: {fileID: 1546309662}
+  brushAngle: 2.5
+  strength: 0.6
+  orbitCamera: 1
+  frameOnStart: 0
+  showHelp: 1
+  strokesUsed: 0
+--- !u!114 &606799151
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 606799146}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4b96d319220c97547a6b6ac4bc933d66, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  radius: 1
+  subdivisions: 6
+  maxMountainHeightRatio: 0.18
+  maxElevationMeters: 9000
+  maxDepthMeters: 2000
+  snowLineMeters: 4000
+  mountainBrush: 1
+  ridgeStrength: 0.55
+  ridgeFrequency: 10
+  useNaturalSurface: 1
+  preserveSourceMesh: 0
+  initializeOnAwake: 0
+--- !u!64 &606799152
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 606799146}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 0
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
   m_Mesh: {fileID: 0}
 --- !u!1 &612741607
 GameObject:
@@ -15816,6 +15884,7 @@ GameObject:
   - component: {fileID: 1473632817}
   - component: {fileID: 1473632818}
   - component: {fileID: 1473632820}
+  - component: {fileID: 1473632821}
   m_Layer: 0
   m_Name: Earth
   m_TagString: Untagged
@@ -15870,10 +15939,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d205446c522e69e43a993940fb5530e5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  definition: {fileID: 11400000, guid: bb8551ff13c348d44a014ae7c6fdf3b4, type: 2}
-  albedoCubemap: {fileID: 8900000, guid: d7cceae300e318b4f9da8b0d3cca9576, type: 2}
-  cloudDensityCubemap: {fileID: 8900000, guid: 83b7397c18dca344995b972eef1ecb59, type: 2}
-  surfaceMaterial: {fileID: 2100000, guid: 1928dc59f03f69c4995032df0589cae6, type: 2}
+  definition: {fileID: 11400000, guid: c9bc221319cc08e48aaf57a8f988beb3, type: 2}
+  albedoCubemap: {fileID: 0}
+  cloudDensityCubemap: {fileID: 0}
+  surfaceMaterial: {fileID: 2100000, guid: 4c6093c5f9f60ec4799822b4767b3e47, type: 2}
   useRuntimeChunks: 1
   meshLodSet: {fileID: 0}
   allowRuntimeMeshGeneration: 0
@@ -15891,7 +15960,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6933189149ff6d44b8d6b99640eee668, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  definition: {fileID: 11400000, guid: bb8551ff13c348d44a014ae7c6fdf3b4, type: 2}
+  definition: {fileID: 11400000, guid: c9bc221319cc08e48aaf57a8f988beb3, type: 2}
   densityCubemap: {fileID: 8900000, guid: 83b7397c18dca344995b972eef1ecb59, type: 2}
   cloudMaterial: {fileID: 2100000, guid: c93119d7390f0a74fafc197d9fcc6e38, type: 2}
   planetRadius: 0.006371
@@ -15912,7 +15981,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ab09e2c47ddeb084683c2568a1a60be3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  planetDefinition: {fileID: 11400000, guid: bb8551ff13c348d44a014ae7c6fdf3b4, type: 2}
+  planetDefinition: {fileID: 11400000, guid: c9bc221319cc08e48aaf57a8f988beb3, type: 2}
   atmosphereMaterial: {fileID: 2100000, guid: 7c3a9e1f2b4d48c1a6e8f0d5c2b91a47, type: 2}
   autoSyncPlanetRadius: 1
   planetRadius: 0.006371
@@ -16005,6 +16074,19 @@ MonoBehaviour:
   wireframeColor: {r: 0.25, g: 1, b: 0.45, a: 0.85}
   collisionColor: {r: 1, g: 0.55, b: 0.1, a: 0.9}
   uncookedColor: {r: 1, g: 0.2, b: 0.2, a: 0.75}
+--- !u!114 &1473632821
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1473632810}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d46ac4499864163a23544e5120ae580, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  startInSculptMode: 1
 --- !u!1 &1533230669
 GameObject:
   m_ObjectHideFlags: 0

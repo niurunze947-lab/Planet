@@ -1,0 +1,110 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db5cb4c9d0792ed409f4e4aaa4f5db52, type: 3}
+  m_Name: EarthRockDefinition
+  m_EditorClassIdentifier: 
+  displayName: Earth - Bare Rock
+  physical:
+    radiusMetres: 6371000
+    massKilograms: 5.9722e+24
+    rotationPeriodSeconds: 86164.09056
+    flattening: 0
+    shapeScale: {x: 1, y: 1, z: 1}
+    northPoleRightAscensionDegrees: 0
+    northPoleDeclinationDegrees: 90
+    seaLevelMetres: 0
+    atmosphereHeightMetres: 0
+  generation:
+    seed: 271828
+    continentFrequency: 1.65
+    continentThreshold: 0.08
+    domainWarp: 0.32
+    continentOctaves: 6
+    oceanDepthMetres: 10235.143
+    plateauHeightMetres: 2274.4763
+    seaLevelFraction: 0.48058632
+    terrainMinimumMetres: -10235.143
+    terrainMaximumMetres: 9764.857
+    waterCoverage: 0
+    visualReliefScale: 1
+    mountainFrequency: 12
+    mountainHeightMetres: 8813.595
+    mountainOctaves: 6
+    detailFrequency: 140
+    detailHeightMetres: 312.74048
+    slopeSampleDistanceMetres: 2200
+    temperatureOffset: 0
+    moistureOffset: 0.02
+    altitudeCoolingPerKilometre: 0.085
+    cloudFrequency: 5.4
+    cloudCoverage: 0
+    cloudSoftness: 0.18
+    cloudDetailFrequency: 23
+    cloudTerrainInfluence: 1
+    cloudOceanDensity: 1.25
+    cloudLandDensity: 0.78
+    cloudMoistureInfluence: 0.85
+    cloudAltitudeBias: -0.22
+    cloudOrographicInfluence: 0.4
+    cloudUpwindDistanceMetres: 120000
+  palette:
+    deepOcean: {r: 0.025, g: 0.065, b: 0.24, a: 1}
+    shallowOcean: {r: 0.035, g: 0.32, b: 0.39, a: 1}
+    beach: {r: 0.72, g: 0.66, b: 0.46, a: 1}
+    desert: {r: 0.79, g: 0.64, b: 0.4, a: 1}
+    grassland: {r: 0.42, g: 0.46, b: 0.22, a: 1}
+    forest: {r: 0.25, g: 0.35, b: 0.16, a: 1}
+    rainforest: {r: 0.13, g: 0.27, b: 0.13, a: 1}
+    tundra: {r: 0.48, g: 0.48, b: 0.35, a: 1}
+    rock: {r: 0.42, g: 0.39, b: 0.33, a: 1}
+    snow: {r: 0.89, g: 0.93, b: 0.94, a: 1}
+  features:
+    hasOcean: 0
+    hasAtmosphere: 0
+    hasClouds: 0
+    hasEcology: 0
+    hasIceCaps: 0
+  appearance:
+    surfaceKind: 1
+    baseColor: {r: 0.4, g: 0.34, b: 0.27, a: 1}
+    secondaryColor: {r: 0.47, g: 0.41, b: 0.33, a: 1}
+    accentColor: {r: 0.43, g: 0.35, b: 0.27, a: 1}
+    regionFrequency: 3
+    reliefMetres: 0
+    craterFrequency: 18
+    craterDepthMetres: 0
+    craterStrength: 0
+    fractureStrength: 0
+    fractureFrequency: 14
+    fractureWidth: 0.025
+    bandContrast: 0.5
+    bandCount: 14
+    turbulence: 0.4
+    polarCapStart: 1
+    featureLongitudeLatitude: {x: 30, y: -22}
+    featureAngularSize: {x: 12, y: 8}
+    featureStrength: 0
+    featureColor: {r: 1, g: 1, b: 1, a: 1}
+    opticalSurfaceHeightMetres: 0
+    emissionStrength: 0
+    limbDarkening: 0
+    landSmoothness: 0.12
+    atmosphereColor: {r: 0.28, g: 0.62, b: 1, a: 1}
+    atmosphereDensity: 0.22
+    ringColor: {r: 0.85, g: 0.79, b: 0.66, a: 1}
+    ringOpacity: 0.8
+    interpretation: 
+  detail:
+    enabled: 0
+    amplitudeMetres: 40
+    gain: 0.55
+    minimumWavelengthMetres: 0.02

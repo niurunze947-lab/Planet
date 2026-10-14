@@ -261,3 +261,9 @@ CelestialBody.RadiusUnits = sceneRadiusUnits × bodySizeExaggeration
 4. 新增文档必须同时在 [DOCS.md](DOCS.md) §3 登记职责、§4 登记它新拥有的主题，否则视为孤儿文档。
    ——`PLANET-TEXTURE-LOD.md` 曾长期游离在索引之外，是这条规则的反面教材。
 5. 文档里的**数字与路径必须可核对**。写不进代码位置的常量就不要写数字，改为指向符号名。
+
+### 运行时雕刻与导航边界
+
+`Assembly-CSharp` 的 `SculptFlightBridge` 通过 `IPlanetCollisionSurfaceQuery` 提供可选碰撞源，由 `RuntimeTerrainRenderer.ExternalCollisionQuery` 转发；为空时沿用原有碰撞实现。视觉协调器在有外部源时停止原区块流送，避免显示地形与碰撞分离。退出雕刻必须清除该引用，释放隔离物理场景与近景网格。
+
+`UnifiedFlightController` 不引用笔刷类型，只提供 `allowOrbitInput` 与 `PointerOverTool` 输入门控，由上层区分绘画和观察、屏蔽面板上的拖动与滚轮。相机位置仍由原版 double 导航持有；雕刻近景投影在 body-fixed double 坐标减去观察者位置后转 float，遵循现有近地米制渲染路径。

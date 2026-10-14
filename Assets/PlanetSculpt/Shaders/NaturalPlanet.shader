@@ -2,6 +2,7 @@ Shader "Yongxian/Natural Planet"
 {
     Properties
     {
+        _SculptLocalProjection("Local projection", Float) = 0
         _PlanetRadius("Base planet radius (local units)", Float) = 0.5
         _GroundColor("Ochre mineral deposits", Color) = (0.6862745, 0.5098039, 0.1843137, 1)
         _DarkRock("Dark weathered rock", Color) = (0.36, 0.31, 0.25, 1)
@@ -39,10 +40,11 @@ Shader "Yongxian/Natural Planet"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
-                float _PlanetRadius, _SnowLineMeters, _DetailStrength, _SnowVariationMeters, _RockBumpStrength, _SnowEnabled;
+                float4 _SculptRockOrigin;
+                float _SculptLocalProjection, _PlanetRadius, _SnowLineMeters, _DetailStrength, _SnowVariationMeters, _RockBumpStrength, _SnowEnabled;
                 half4 _GroundColor, _Rock, _Snow, _DarkRock, _LightRock, _RustRock;
             CBUFFER_END
-            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 elevation : TEXCOORD1; };
+            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 elevation : TEXCOORD1; float3 originalPosition : TEXCOORD2; };
             struct Varyings
             {
                 float4 positionCS : SV_POSITION;
@@ -59,7 +61,7 @@ Shader "Yongxian/Natural Planet"
                 VertexPositionInputs pos = GetVertexPositionInputs(v.positionOS.xyz);
                 o.positionCS = pos.positionCS;
                 o.positionWS = pos.positionWS;
-                o.positionOS = v.positionOS.xyz;
+                o.positionOS = lerp(v.positionOS.xyz, v.originalPosition, _SculptLocalProjection);
                 o.normalWS = TransformObjectToWorldNormal(v.normalOS);
                 o.normalOS = v.normalOS;
                 // Authoritative meters from the height field, independent of scale and triangle sag.
@@ -81,6 +83,16 @@ Shader "Yongxian/Natural Planet"
                                  lerp(Hash(i + float3(0,1,0)), Hash(i + float3(1,1,0)), f.x), f.y),
                             lerp(lerp(Hash(i + float3(0,0,1)), Hash(i + float3(1,0,1)), f.x),
                                  lerp(Hash(i + float3(0,1,1)), Hash(i + float3(1,1,1)), f.x), f.y), f.z);
+            }
+            float RockHash(float3 p) { return Hash(p - floor(p / 128.0) * 128.0); }
+            float RockNoise(float3 p)
+            {
+                float3 i = floor(p), f = frac(p);
+                f = f * f * (3.0 - 2.0 * f);
+                return lerp(lerp(lerp(RockHash(i), RockHash(i + float3(1,0,0)), f.x),
+                                 lerp(RockHash(i + float3(0,1,0)), RockHash(i + float3(1,1,0)), f.x), f.y),
+                            lerp(lerp(RockHash(i + float3(0,0,1)), RockHash(i + float3(1,0,1)), f.x),
+                                 lerp(RockHash(i + float3(0,1,1)), RockHash(i + float3(1,1,1)), f.x), f.y), f.z);
             }
             float Fbm(float3 p)
             {
@@ -111,6 +123,16 @@ Shader "Yongxian/Natural Planet"
                 ground = lerp(ground, layeredRock, exposed * 0.25);
                 ground *= 1.0 + ((grain - 0.5) * 0.8 + (strata - 0.5) * 0.22) * _DetailStrength;
 
+                float footprintMetres = max(length(ddx(i.positionOS)), length(ddy(i.positionOS))) * 6371000.0;
+                // Near detail uses observer-relative coordinates plus a bounded phase.
+                // Never differentiate global unit coordinates at sub-metre distances.
+                if (_SculptLocalProjection > 0.5)
+                {
+                    float3 rockPosition = (TransformWorldToObject(i.positionWS) + _SculptRockOrigin.xyz) / 8.0;
+                    float nearDetail = 1.0 - smoothstep(1500.0, 3500.0, length(i.positionWS));
+                    ground *= 1.0 + (RockNoise(rockPosition) - 0.5) * nearDetail * 0.45;
+                }
+
                 // Variable local climate and snow deposits, not a single contour line.
                 // Cooler pole-facing slopes accumulate lower; steep faces shed snow.
                 float3 poleward = float3(0, radial.y >= 0.0 ? 1.0 : -1.0, 0);
@@ -140,6 +162,7 @@ Shader "Yongxian/Natural Planet"
                 float determinant = dot(dx, r1);
                 float3 gradient = sign(determinant) * (ddx(detailHeight) * r1 + ddy(detailHeight) * r2);
                 float3 detailNormal = normalize(max(abs(determinant), 1e-8) * baseNormal - gradient);
+                detailNormal = normalize(lerp(baseNormal, detailNormal, smoothstep(20.0, 100.0, footprintMetres)));
                 // Analytic directional lighting remains stable at solar-system scales.
                 // Keep a small fill so the unlit side remains editable while orbiting.
                 Light sun = GetMainLight();

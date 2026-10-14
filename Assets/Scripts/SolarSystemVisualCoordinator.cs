@@ -61,6 +61,11 @@ public sealed class SolarSystemVisualCoordinator : MonoBehaviour
                 if (view == null || !view.useRuntimeChunks || view.TerrainRenderer == null) continue;
                 CelestialBody body = view.GetComponent<CelestialBody>();
                 var terrain = view.TerrainRenderer;
+                if (terrain.ExternalCollisionQuery != null)
+                {
+                    view.SetTerrainState(false, false);
+                    continue; // The sculpt tool supplies the displayed mesh and its collision together.
+                }
                 bool nearby = body == observedBody && simulation.HasObserver && simulation.ProximityIndex >= 0;
                 bool prewarm = nearby && observedRatio <= 0.25f;
                 bool active = nearby && observedRatio <= 0.12f;

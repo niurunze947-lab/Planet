@@ -12,17 +12,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db5cb4c9d0792ed409f4e4aaa4f5db52, type: 3}
   m_Name: EarthRockDefinition
   m_EditorClassIdentifier: 
-  displayName: Earth - Bare Rock
+  displayName: Earth - exposed terrain
   physical:
     radiusMetres: 6371000
     massKilograms: 5.9722e+24
     rotationPeriodSeconds: 86164.09056
-    flattening: 0
+    flattening: 0.0033528134
     shapeScale: {x: 1, y: 1, z: 1}
     northPoleRightAscensionDegrees: 0
     northPoleDeclinationDegrees: 90
-    seaLevelMetres: 0
-    atmosphereHeightMetres: 0
+    seaLevelMetres: -623.4168
+    atmosphereHeightMetres: 80000
   generation:
     seed: 271828
     continentFrequency: 1.65
@@ -34,7 +34,7 @@ MonoBehaviour:
     seaLevelFraction: 0.48058632
     terrainMinimumMetres: -10235.143
     terrainMaximumMetres: 9764.857
-    waterCoverage: 0
+    waterCoverage: 0.5638129
     visualReliefScale: 1
     mountainFrequency: 12
     mountainHeightMetres: 8813.595
@@ -46,7 +46,7 @@ MonoBehaviour:
     moistureOffset: 0.02
     altitudeCoolingPerKilometre: 0.085
     cloudFrequency: 5.4
-    cloudCoverage: 0
+    cloudCoverage: 0.49
     cloudSoftness: 0.18
     cloudDetailFrequency: 23
     cloudTerrainInfluence: 1
@@ -74,15 +74,15 @@ MonoBehaviour:
     hasEcology: 0
     hasIceCaps: 0
   appearance:
-    surfaceKind: 1
-    baseColor: {r: 0.4, g: 0.34, b: 0.27, a: 1}
-    secondaryColor: {r: 0.47, g: 0.41, b: 0.33, a: 1}
-    accentColor: {r: 0.43, g: 0.35, b: 0.27, a: 1}
+    surfaceKind: 0
+    baseColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+    secondaryColor: {r: 1, g: 1, b: 1, a: 1}
+    accentColor: {r: 0.4, g: 0.25, b: 0.15, a: 1}
     regionFrequency: 3
-    reliefMetres: 0
+    reliefMetres: 1000
     craterFrequency: 18
-    craterDepthMetres: 0
-    craterStrength: 0
+    craterDepthMetres: 1200
+    craterStrength: 0.7
     fractureStrength: 0
     fractureFrequency: 14
     fractureWidth: 0.025
@@ -104,7 +104,7 @@ MonoBehaviour:
     ringOpacity: 0.8
     interpretation: 
   detail:
-    enabled: 0
+    enabled: 1
     amplitudeMetres: 40
     gain: 0.55
     minimumWavelengthMetres: 0.02

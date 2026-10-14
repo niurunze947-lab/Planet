@@ -33,6 +33,9 @@ namespace Yongxian.PlanetSculpt.Editor
                 else if (command == "quota") ValidateQuota();
                 else if (command == "play") EditorApplication.isPlaying = true;
                 else if (command == "stop") EditorApplication.isPlaying = false;
+                else if (command == "refresh") AssetDatabase.Refresh();
+                else if (command == "navigation") NavigationTest();
+                else if (command == "contact") NavigationTest(2);
                 else if (command == "probe") WriteReport("probe");
                 else throw new InvalidOperationException("Unknown Earth brush command: " + command);
             }
@@ -65,7 +68,7 @@ namespace Yongxian.PlanetSculpt.Editor
             var terrain = target.GetComponent<PlanetTerrain>();
             if (terrain == null) terrain = Undo.AddComponent<PlanetTerrain>(target);
             terrain.initializeOnAwake = false;
-            terrain.preserveSourceMesh = false;
+            terrain.preserveSourceMesh = true;
             terrain.useNaturalSurface = true;
             terrain.radius = 1f;
             terrain.enabled = false;
@@ -73,6 +76,8 @@ namespace Yongxian.PlanetSculpt.Editor
             var brush = target.GetComponent<PlanetBrush>();
             if (brush == null) brush = Undo.AddComponent<PlanetBrush>(target);
             brush.frameOnStart = false;
+            brush.orbitCamera = false;
+            brush.paintEnabled = false;
             brush.enabled = false;
             brush.viewCamera = Object.FindObjectOfType<SolarSystemSimulation>().ViewCamera;
             var controller = earth.GetComponent<EarthSculptController>();
@@ -92,34 +97,23 @@ namespace Yongxian.PlanetSculpt.Editor
             const string definitionPath = "Assets/PlanetSculpt/Resources/EarthRockDefinition.asset";
             const string materialPath = "Assets/PlanetSculpt/Resources/EarthRockSurface.mat";
             var rock = AssetDatabase.LoadAssetAtPath<PlanetDefinition>(definitionPath);
+            var original = AssetDatabase.LoadAssetAtPath<PlanetDefinition>("Assets/Resources/Solar/ProceduralTerra.asset");
+            if (original == null) throw new InvalidOperationException("Original Earth definition is missing.");
             if (rock == null)
             {
-                rock = Object.Instantiate(surface.definition);
-                rock.name = "EarthRockDefinition";
+                rock = Object.Instantiate(original);
                 AssetDatabase.CreateAsset(rock, definitionPath);
             }
-            rock.displayName = "Earth - Bare Rock";
+            else EditorUtility.CopySerialized(original, rock);
+            rock.name = "EarthRockDefinition";
+            rock.displayName = "Earth - exposed terrain";
+            // Preserve the original seed, sea level, ellipsoid, relief and detail parameters.
+            // Features only remove visible water/air/vegetation; they do not flatten the ground.
             rock.features.hasOcean = false;
             rock.features.hasAtmosphere = false;
             rock.features.hasClouds = false;
             rock.features.hasEcology = false;
             rock.features.hasIceCaps = false;
-            rock.physical.flattening = 0f;
-            rock.physical.shapeScale = Vector3.one;
-            rock.physical.atmosphereHeightMetres = 0f;
-            rock.physical.seaLevelMetres = 0f;
-            rock.appearance.surfaceKind = PlanetSurfaceKind.CrateredRock;
-            rock.appearance.reliefMetres = 0f;
-            rock.appearance.craterDepthMetres = 0f;
-            rock.appearance.craterStrength = 0f;
-            rock.appearance.featureStrength = 0f;
-            rock.appearance.opticalSurfaceHeightMetres = 0f;
-            rock.appearance.baseColor = new Color(0.4f, 0.34f, 0.27f);
-            rock.appearance.secondaryColor = new Color(0.47f, 0.41f, 0.33f);
-            rock.appearance.accentColor = new Color(0.43f, 0.35f, 0.27f);
-            rock.generation.waterCoverage = 0f;
-            rock.generation.cloudCoverage = 0f;
-            rock.detail.enabled = false;
             rock.ValidateParameters();
             EditorUtility.SetDirty(rock);
             var material = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
@@ -250,6 +244,56 @@ namespace Yongxian.PlanetSculpt.Editor
             controller.EnterSculptMode();
             Require(controller.IsSculpting && brush.enabled, "Re-entry failed.");
             WriteReport("playtest-passed", "Live Earth raise and undo, material retained, exit/re-entry passed.");
+        }
+
+        static void NavigationTest(double startingHeight = 100)
+        {
+            Require(EditorApplication.isPlaying, "Navigation test requires Play mode.");
+            var earth = Earth();
+            var controller = earth.GetComponent<EarthSculptController>();
+            var sim = SolarSystemSimulation.Instance;
+            var flight = sim.ViewCamera.GetComponent<Planet.Interaction.UnifiedFlightController>();
+            var bridge = controller.Bridge;
+            Require(flight.enabled && !controller.Brush.orbitCamera, "Original flight must own navigation.");
+            Require(sim.ViewCamera.GetComponent<ObserverRenderRig>().LocalCamera != null, "Metre camera missing.");
+            var original = AssetDatabase.LoadAssetAtPath<PlanetDefinition>("Assets/Resources/Solar/ProceduralTerra.asset");
+            var rock = earth.GetComponent<PlanetSurfaceView>().definition;
+            Require(JsonUtility.ToJson(original.physical) == JsonUtility.ToJson(rock.physical), "Original physical shape changed.");
+            Require(JsonUtility.ToJson(original.generation) == JsonUtility.ToJson(rock.generation), "Original terrain generation changed.");
+            Require(JsonUtility.ToJson(original.detail) == JsonUtility.ToJson(rock.detail), "Original detail parameters changed.");
+            Require(!rock.features.hasOcean && !rock.features.hasAtmosphere && !rock.features.hasClouds, "Water or atmosphere still enabled.");
+            var baseline = CubeSphere.Generate(original.CreateSampler(), 64).CreateMesh("Baseline geometry check");
+            try { Require(baseline.vertices.SequenceEqual(controller.Terrain.SurfaceMesh.vertices), "Bare rock must preserve original globe vertices."); }
+            finally { Object.DestroyImmediate(baseline); }
+            var vertices = controller.Terrain.SurfaceMesh.vertices;
+            Vector3 direction = vertices[vertices.Length / 3].normalized;
+            var d = Unity.Mathematics.math.normalize((Unity.Mathematics.double3)(Unity.Mathematics.float3)direction);
+            double ground = bridge.SampleCollisionRadiusMetres(d);
+            controller.Brush.PaintAt(direction, 0.05f); controller.Brush.EndStroke();
+            Require(bridge.SampleCollisionRadiusMetres(d) > ground + 0.01, "Edited terrain missing from flight collision.");
+            controller.Brush.UndoLastStroke();
+            Require(Math.Abs(bridge.SampleCollisionRadiusMetres(d) - ground) < 0.01, "Undo did not restore collision.");
+            Require(bridge.SweepSphere(d * (ground + 100), d * (ground - 100), 0.5, out var resolved, out _), "Swept collision missed ground.");
+            Require(Unity.Mathematics.math.length(resolved) >= ground + 0.49, "Sweep entered terrain.");
+            int index = sim.FocusIndex;
+            Vec3d center = sim.PositionWorldMetresAt(index);
+            Vec3d offset = SolarSystemSimulation.RotateMetres(earth.transform.rotation, new Vec3d(d.x * (ground + startingHeight), d.y * (ground + startingHeight), d.z * (ground + startingHeight)));
+            Vector3 inward = -(earth.transform.rotation * (Vector3)(Unity.Mathematics.float3)d);
+            flight.SetPose(new Unity.Mathematics.double3(center.x + offset.x, center.y + offset.y, center.z + offset.z), Quaternion.LookRotation(inward), Unity.Mathematics.double3.zero);
+            flight.ApplyNavigationScroll(-1200f);
+            double deadline = EditorApplication.timeSinceStartup + 2;
+            EditorApplication.CallbackFunction check = null;
+            check = () => {
+                if (EditorApplication.timeSinceStartup < deadline) return;
+                EditorApplication.update -= check;
+                try {
+                    bridge.Sync();
+                    Require(bridge.Near && bridge.ClearanceMetres < startingHeight - 0.05 && bridge.ClearanceMetres >= 0.49, "Close scroll failed: " + bridge.ClearanceMetres);
+                    Require(bridge.Pointer(sim.ViewCamera, new Vector3(sim.ViewCamera.pixelWidth / 2f, sim.ViewCamera.pixelHeight / 2f), out _, out _), "Near-ground brush ray missed surface.");
+                    WriteReport("navigation-passed", "Original globe/parameters retained; flight enabled; edited collision/undo/sweep passed; wheel moved from " + startingHeight + "m to " + bridge.ClearanceMetres.ToString("F3") + "m; near brush ray passed.");
+                } catch(Exception e) { File.WriteAllText(Report, JsonUtility.ToJson(new Result {status="FAIL", detail=e.ToString()}, true)); Debug.LogException(e); }
+            };
+            EditorApplication.update += check;
         }
 
         static void Require(bool condition, string message) { if (!condition) throw new Exception(message); }

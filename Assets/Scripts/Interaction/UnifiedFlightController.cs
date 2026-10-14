@@ -25,6 +25,8 @@ namespace Planet.Interaction
         public float SpeedMultiplier { get { return Mathf.Clamp(speedMultiplier, MinSpeedMultiplier, MaxSpeedMultiplier); } }
         public double collisionRadiusMetres = 0.5;
         public bool handleInput = true;
+        public bool allowOrbitInput = true;
+        public Func<bool> PointerOverTool { get; set; }
         [Tooltip("Apply GM/r^2 of the nearby planet in real seconds. B toggles gravity.")]
         public bool gravityEnabled;
         public bool GravityEnabled { get { return gravityEnabled; } }
@@ -285,7 +287,7 @@ namespace Planet.Interaction
         {
             if (!handleInput) return;
             Mouse mouse = Mouse.current;
-            if (mouse == null || !mouse.rightButton.isPressed || autoFocusing) return;
+            if (mouse == null || !mouse.rightButton.isPressed || autoFocusing || PointerOverTool?.Invoke() == true) return;
             Vector2 delta = SurfaceRoamInput.LookDeltaDegrees(mouse.delta.ReadValue(), true, lookSensitivity);
             if (activeBodyIndex < 0)
                 lookWorld = SurfaceRoamController.ApplyLookDelta(lookWorld, Vector3.up, delta);
@@ -300,7 +302,7 @@ namespace Planet.Interaction
         private void HandleOrbit(float dt)
         {
             Mouse mouse = Mouse.current;
-            if (!handleInput || mouse == null || !mouse.leftButton.isPressed || mouse.rightButton.isPressed) return;
+            if (!handleInput || !allowOrbitInput || PointerOverTool?.Invoke() == true || mouse == null || !mouse.leftButton.isPressed || mouse.rightButton.isPressed) return;
             OrbitAroundTarget(mouse.delta.ReadValue(), dt);
         }
 
@@ -403,10 +405,11 @@ namespace Planet.Interaction
             if (!handleInput) return;
             Mouse mouse = Mouse.current;
             Keyboard kb = Keyboard.current;
+            if (PointerOverTool?.Invoke() == true) return;
             float scroll = mouse != null ? mouse.scroll.ReadValue().y : 0f;
             if (kb != null)
             {
-                if (kb.pageUpKey.isPressed || kb.zKey.isPressed) scroll -= 1100f * dt;
+                if (kb.pageUpKey.isPressed || (kb.zKey.isPressed && !kb.ctrlKey.isPressed)) scroll -= 1100f * dt;
                 if (kb.pageDownKey.isPressed || kb.xKey.isPressed) scroll += 1100f * dt;
             }
             ApplyNavigationScroll(scroll);

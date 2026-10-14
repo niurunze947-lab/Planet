@@ -32,6 +32,7 @@ namespace Yongxian.PlanetSculpt
 
         public Mesh SurfaceMesh { get; private set; }
         public MeshCollider SurfaceCollider { get; private set; }
+        public int Revision { get; private set; }
         public int VertexCount => heights == null ? 0 : heights.Length;
         public float[] CopyHeights() => (float[])heights.Clone();
 
@@ -284,6 +285,7 @@ namespace Yongxian.PlanetSculpt
 
         void RefreshSurface()
         {
+            Revision++;
             for (int i = 0; i < vertices.Length; i++)
             {
                 vertices[i] = baseVertices != null ? baseVertices[i] + directions[i] * heights[i] : directions[i] * (radius + heights[i]);
@@ -300,9 +302,14 @@ namespace Yongxian.PlanetSculpt
 
         public float GetHeightMeters(RaycastHit hit)
         {
-            int index = hit.triangleIndex * 3;
-            if (hit.collider != SurfaceCollider || index < 0 || index + 2 >= triangleIndices.Length) return 0f;
-            Vector3 bary = hit.barycentricCoordinate;
+            if (hit.collider != SurfaceCollider) return 0f;
+            return GetHeightMeters(hit.triangleIndex, hit.barycentricCoordinate);
+        }
+
+        public float GetHeightMeters(int triangle, Vector3 bary)
+        {
+            int index = triangle * 3;
+            if (index < 0 || index + 2 >= triangleIndices.Length) return 0f;
             return LocalHeightToMeters(heights[triangleIndices[index]] * bary.x +
                 heights[triangleIndices[index + 1]] * bary.y + heights[triangleIndices[index + 2]] * bary.z);
         }

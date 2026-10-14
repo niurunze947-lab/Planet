@@ -66,10 +66,12 @@ namespace Planet.Procedural.Terrain
                 return true;
             }
         }
+        public IPlanetCollisionSurfaceQuery ExternalCollisionQuery { get; set; }
         public bool CollisionCoverageReady
         {
             get
             {
+                if (ExternalCollisionQuery != null) return ExternalCollisionQuery.CollisionCoverageReady;
                 if (!collisionRequested || collisionNodes.Count == 0) return false;
                 double length = math.length(collisionPlayerBf);
                 if (!(length > 0)) return false;
@@ -78,6 +80,7 @@ namespace Planet.Procedural.Terrain
         }
         public double SampleCollisionRadiusMetres(double3 directionBf)
         {
+            if (ExternalCollisionQuery != null) return ExternalCollisionQuery.SampleCollisionRadiusMetres(directionBf);
             if (!ready) return 0;
             double3 direction = math.normalizesafe(directionBf, new double3(0, 1, 0));
             Node node = CollisionNodeAt(direction);
@@ -89,6 +92,7 @@ namespace Planet.Procedural.Terrain
         public bool SweepSphere(double3 fromBfMetres, double3 toBfMetres, double radiusMetres,
             out double3 resolvedBfMetres, out double3 normalBf)
         {
+            if (ExternalCollisionQuery != null) return ExternalCollisionQuery.SweepSphere(fromBfMetres, toBfMetres, radiusMetres, out resolvedBfMetres, out normalBf);
             resolvedBfMetres = toBfMetres;
             normalBf = double3.zero;
             if (!ready || !source.solid) return false;

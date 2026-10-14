@@ -1,5 +1,4 @@
 using System.Collections;
-using System.Collections.Generic;
 using Planet.Interaction;
 using Planet.Procedural;
 using Planet.Solar;
@@ -14,137 +13,95 @@ namespace Yongxian.PlanetSculpt
         public bool IsSculpting { get; private set; }
         public PlanetTerrain Terrain { get; private set; }
         public PlanetBrush Brush { get; private set; }
-        readonly List<Behaviour> suspended = new List<Behaviour>();
+        public SculptFlightBridge Bridge { get; private set; }
         SolarSystemSimulation simulation;
         PlanetSurfaceView surface;
-        Camera view;
-        Transform target;
+        UnifiedFlightController flight;
         Mesh originalMesh;
-        bool previousPaused, previousInput, previousVisible;
-        bool previousOrbitsActive;
-        Vector3 cameraPosition;
-        Quaternion cameraRotation;
-        float cameraNear, cameraFar;
+        bool previousPaused, previousOrbit;
+        System.Func<bool> previousPointer;
         static Rect Toolbar => new Rect(PlanetBrush.PanelRect.x, 156f, PlanetBrush.PanelRect.width, 32f);
-
         public static bool ContainsToolbar(Vector3 mouse) => Toolbar.Contains(new Vector2(mouse.x, Screen.height - mouse.y));
-
         IEnumerator Start()
         {
-            // Allow the solar bootstrap and the flight observer to build their runtime state first.
             yield return null;
-            if (startInSculptMode) EnterSculptMode();
+            if (startInSculptMode) { EnterSculptMode(); FrameEarth(); }
         }
-
         void Update()
         {
-            if (BrushInput.GetKeyDown(KeyCode.F8)) Toggle();
+            if (!IsSculpting) return;
+            if (BrushInput.GetKeyDown(KeyCode.F8)) Brush.paintEnabled = !Brush.paintEnabled;
+            flight.allowOrbitInput = !Brush.paintEnabled;
         }
-
-        void Suspend(Behaviour component)
+        void LateUpdate() { if (IsSculpting && Bridge != null) Bridge.Sync(); }
+        bool PointerOverUI()
         {
-            if (component == null || !component.enabled || suspended.Contains(component)) return;
-            suspended.Add(component);
-            component.enabled = false;
+            Vector3 p = BrushInput.mousePosition;
+            Vector2 gui = new Vector2(p.x, Screen.height - p.y);
+            return ContainsToolbar(p) || PlanetBrush.PanelRect.Contains(gui) ||
+                new Rect(12, 12, 372, 500).Contains(gui) || new Rect(Screen.width - 250, 12, 238, 132).Contains(gui);
         }
-
         public void EnterSculptMode()
         {
             if (IsSculpting) return;
             simulation = SolarSystemSimulation.Instance;
             surface = GetComponent<PlanetSurfaceView>();
-            target = surface != null ? surface.SurfaceTransform : null;
-            view = simulation != null ? simulation.ViewCamera : null;
-            if (target == null || view == null)
-            {
-                Debug.LogError("[EarthBrush] Earth surface or solar camera is missing.", this);
-                return;
-            }
+            flight = simulation.ViewCamera.GetComponent<UnifiedFlightController>();
+            if (flight == null) throw new System.InvalidOperationException("Original flight controller missing.");
+            var target = surface.SurfaceTransform;
             Terrain = target.GetComponent<PlanetTerrain>();
             Brush = target.GetComponent<PlanetBrush>();
-            if (Terrain == null || Brush == null)
-            {
-                Debug.LogError("[EarthBrush] Run Tools > Planet > Install Earth Brush in the editor.", this);
-                return;
-            }
-            cameraPosition = view.transform.position;
-            cameraRotation = view.transform.rotation;
-            cameraNear = view.nearClipPlane;
-            cameraFar = view.farClipPlane;
-            previousPaused = simulation.paused;
-            previousInput = simulation.handleInput;
-            previousOrbitsActive = simulation.orbitsRoot != null && simulation.orbitsRoot.gameObject.activeSelf;
-            previousVisible = target.GetComponent<MeshRenderer>().enabled;
             originalMesh = target.GetComponent<MeshFilter>().sharedMesh;
+            previousPaused = simulation.paused;
             simulation.paused = true;
-            simulation.handleInput = false;
-            Suspend(simulation);
-            if (simulation.orbitsRoot != null) simulation.orbitsRoot.gameObject.SetActive(false);
-            foreach (var component in FindObjectsOfType<MonoBehaviour>())
-                if (component is UnifiedFlightController || component is SolarSystemCamera ||
-                    component is ObserverRenderRig || component is SolarSystemVisualCoordinator ||
-                    component is BodyLoadingHighlight)
-                    Suspend(component);
+            previousOrbit = flight.allowOrbitInput;
+            previousPointer = flight.PointerOverTool;
+            flight.PointerOverTool = PointerOverUI;
             surface.SetTerrainState(false, false);
-            Suspend(surface.TerrainRenderer);
             Terrain.Initialize();
             target.GetComponent<MeshFilter>().sharedMesh = Terrain.SurfaceMesh;
             target.GetComponent<MeshRenderer>().enabled = true;
-            Terrain.SurfaceCollider.enabled = true;
-            Brush.viewCamera = view;
+            Terrain.SurfaceCollider.enabled = false; // Isolated unit collider provides precision at every distance.
+            Bridge = gameObject.AddComponent<SculptFlightBridge>();
+            Bridge.Initialize(Terrain, GetComponent<CelestialBody>());
+            surface.TerrainRenderer.ExternalCollisionQuery = Bridge;
+            Brush.flightBridge = Bridge;
+            Brush.viewCamera = simulation.ViewCamera;
+            Brush.orbitCamera = false;
             Brush.frameOnStart = false;
-            Brush.orbitCamera = true;
             Brush.enabled = true;
             IsSculpting = true;
-            FrameEarth();
         }
-
         public void FrameEarth()
         {
-            if (!IsSculpting || target == null || view == null) return;
-            float radius = Mathf.Max(GetComponent<CelestialBody>().RadiusUnits, 1e-6f);
-            Vector3 direction = simulation.sunLight != null ? -simulation.sunLight.transform.forward : Vector3.back;
-            view.transform.position = target.position + direction.normalized * radius * 3.5f;
-            view.transform.LookAt(target.position, Mathf.Abs(Vector3.Dot(direction, Vector3.up)) > 0.95f ? Vector3.forward : Vector3.up);
-            view.nearClipPlane = radius * 0.005f;
-            view.farClipPlane = radius * 50f;
+            if (!IsSculpting) return;
+            simulation.SetFocusByName("Earth", false);
+            flight.BeginFocus(simulation.FocusIndex);
         }
-
         public void ExitSculptMode()
         {
             if (!IsSculpting) return;
             IsSculpting = false;
-            if (Brush != null) Brush.enabled = false;
-            if (Terrain != null && Terrain.SurfaceCollider != null) Terrain.SurfaceCollider.enabled = false;
-            if (target != null)
-            {
-                target.GetComponent<MeshFilter>().sharedMesh = originalMesh;
-                target.GetComponent<MeshRenderer>().enabled = previousVisible;
-            }
-            if (view != null)
-            {
-                view.transform.SetPositionAndRotation(cameraPosition, cameraRotation);
-                view.nearClipPlane = cameraNear;
-                view.farClipPlane = cameraFar;
-            }
-            if (simulation != null)
-            {
-                simulation.paused = previousPaused;
-                simulation.handleInput = previousInput;
-                if (simulation.orbitsRoot != null) simulation.orbitsRoot.gameObject.SetActive(previousOrbitsActive);
-            }
-            foreach (var component in suspended) if (component != null) component.enabled = true;
-            suspended.Clear();
+            Brush.enabled = false;
+            Brush.flightBridge = null;
+            surface.TerrainRenderer.ExternalCollisionQuery = null;
+            surface.SurfaceTransform.GetComponent<MeshFilter>().sharedMesh = originalMesh;
+            flight.allowOrbitInput = previousOrbit;
+            flight.PointerOverTool = previousPointer;
+            simulation.paused = previousPaused;
+            Bridge.Shutdown();
+            Destroy(Bridge);
+            Bridge = null;
         }
-
-        void Toggle() { if (IsSculpting) ExitSculptMode(); else EnterSculptMode(); }
         void OnDisable() { ExitSculptMode(); }
         void OnGUI()
         {
+            if (!IsSculpting || Brush == null) return;
             GUILayout.BeginArea(Toolbar, GUI.skin.box);
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button(IsSculpting ? "退出笔刷（F8）" : "进入笔刷（F8）")) Toggle();
-            if (IsSculpting && GUILayout.Button("查看球体")) FrameEarth();
+            if (GUILayout.Button(Brush.paintEnabled ? "切换观察（F8）" : "开始绘画（F8）"))
+            { Brush.EndStroke(); Brush.paintEnabled = !Brush.paintEnabled; }
+            if (GUILayout.Button("查看地球")) FrameEarth();
             GUILayout.EndHorizontal();
             GUILayout.EndArea();
         }

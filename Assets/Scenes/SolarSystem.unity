@@ -6129,9 +6129,11 @@ MonoBehaviour:
   viewCamera: {fileID: 1546309662}
   brushAngle: 2.5
   strength: 0.6
-  orbitCamera: 1
+  orbitCamera: 0
   frameOnStart: 0
   showHelp: 1
+  paintEnabled: 0
+  flightBridge: {fileID: 0}
   strokesUsed: 0
 --- !u!114 &606799151
 MonoBehaviour:
@@ -6155,7 +6157,7 @@ MonoBehaviour:
   ridgeStrength: 0.55
   ridgeFrequency: 10
   useNaturalSurface: 1
-  preserveSourceMesh: 0
+  preserveSourceMesh: 1
   initializeOnAwake: 0
 --- !u!64 &606799152
 MeshCollider:

@@ -16,6 +16,8 @@ namespace Yongxian.PlanetSculpt
         public bool orbitCamera = true;
         public bool frameOnStart = true;
         public bool showHelp = true;
+        public bool paintEnabled;
+        public SculptFlightBridge flightBridge;
         public bool LowerMode { get; private set; }
         public const int StrokeLimit = 15;
         [SerializeField, HideInInspector] int strokesUsed;
@@ -102,29 +104,33 @@ namespace Yongxian.PlanetSculpt
             overUI |= new Rect(12, 12, 372, 500).Contains(guiMouse) ||
                       new Rect(Screen.width - 250, 12, 238, 132).Contains(guiMouse);
             if (!Input.GetMouseButton(0)) { EndStroke(); waitForMouseRelease = false; }
-            if (Input.GetKeyDown(KeyCode.Z) && (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)))
+            if (paintEnabled && Input.GetKeyDown(KeyCode.Z) && (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)))
             {
                 UndoLastStroke();
                 return;
             }
-            if (Input.GetKeyDown(KeyCode.E)) SetLowerMode(!LowerMode);
+            if (paintEnabled && !Input.GetMouseButton(1) && Input.GetKeyDown(KeyCode.E)) SetLowerMode(!LowerMode);
             if (Input.GetKey(KeyCode.LeftBracket)) brushAngle = Mathf.Max(MinBrushAngle, brushAngle - 2f * Time.deltaTime);
             if (Input.GetKey(KeyCode.RightBracket)) brushAngle = Mathf.Min(MaxBrushAngle, brushAngle + 2f * Time.deltaTime);
             if (!overUI && orbitCamera) UpdateCamera();
+            if (!paintEnabled) { outline.enabled = false; EndStroke(); return; }
             bool smooth = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
             bool lower = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-            var ray = viewCamera.ScreenPointToRay(Input.mousePosition);
-            // The closest physics hit must be this planet, so UI/other objects cannot paint through it.
-            bool hitPlanet = terrain.SurfaceCollider.Raycast(ray, out RaycastHit hit, viewCamera.farClipPlane);
+            RaycastHit hit;
+            Vector3 localPoint = Vector3.zero;
+            // Query the edited surface in its unit frame to retain near-ground precision.
+            bool hitPlanet = flightBridge != null
+                ? flightBridge.Pointer(viewCamera, Input.mousePosition, out hit, out localPoint)
+                : terrain.SurfaceCollider.Raycast(viewCamera.ScreenPointToRay(Input.mousePosition), out hit, viewCamera.farClipPlane);
             hoveringPlanet = hitPlanet && !overUI;
-            if (hoveringPlanet) hoveredHeightMeters = terrain.GetHeightMeters(hit);
+            if (hoveringPlanet) hoveredHeightMeters = terrain.GetHeightMeters(hit.triangleIndex, hit.barycentricCoordinate);
             if (overUI || !hitPlanet || Input.GetMouseButton(1))
             {
                 outline.enabled = false;
                 hasLastDirection = false;
                 return;
             }
-            Vector3 direction = transform.InverseTransformPoint(hit.point).normalized;
+            Vector3 direction = flightBridge != null ? localPoint.normalized : transform.InverseTransformPoint(hit.point).normalized;
             if (Input.GetMouseButton(0) && !waitForMouseRelease && (!strokeActive || Time.time >= nextDabTime))
             {
                 float elapsed = strokeActive ? Mathf.Clamp(Time.time - (nextDabTime - DabInterval), 0f, 0.1f) : DabInterval;
@@ -207,6 +213,12 @@ namespace Yongxian.PlanetSculpt
             {
                 float phase = i * Mathf.PI * 2f / outline.positionCount;
                 Vector3 radial = direction * Mathf.Cos(angle) + (tangent * Mathf.Cos(phase) + bitangent * Mathf.Sin(phase)) * Mathf.Sin(angle);
+                if (flightBridge != null)
+                {
+                    if (flightBridge.SamplePoint(radial, out var local))
+                        outline.SetPosition(i, flightBridge.DisplayPoint(local * (flightBridge.Near ? 1.0000002f : 1.003f)));
+                    continue;
+                }
                 Vector3 origin = transform.TransformPoint(radial * terrain.radius * (2f + terrain.maxHeightRatio));
                 Vector3 inward = (transform.position - origin).normalized;
                 var ray = new Ray(origin, inward);
@@ -216,7 +228,8 @@ namespace Yongxian.PlanetSculpt
             }
             outlineMaterial.SetColor("_BaseColor", color);
             outlineMaterial.color = color;
-            outline.widthMultiplier = WorldRadius * 0.0015f;
+            outline.gameObject.layer = flightBridge != null && flightBridge.Near ? Planet.Solar.ObserverRenderRig.TerrainLayer : 0;
+            outline.widthMultiplier = flightBridge != null ? (flightBridge.Near ? Mathf.Clamp((float)flightBridge.ClearanceMetres * 0.002f, 0.015f, 20f) : WorldRadius * 0.0015f) : WorldRadius * 0.0015f;
             outline.enabled = true;
         }
 
@@ -225,7 +238,7 @@ namespace Yongxian.PlanetSculpt
             if (!showHelp || terrain == null) return;
             GUILayout.BeginArea(helpRect, GUI.skin.box);
             panelScroll = GUILayout.BeginScrollView(panelScroll);
-            GUILayout.Label("裸岩球体笔刷", new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, fontSize = 17 });
+            GUILayout.Label("裸岩地球 · 地形笔刷", new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, fontSize = 17 });
             GUILayout.Label("剩余绘画次数：" + RemainingStrokes + " / " + StrokeLimit,
                 new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, fontSize = 17 });
             GUILayout.Label("按下到松开算一笔；撤销不返还次数。");
@@ -233,7 +246,8 @@ namespace Yongxian.PlanetSculpt
             GUILayout.Space(6);
             GUILayout.Label("左键抬高 · Shift + 左键降低");
             GUILayout.Label("Ctrl + 左键平滑 · Ctrl + Z 撤销");
-            GUILayout.Label("右键环绕 · 滚轮缩放");
+            GUILayout.Label(paintEnabled ? "绘画中：左键画地形" : "观察中：左键拖动环绕地球");
+            GUILayout.Label("滚轮靠近/远离 · 按住右键转头 / WASD 飞行");
             if (GUILayout.Button(LowerMode ? "当前：降低 / 下挖（E 切换）" : "当前：抬高（E 切换）"))
                 SetLowerMode(!LowerMode);
             GUILayout.Label("笔刷半径：" + brushAngle.ToString("F1") + "°（[ / ] 调整）");

@@ -91,34 +91,6 @@ namespace Planet.Solar
             AddCircle(orbits.transform, "Kuiper Belt Inner (30 AU)", 30f, new Color(0.34f, 0.42f, 0.62f, 0.22f), kmPerUnit);
             AddCircle(orbits.transform, "Kuiper Belt Outer (50 AU)", 50f, new Color(0.34f, 0.42f, 0.62f, 0.22f), kmPerUnit);
 
-            // ---- debris belts ------------------------------------------------------------------
-            var asteroidBelt = new GameObject("Asteroid Belt 2.1-3.3 AU");
-            asteroidBelt.transform.SetParent(root.transform, false);
-            var ab = asteroidBelt.AddComponent<BeltField>();
-            ab.fieldName = "Asteroid Belt";
-            ab.innerAu = 2.06;
-            ab.outerAu = 3.27;
-            ab.count = 2200;
-            ab.maxEccentricity = 0.22;
-            ab.coldFraction = 0.68f;
-            ab.coldMaxInclination = 4.0;
-            ab.hotMaxInclination = 22.0;
-            ab.markerAngularSize = 0.0012f;
-
-            var kuiperBelt = new GameObject("Kuiper Belt 30-50 AU");
-            kuiperBelt.transform.SetParent(root.transform, false);
-            var kb = kuiperBelt.AddComponent<BeltField>();
-            kb.fieldName = "Kuiper Belt";
-            kb.innerAu = 30.0;
-            kb.outerAu = 50.0;
-            kb.count = 5000;
-            kb.maxEccentricity = 0.20;
-            kb.coldFraction = 0.62f;
-            kb.coldMaxInclination = 5.0;
-            kb.hotMaxInclination = 26.0;
-            kb.radialBias = 0.85;
-            kb.markerAngularSize = 0.0012f;
-
             // ---- light ---------------------------------------------------------------------------
             var lightGo = new GameObject("Sun Light");
             lightGo.transform.SetParent(root.transform, false);

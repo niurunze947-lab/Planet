@@ -1,0 +1,26 @@
+动物投放配置
+
+退出运行模式，在 Project 中选择 Assets/Resources/AnimalPlacementSettings.asset。
+配置保存在工程中，不要只修改运行时摄像机上的组件。
+
+Model Prefab：拖入完整动物 Prefab（包含网格、材质、骨骼层级和 Animator）。
+暂不填写时仍使用绿色立方体。每次 50 只、总共 5 次，范围与拖动缩放逻辑保持不变。
+Normalize Size：默认开启，模型最大边自动匹配现有立方体尺寸。
+Scale Multiplier / Rotation Offset / Ground Offset Metres：调整模型大小、朝向和离地高度。
+
+Avatar Override：可选，留空保留模型自带 Avatar；骨骼本身应包含在 Prefab 内，不能仅用 Avatar 替代。
+Controller Override：可选，放入 Animator Controller 或 Animator Override Controller。
+动作 AnimationClip 放入 Controller 的状态中，将待机状态设为默认状态；循环动作在导入设置中开启 Loop Time。
+Animator Path：多个 Animator 时填写从 Prefab 根节点到目标 Animator 的相对路径；留空自动查找第一个。
+Animation Speed：控制选中 Animator 的播放速度。
+
+动物通常使用 Generic Rig；只有符合人形结构时才使用 Humanoid。
+Generic 动作需要匹配骨骼层级/名称，Humanoid 需要有效且兼容的 Avatar。
+尽量先保留模型自己的 Avatar；isValid 不能保证任意两套骨骼可以混用。
+材质需适配工程的 URP 管线，不能仅靠接入配置避免错误材质变紫。
+
+系统只移动外层地表锚点，保留内部 SkinnedMeshRenderer 和骨骼引用。
+默认关闭 Animator Root Motion，将 Rigidbody 设为 Kinematic，以保持原地播放。
+Prefab 不应带有自主移动脚本、NavMeshAgent 或修改根位置的动画事件；这些需要接入时单独适配。
+原地动作请使用 in-place 动画。未提供实际模型前无法验证具体骨骼与动画兼容性。
+接入后检查：拖动预览、投放 50 只、脚底贴地、待机动作、缩放视角、退出运行无残留。

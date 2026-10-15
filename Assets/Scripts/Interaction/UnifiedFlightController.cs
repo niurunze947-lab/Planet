@@ -111,6 +111,74 @@ namespace Planet.Interaction
             UpdateNearbyBody();
         }
 
+        /// <summary>
+        /// Places the observer above a body-fixed surface point and looks straight at it. Used by
+        /// placement tools that need a stable, readable close view of their complete footprint.
+        /// </summary>
+        public bool FrameSurfacePoint(int bodyIndex, double3 surfacePointBodyFixed,
+            double3 surfaceNormalBodyFixed, double distanceMetres)
+        {
+            if (simulation == null) simulation = SolarSystemSimulation.Instance;
+            if (simulation == null || bodyIndex < 0 || bodyIndex >= simulation.BodyCount) return false;
+            if (!initialized) Initialize();
+            if (!initialized) return false;
+
+            double3 normal = math.normalizesafe(surfaceNormalBodyFixed,
+                math.normalizesafe(surfacePointBodyFixed, new double3(0, 1, 0)));
+            bodyFixedMetres = surfacePointBodyFixed + normal * Math.Max(distanceMetres, 1.0);
+
+            Vector3 normalLocal = ToVector3(normal).normalized;
+            Vector3 referenceUp = Mathf.Abs(Vector3.Dot(normalLocal, Vector3.up)) < 0.92f
+                ? Vector3.up : Vector3.forward;
+            Vector3 viewUp = Vector3.ProjectOnPlane(referenceUp, normalLocal).normalized;
+            lookBody = SolarSystemCamera.StableLookRotation(-normalLocal, viewUp, Vector3.up);
+
+            CelestialBody body = simulation.ViewAt(bodyIndex);
+            activeBodyIndex = bodyIndex;
+            nearbyBodyIndex = bodyIndex;
+            navigationTargetIndex = -1;
+            autoFocusing = false;
+            translationFrameIndex = -1;
+            velocityBodyFixedMetresPerSecond = double3.zero;
+            velocityWorldMetresPerSecond = double3.zero;
+            wheelVelocityWorld = double3.zero;
+            gravityVelocityBody = double3.zero;
+            gravityVelocityWorld = double3.zero;
+            lookWorld = body.transform.rotation * lookBody;
+            positionWorldMetres = BodyWorldMetres(bodyIndex) +
+                Rotate(body.transform.rotation, bodyFixedMetres);
+            return true;
+        }
+
+        /// <summary>Wheel-like exponential zoom along the cursor ray, preserving the current look.</summary>
+        public void ZoomTowardsSurfacePoint(int bodyIndex, double3 surfacePoint, double3 normal,
+            double targetDistance, float deltaTime)
+        {
+            if (!initialized || activeBodyIndex != bodyIndex || simulation == null) return;
+            double3 offset = bodyFixedMetres - surfacePoint;
+            double distance = math.length(offset);
+            if (distance < 0.01) return;
+            double dt = Math.Min(Math.Max(deltaTime, 0.0), 0.05);
+            // Smooth both zoom directions and cap the logarithmic speed: no teleport on first hit.
+            double logError = Math.Log(Math.Max(targetDistance, 1.0) / distance);
+            double logStep = math.clamp(logError * (1.0 - Math.Exp(-3.0 * dt)), -1.5 * dt, 1.5 * dt);
+            double nextDistance = distance * Math.Exp(logStep);
+            double3 next = surfacePoint + offset / distance * nextDistance;
+            var query = ActiveCollisionQuery();
+            double length = math.length(next);
+            double3 direction = math.normalizesafe(next);
+            double ground = query != null ? query.SampleCollisionRadiusMetres(direction) :
+                simulation.DefinitionAt(bodyIndex).RadiusKm * 1000.0;
+            if (length < ground + collisionRadiusMetres) return;
+            bodyFixedMetres = next;
+            autoFocusing = false;
+            velocityBodyFixedMetresPerSecond = double3.zero;
+            velocityWorldMetresPerSecond = double3.zero;
+            wheelVelocityWorld = double3.zero;
+            gravityVelocityBody = gravityVelocityWorld = double3.zero;
+            RefreshBodyFrame();
+        }
+
         private void Update()
         {
             if (simulation == null) simulation = SolarSystemSimulation.Instance;
@@ -301,6 +369,9 @@ namespace Planet.Interaction
         {
             Mouse mouse = Mouse.current;
             if (!handleInput || mouse == null || !mouse.leftButton.isPressed || mouse.rightButton.isPressed) return;
+            // The vegetation palette owns left-drag while its icon is being dragged. Keep the
+            // original orbit gesture everywhere else, including the full left-side planet HUD.
+            if (VegetationPlacementController.ConsumesPointer(mouse.position.ReadValue())) return;
             OrbitAroundTarget(mouse.delta.ReadValue(), dt);
         }
 

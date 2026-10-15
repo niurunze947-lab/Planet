@@ -40,6 +40,26 @@ namespace Planet.Solar
     [DisallowMultipleComponent]
     public class BeltField : MonoBehaviour
     {
+        // The presentation no longer includes the instanced asteroid/Kuiper marker clouds. Keep
+        // the implementation available for tooling/tests, but suppress legacy components that may
+        // still live in an already-open Unity scene until that scene is reloaded from disk.
+        private bool IsRemovedPresentationField
+        {
+            get
+            {
+                bool knownField = string.Equals(fieldName, "Asteroid Belt", StringComparison.Ordinal) ||
+                    string.Equals(fieldName, "Kuiper Belt", StringComparison.Ordinal);
+                string objectName = gameObject != null ? gameObject.name : string.Empty;
+                bool knownObject = objectName.IndexOf("Asteroid Belt", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    objectName.IndexOf("Kuiper Belt", StringComparison.OrdinalIgnoreCase) >= 0;
+                string scenePath = gameObject != null ? gameObject.scene.path : string.Empty;
+                bool removedFromSolarSystemScene = scenePath.EndsWith(
+                    "/SolarSystem.unity", StringComparison.OrdinalIgnoreCase) ||
+                    scenePath.EndsWith("\\SolarSystem.unity", StringComparison.OrdinalIgnoreCase);
+                return knownField || knownObject || removedFromSolarSystemScene;
+            }
+        }
+
         [Header("Population")]
         public string fieldName = "Asteroid Belt";
         public int count = 2200;
@@ -181,7 +201,19 @@ namespace Planet.Solar
         /// <summary>True when the last Render submitted nothing because neither the belt nor the camera moved.</summary>
         public bool LastRenderWasIdle { get; private set; }
 
-        private void OnEnable() { Build(); }
+        private void OnEnable()
+        {
+            string objectName = gameObject != null ? gameObject.name : string.Empty;
+            bool removedSceneObject =
+                objectName.IndexOf("Asteroid Belt", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                objectName.IndexOf("Kuiper Belt", StringComparison.OrdinalIgnoreCase) >= 0;
+            if (removedSceneObject)
+            {
+                enabled = false;
+                return;
+            }
+            Build();
+        }
 
         private void OnValidate() { if (!Application.isPlaying) _built = false; }
 
@@ -323,6 +355,16 @@ namespace Planet.Solar
         /// </param>
         public void Render(Camera cam, Vec3d originKm, double unitsPerKm, double jd, BeltTimeState? timeState)
         {
+            if (!isActiveAndEnabled || IsRemovedPresentationField)
+            {
+                LastSolvedCount = 0;
+                LastSubmittedCount = 0;
+                LastSolveMilliseconds = 0.0;
+                LastSubmitMilliseconds = 0.0;
+                LastRenderUsedCache = false;
+                LastRenderWasIdle = true;
+                return;
+            }
             if (!_built) Build();
             if (!_built || _p == null || _markerMesh == null) return;
 
@@ -486,6 +528,7 @@ namespace Planet.Solar
         /// </summary>
         private void Update()
         {
+            if (IsRemovedPresentationField) return;
             if (_drivenFrame == Time.frameCount) return;
             if (!Application.isPlaying)
             {
